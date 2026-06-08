@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Cairo } from "next/font/google";
+import { supabase } from "@/lib/supabase";
 import {
   Swords,
   Save,
@@ -151,71 +152,57 @@ export default function CastleWarAdmin() {
   const [cwTourTexts, setCwTourTexts] = useState<any>(DEFAULT_TOUR_TEXTS);
 
   useEffect(() => {
-    const savedCw30 = localStorage.getItem("admin_cw_30sec_db");
-    if (savedCw30) {
-      try {
-        setCw30SecDB(JSON.parse(savedCw30));
-      } catch (e) {}
-    }
-
-    const savedCw5 = localStorage.getItem("admin_cw_5sec_db");
-    if (savedCw5) {
-      try {
-        setCw5SecDB(JSON.parse(savedCw5));
-      } catch (e) {}
-    }
-
-    const savedCwTeam = localStorage.getItem("admin_cw_team_db");
-    if (savedCwTeam) {
-      try {
-        setCwTeamDB(JSON.parse(savedCwTeam));
-      } catch (e) {}
-    }
-
-    const savedCwGen = localStorage.getItem("admin_cw_general_db");
-    if (savedCwGen) {
-      try {
-        setCwGenDB(JSON.parse(savedCwGen));
-      } catch (e) {}
-    }
-
-    const savedC1 = localStorage.getItem("admin_cw_castle1_img");
-    if (savedC1) setCwCastle1Img(savedC1);
-
-    const savedC2 = localStorage.getItem("admin_cw_castle2_img");
-    if (savedC2) setCwCastle2Img(savedC2);
-
-    const savedInst = localStorage.getItem("admin_cw_instructions");
-    if (savedInst) setCwInstructions(savedInst);
-
-    const savedTour = localStorage.getItem("admin_cw_tour_texts");
-    if (savedTour) {
-      try {
-        setCwTourTexts({ ...DEFAULT_TOUR_TEXTS, ...JSON.parse(savedTour) });
-      } catch (e) {}
-    }
+    const fetchSettings = async () => {
+      const { data, error } = await supabase.from("cw_settings").select("*");
+      if (data && !error) {
+        data.forEach((item) => {
+          if (item.id === "admin_cw_30sec_db") setCw30SecDB(item.data);
+          if (item.id === "admin_cw_5sec_db") setCw5SecDB(item.data);
+          if (item.id === "admin_cw_team_db") setCwTeamDB(item.data);
+          if (item.id === "admin_cw_general_db") setCwGenDB(item.data);
+          if (item.id === "admin_cw_castle1_img") setCwCastle1Img(item.data);
+          if (item.id === "admin_cw_castle2_img") setCwCastle2Img(item.data);
+          if (item.id === "admin_cw_instructions") setCwInstructions(item.data);
+          if (item.id === "admin_cw_tour_texts")
+            setCwTourTexts({ ...DEFAULT_TOUR_TEXTS, ...item.data });
+        });
+      }
+    };
+    fetchSettings();
   }, []);
 
-  const saveCw30Data = (newData: any) => {
+  const saveCw30Data = async (newData: any) => {
     setCw30SecDB(newData);
-    localStorage.setItem("admin_cw_30sec_db", JSON.stringify(newData));
+    await supabase
+      .from("cw_settings")
+      .upsert({ id: "admin_cw_30sec_db", data: newData });
   };
-  const saveCw5Data = (newData: any) => {
+  const saveCw5Data = async (newData: any) => {
     setCw5SecDB(newData);
-    localStorage.setItem("admin_cw_5sec_db", JSON.stringify(newData));
+    await supabase
+      .from("cw_settings")
+      .upsert({ id: "admin_cw_5sec_db", data: newData });
   };
-  const saveCwTeamData = (newData: any) => {
+  const saveCwTeamData = async (newData: any) => {
     setCwTeamDB(newData);
-    localStorage.setItem("admin_cw_team_db", JSON.stringify(newData));
+    await supabase
+      .from("cw_settings")
+      .upsert({ id: "admin_cw_team_db", data: newData });
   };
-  const saveCwGenData = (newData: any) => {
+  const saveCwGenData = async (newData: any) => {
     setCwGenDB(newData);
-    localStorage.setItem("admin_cw_general_db", JSON.stringify(newData));
+    await supabase
+      .from("cw_settings")
+      .upsert({ id: "admin_cw_general_db", data: newData });
   };
 
-  const saveCwInstructionsAndTour = () => {
-    localStorage.setItem("admin_cw_instructions", cwInstructions);
-    localStorage.setItem("admin_cw_tour_texts", JSON.stringify(cwTourTexts));
+  const saveCwInstructionsAndTour = async () => {
+    await supabase
+      .from("cw_settings")
+      .upsert({ id: "admin_cw_instructions", data: cwInstructions });
+    await supabase
+      .from("cw_settings")
+      .upsert({ id: "admin_cw_tour_texts", data: cwTourTexts });
     alert("تم الحفظ بنجاح!");
   };
 
@@ -226,40 +213,54 @@ export default function CastleWarAdmin() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       if (team === 1) {
         setCwCastle1Img(base64);
-        localStorage.setItem("admin_cw_castle1_img", base64);
+        await supabase
+          .from("cw_settings")
+          .upsert({ id: "admin_cw_castle1_img", data: base64 });
       } else {
         setCwCastle2Img(base64);
-        localStorage.setItem("admin_cw_castle2_img", base64);
+        await supabase
+          .from("cw_settings")
+          .upsert({ id: "admin_cw_castle2_img", data: base64 });
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleCastleUrlSave = (team: 1 | 2) => {
+  const handleCastleUrlSave = async (team: 1 | 2) => {
     if (team === 1) {
       if (!cwCastle1UrlInput.trim()) return;
       setCwCastle1Img(cwCastle1UrlInput.trim());
-      localStorage.setItem("admin_cw_castle1_img", cwCastle1UrlInput.trim());
+      await supabase
+        .from("cw_settings")
+        .upsert({ id: "admin_cw_castle1_img", data: cwCastle1UrlInput.trim() });
       setCwCastle1UrlInput("");
     } else {
       if (!cwCastle2UrlInput.trim()) return;
       setCwCastle2Img(cwCastle2UrlInput.trim());
-      localStorage.setItem("admin_cw_castle2_img", cwCastle2UrlInput.trim());
+      await supabase
+        .from("cw_settings")
+        .upsert({ id: "admin_cw_castle2_img", data: cwCastle2UrlInput.trim() });
       setCwCastle2UrlInput("");
     }
   };
 
-  const removeCastleImg = (team: 1 | 2) => {
+  const removeCastleImg = async (team: 1 | 2) => {
     if (team === 1) {
       setCwCastle1Img(null);
-      localStorage.removeItem("admin_cw_castle1_img");
+      await supabase
+        .from("cw_settings")
+        .delete()
+        .eq("id", "admin_cw_castle1_img");
     } else {
       setCwCastle2Img(null);
-      localStorage.removeItem("admin_cw_castle2_img");
+      await supabase
+        .from("cw_settings")
+        .delete()
+        .eq("id", "admin_cw_castle2_img");
     }
   };
 
@@ -615,7 +616,7 @@ export default function CastleWarAdmin() {
           <div className="hidden md:flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-lg border border-emerald-200 dark:border-emerald-800/50 transition-colors duration-500">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 transition-colors duration-500">
-              Local Storage Active
+              Supabase Connected
             </span>
           </div>
         </header>
