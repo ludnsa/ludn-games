@@ -18,6 +18,7 @@ import {
   Target,
   HelpCircle,
   MapPin,
+  LogOut,
 } from "lucide-react";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
@@ -94,7 +95,6 @@ const ParticleBackground = () => {
   );
 };
 
-// مكون إحصائي مصغر لترتيب لوحة البيانات
 const StatBox = ({ icon, title, count, colorTheme, className = "" }: any) => {
   const themes = {
     rose: "bg-white dark:bg-slate-900 border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400",
@@ -130,8 +130,56 @@ export default function AdminDashboardMain() {
     general: 0,
   });
 
+  // مرجع لعداد وقت الخمول
+  const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // دالة تسجيل الخروج الأساسية
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
+
+  // نظام تتبع الخمول وتسجيل الخروج التلقائي
   useEffect(() => {
-    // 1. جلب إحصائيات السيطرة على العالم من LocalStorage
+    const resetTimer = () => {
+      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+      // ضبط الوقت على 15 دقيقة (15 * 60 * 1000 = 900,000 ملي ثانية)
+      logoutTimerRef.current = setTimeout(() => {
+        handleLogout();
+      }, 900000);
+    };
+
+    // الأحداث اللي تدل على إن المستخدم متواجد وما زال شغال
+    const events = [
+      "mousedown",
+      "mousemove",
+      "keypress",
+      "scroll",
+      "touchstart",
+    ];
+
+    const handleActivity = () => {
+      resetTimer();
+    };
+
+    // ربط مراقبة الأحداث بالصفحة
+    events.forEach((event) => {
+      document.addEventListener(event, handleActivity);
+    });
+
+    // تشغيل العداد لأول مرة عند دخول الصفحة
+    resetTimer();
+
+    // تنظيف الأحداث والعداد لو طلع من الصفحة عشان ما يصير مشاكل بالذاكرة
+    return () => {
+      if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
+      events.forEach((event) => {
+        document.removeEventListener(event, handleActivity);
+      });
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const wdCountriesRaw = localStorage.getItem("admin_wd_countries_db");
       const wdChallengesRaw = localStorage.getItem("admin_wd_challenges_db");
@@ -165,7 +213,6 @@ export default function AdminDashboardMain() {
       console.error("Error parsing WD stats", e);
     }
 
-    // 2. جلب إحصائيات حرب القلاع من Supabase
     const fetchCWStats = async () => {
       try {
         const { data, error } = await supabase.from("cw_settings").select("*");
@@ -199,11 +246,6 @@ export default function AdminDashboardMain() {
       "admin_cw_5sec_db",
       "admin_cw_team_db",
       "admin_cw_general_db",
-      "admin_cw_castle1_img",
-      "admin_cw_castle2_img",
-      "castleRoomPositions",
-      "admin_cw_instructions",
-      "admin_cw_tour_texts",
     ];
     const backupData: any = {};
     keysToBackup.forEach((key) => {
@@ -231,15 +273,13 @@ export default function AdminDashboardMain() {
     reader.onload = (event) => {
       try {
         const data = JSON.parse(event.target?.result as string);
-        Object.keys(data).forEach((key) => {
-          localStorage.setItem(key, data[key]);
-        });
-        alert(
-          "تم استعادة النسخة الاحتياطية بنجاح! تم تحديث البيانات في النظام.",
+        Object.keys(data).forEach((key) =>
+          localStorage.setItem(key, data[key]),
         );
-        window.location.reload(); // تحديث الصفحة لعكس الأرقام الجديدة
+        alert("تم استعادة النسخة الاحتياطية بنجاح!");
+        window.location.reload();
       } catch (error) {
-        alert("الملف غير صالح أو تالف! يرجى اختيار ملف نسخة احتياطية صحيح.");
+        alert("الملف غير صالح!");
       }
     };
     reader.readAsText(file);
@@ -257,218 +297,173 @@ export default function AdminDashboardMain() {
         .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.3); border-radius: 10px; }
-        .dark .custom-scroll::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.5); }
       `,
         }}
       />
-
       <ParticleBackground />
-
-      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] pb-10">
-        <header className="shrink-0 flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] p-4 md:p-5 shadow-sm mb-6 transition-colors duration-500">
+      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col pb-10">
+        <header className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] p-5 shadow-sm mb-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-100 dark:bg-indigo-500/20 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400 shadow-sm transition-colors duration-500">
+            <div className="p-3 bg-indigo-100 dark:bg-indigo-500/20 rounded-xl text-indigo-600">
               <Database size={24} />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-wide transition-colors duration-500">
+              <h1 className="text-3xl font-black text-slate-900 dark:text-white">
                 لوحة التحكم المركزية
               </h1>
-              <p className="text-slate-500 dark:text-slate-400 font-bold text-xs md:text-sm mt-0.5 transition-colors duration-500">
-                إدارة الإعدادات وبنك المعلومات لجميع الألعاب
+              <p className="text-sm font-bold text-slate-500">
+                إدارة بنوك المعلومات لجميع الألعاب
               </p>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 rounded-lg border border-emerald-200 dark:border-emerald-800/50 transition-colors duration-500">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
-            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 transition-colors duration-500">
-              Hybrid Storage Active
-            </span>
-          </div>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold py-2.5 px-5 rounded-xl transition-all border border-rose-100 dark:border-rose-900/30"
+          >
+            <LogOut size={18} />
+            <span className="hidden sm:inline">تسجيل الخروج</span>
+          </button>
         </header>
 
-        <section className="flex-1 bg-transparent flex flex-col items-center justify-start text-center transition-colors duration-500">
-          <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-500">
-            <FolderTree
-              size={64}
-              className="text-indigo-500 dark:text-indigo-400 mb-4 transition-colors duration-500 opacity-80"
-            />
-            <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-2 transition-colors duration-500">
-              مرحباً بك، مدير النظام
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-bold text-base mb-10 max-w-2xl leading-relaxed transition-colors duration-500">
-              اختر اللعبة للبدء بتخصيص الإعدادات وبنوك الأسئلة الخاصة بها، أو
-              راجع إحصائيات النظام الشاملة.
-            </p>
+        <section className="flex-1 flex flex-col items-center">
+          <div className="w-full max-w-5xl mb-12">
+            <div className="flex items-center gap-2 mb-6 justify-center">
+              <Activity className="text-emerald-500" size={28} />
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+                إحصائيات النظام
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+              <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-rose-200 dark:border-rose-900/50 rounded-[2rem] p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2.5 bg-rose-100 dark:bg-rose-500/20 text-rose-600 rounded-xl">
+                    <Swords size={24} />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-slate-100">
+                    حرب القلاع
+                  </h4>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <StatBox
+                    icon={<Clock size={18} />}
+                    title="30 ثانية"
+                    count={cwStats.q30}
+                    colorTheme="rose"
+                  />
+                  <StatBox
+                    icon={<Timer size={18} />}
+                    title="5 ثواني"
+                    count={cwStats.q5}
+                    colorTheme="rose"
+                  />
+                  <StatBox
+                    icon={<Target size={18} />}
+                    title="تحدي فريق"
+                    count={cwStats.team}
+                    colorTheme="rose"
+                  />
+                  <StatBox
+                    icon={<HelpCircle size={18} />}
+                    title="أسئلة عامة"
+                    count={cwStats.general}
+                    colorTheme="rose"
+                  />
+                </div>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-blue-200 dark:border-blue-900/50 rounded-[2rem] p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2.5 bg-blue-100 dark:bg-blue-500/20 text-blue-600 rounded-xl">
+                    <Globe size={24} />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-slate-100">
+                    السيطرة على العالم
+                  </h4>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <StatBox
+                    icon={<MapPin size={18} />}
+                    title="الدول"
+                    count={wdStats.countries}
+                    colorTheme="blue"
+                  />
+                  <StatBox
+                    icon={<HelpCircle size={18} />}
+                    title="أسئلة"
+                    count={wdStats.questions}
+                    colorTheme="blue"
+                  />
+                  <StatBox
+                    icon={<Target size={18} />}
+                    title="تحديات"
+                    count={wdStats.challenges}
+                    colorTheme="blue"
+                    className="col-span-2"
+                  />
+                </div>
+                <div className="mt-auto border-t border-blue-100 dark:border-blue-900/30 pt-4">
+                  <h5 className="text-[11px] font-black text-slate-500 mb-3">
+                    تفصيل الأسئلة لكل دولة:
+                  </h5>
+                  <div className="flex flex-wrap gap-2 max-h-[90px] overflow-y-auto custom-scroll pr-1">
+                    {wdStats.countryDetails.map((c, i) => (
+                      <div
+                        key={i}
+                        className="bg-white dark:bg-slate-900 border border-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1.5 rounded-lg flex items-center gap-2"
+                      >
+                        {c.name}
+                        <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-black">
+                          {c.qCount}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-            {/* ===================== لوحة البيانات (Dashboard) ===================== */}
-            <div className="w-full max-w-5xl mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <div className="flex items-center gap-2 mb-6 justify-center">
-                <Activity className="text-emerald-500" size={28} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mb-12">
+            <Link href="/admin/world-domination" className="group">
+              <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 rounded-3xl p-8 flex flex-col items-center hover:border-blue-500 transition-all">
+                <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl mb-4">
+                  <Globe size={40} />
+                </div>
                 <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-                  إحصائيات النظام الشاملة
+                  السيطرة على العالم
                 </h3>
               </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full text-right">
-                {/* إحصائيات حرب القلاع */}
-                <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-rose-200 dark:border-rose-900/50 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2.5 bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-xl shadow-sm">
-                      <Swords size={24} />
-                    </div>
-                    <h4 className="text-xl font-black text-slate-800 dark:text-slate-100">
-                      حرب القلاع
-                    </h4>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <StatBox
-                      icon={<Clock size={18} />}
-                      title="30 ثانية"
-                      count={cwStats.q30}
-                      colorTheme="rose"
-                    />
-                    <StatBox
-                      icon={<Timer size={18} />}
-                      title="5 ثواني"
-                      count={cwStats.q5}
-                      colorTheme="rose"
-                    />
-                    <StatBox
-                      icon={<Target size={18} />}
-                      title="تحدي فريق"
-                      count={cwStats.team}
-                      colorTheme="rose"
-                    />
-                    <StatBox
-                      icon={<HelpCircle size={18} />}
-                      title="أسئلة عامة"
-                      count={cwStats.general}
-                      colorTheme="rose"
-                    />
-                  </div>
+            </Link>
+            <Link href="/admin/castle-war" className="group">
+              <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 rounded-3xl p-8 flex flex-col items-center hover:border-rose-500 transition-all">
+                <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl mb-4">
+                  <Swords size={40} />
                 </div>
-
-                {/* إحصائيات السيطرة على العالم */}
-                <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-blue-200 dark:border-blue-900/50 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2.5 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl shadow-sm">
-                      <Globe size={24} />
-                    </div>
-                    <h4 className="text-xl font-black text-slate-800 dark:text-slate-100">
-                      السيطرة على العالم
-                    </h4>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <StatBox
-                      icon={<MapPin size={18} />}
-                      title="الدول المضافة"
-                      count={wdStats.countries}
-                      colorTheme="blue"
-                    />
-                    <StatBox
-                      icon={<HelpCircle size={18} />}
-                      title="أسئلة الدول"
-                      count={wdStats.questions}
-                      colorTheme="blue"
-                    />
-                    <StatBox
-                      icon={<Target size={18} />}
-                      title="تحديات الحكم"
-                      count={wdStats.challenges}
-                      colorTheme="blue"
-                      className="col-span-2"
-                    />
-                  </div>
-
-                  {/* تفصيل الأسئلة لكل دولة */}
-                  {wdStats.countryDetails.length > 0 && (
-                    <div className="mt-auto border-t border-blue-100 dark:border-blue-900/30 pt-4">
-                      <h5 className="text-[11px] font-black text-slate-500 dark:text-slate-400 mb-3 text-right">
-                        تفصيل الأسئلة لكل دولة:
-                      </h5>
-                      <div className="flex flex-wrap gap-2 max-h-[90px] overflow-y-auto custom-scroll pr-1">
-                        {wdStats.countryDetails.map((c, i) => (
-                          <div
-                            key={i}
-                            className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-[10px] font-bold px-2 py-1.5 rounded-lg flex items-center gap-2 shadow-sm"
-                          >
-                            <span className="truncate max-w-[80px]">
-                              {c.name}
-                            </span>
-                            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded-md font-black">
-                              {c.qCount}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+                  حرب القلاع
+                </h3>
               </div>
-            </div>
-            {/* ==================================================================== */}
+            </Link>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mb-12">
-              {/* بطاقة السيطرة على العالم */}
-              <Link href="/admin/world-domination" className="group">
-                <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl p-8 flex flex-col items-center transition-all duration-300 hover:border-blue-500 hover:shadow-lg dark:hover:bg-slate-800 h-full">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl mb-4 group-hover:scale-110 group-hover:bg-blue-100 dark:group-hover:bg-blue-600/30 transition-all duration-300">
-                    <Globe size={40} />
-                  </div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
-                    السيطرة على العالم
-                  </h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm font-bold">
-                    إدارة الخريطة، الدول، وتحديات الحكم
-                  </p>
-                </div>
-              </Link>
-
-              {/* بطاقة حرب القلاع */}
-              <Link href="/admin/castle-war" className="group">
-                <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl p-8 flex flex-col items-center transition-all duration-300 hover:border-rose-500 hover:shadow-lg dark:hover:bg-slate-800 h-full">
-                  <div className="p-4 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl mb-4 group-hover:scale-110 group-hover:bg-rose-100 dark:group-hover:bg-rose-600/30 transition-all duration-300">
-                    <Swords size={40} />
-                  </div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
-                    حرب القلاع
-                  </h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm font-bold">
-                    إدارة الأسئلة، التحديات، وصور القلاع
-                  </p>
-                </div>
-              </Link>
-            </div>
-
-            {/* قسم النسخ الاحتياطي */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-xl transition-colors duration-500 shadow-sm">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2 transition-colors duration-500">
-                النسخ الاحتياطي للنظام
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400 text-xs mb-5 transition-colors duration-500">
-                لأن بعض البيانات مخزنة محلياً، ننصحك بأخذ نسخة احتياطية دورية
-                لحفظ عملك.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button
-                  onClick={handleExportBackup}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
-                >
-                  <Download size={18} /> حفظ نسخة احتياطية
-                </button>
-
-                <label className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer active:scale-95">
-                  <Upload size={18} /> استعادة من ملف
-                  <input
-                    type="file"
-                    accept=".json"
-                    className="hidden"
-                    onChange={handleImportBackup}
-                  />
-                </label>
-              </div>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 rounded-2xl p-6 w-full max-w-xl shadow-sm">
+            <h3 className="text-lg font-black mb-2">النسخ الاحتياطي</h3>
+            <div className="flex gap-3">
+              <button
+                onClick={handleExportBackup}
+                className="flex-1 bg-indigo-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+              >
+                <Download size={18} /> حفظ
+              </button>
+              <label className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer">
+                <Upload size={18} /> استعادة
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={handleImportBackup}
+                />
+              </label>
             </div>
           </div>
         </section>
