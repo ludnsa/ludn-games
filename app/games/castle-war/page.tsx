@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Cairo } from "next/font/google";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr";
 import {
   Shield,
   Crown,
@@ -290,6 +290,11 @@ const generateAlphanumericCode = (length: number) => {
 };
 
 export default function CastleBattleMainScreen() {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
   const [gameState, setGameState] = useState<"lobby" | "playing" | "gameOver">(
     "lobby",
   );

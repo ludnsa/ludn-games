@@ -173,6 +173,8 @@ export default function CastleWarJoinPage() {
   const [roomCode, setRoomCode] = useState("");
   const [team1Name, setTeam1Name] = useState("الفريق الأول");
   const [team2Name, setTeam2Name] = useState("الفريق الثاني");
+  const [team1Ready, setTeam1Ready] = useState(false);
+  const [team2Ready, setTeam2Ready] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<1 | 2 | null>(null);
   const [rooms, setRooms] = useState<number[]>(Array(ROOMS_COUNT).fill(0));
   const [commanderRoom, setCommanderRoom] = useState<number | null>(null);
@@ -204,7 +206,7 @@ export default function CastleWarJoinPage() {
         setRoomCode(codeFromUrl);
         const { data, error } = await supabase
           .from("cw_rooms")
-          .select("room_code, live_sync")
+          .select("room_code, live_sync, team1_setup, team2_setup")
           .eq("room_code", codeFromUrl)
           .single();
 
@@ -213,6 +215,8 @@ export default function CastleWarJoinPage() {
         } else {
           if (data.live_sync?.team1Name) setTeam1Name(data.live_sync.team1Name);
           if (data.live_sync?.team2Name) setTeam2Name(data.live_sync.team2Name);
+          if (data.team1_setup) setTeam1Ready(true);
+          if (data.team2_setup) setTeam2Ready(true);
           setStep("selectTeam");
         }
       }
@@ -241,7 +245,7 @@ export default function CastleWarJoinPage() {
 
     const { data, error } = await supabase
       .from("cw_rooms")
-      .select("room_code, live_sync")
+      .select("room_code, live_sync, team1_setup, team2_setup")
       .eq("room_code", roomCode)
       .single();
 
@@ -253,6 +257,8 @@ export default function CastleWarJoinPage() {
 
     if (data.live_sync?.team1Name) setTeam1Name(data.live_sync.team1Name);
     if (data.live_sync?.team2Name) setTeam2Name(data.live_sync.team2Name);
+    if (data.team1_setup) setTeam1Ready(true);
+    if (data.team2_setup) setTeam2Ready(true);
 
     setIsCheckingCode(false);
     setStep("selectTeam");
@@ -849,27 +855,73 @@ export default function CastleWarJoinPage() {
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => {
+                  if (team1Ready) return;
                   setSelectedTeam(1);
                   setStep("setup");
                 }}
-                className="w-full group bg-white dark:bg-slate-900 hover:bg-cyan-50 dark:hover:bg-slate-800 border-4 border-slate-900 dark:border-black text-cyan-600 dark:text-cyan-400 rounded-2xl p-5 font-black text-xl flex items-center gap-4 transition-all active:translate-y-1.5 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] border-b-8 active:border-b-4"
+                disabled={team1Ready}
+                className={
+                  team1Ready
+                    ? "w-full bg-slate-100 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500 rounded-2xl p-5 font-black text-xl flex items-center gap-4 cursor-not-allowed"
+                    : "w-full group bg-white dark:bg-slate-900 hover:bg-cyan-50 dark:hover:bg-slate-800 border-4 border-slate-900 dark:border-black text-cyan-600 dark:text-cyan-400 rounded-2xl p-5 font-black text-xl flex items-center gap-4 transition-all active:translate-y-1.5 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] border-b-8 active:border-b-4"
+                }
               >
-                <div className="w-14 h-14 rounded-xl bg-cyan-100 dark:bg-cyan-900/40 border-4 border-cyan-300 dark:border-cyan-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <User size={24} strokeWidth={3} />
+                <div
+                  className={
+                    team1Ready
+                      ? "w-14 h-14 rounded-xl bg-slate-200 dark:bg-slate-700 border-4 border-slate-300 dark:border-slate-600 flex items-center justify-center"
+                      : "w-14 h-14 rounded-xl bg-cyan-100 dark:bg-cyan-900/40 border-4 border-cyan-300 dark:border-cyan-700 flex items-center justify-center group-hover:scale-110 transition-transform"
+                  }
+                >
+                  {team1Ready ? (
+                    <Lock size={24} strokeWidth={3} />
+                  ) : (
+                    <User size={24} strokeWidth={3} />
+                  )}
                 </div>
-                <span className="flex-1 text-right">{team1Name}</span>
+                <span className="flex-1 text-right flex flex-col sm:flex-row sm:items-center justify-between">
+                  <span>{team1Name}</span>
+                  {team1Ready && (
+                    <span className="text-sm font-bold text-rose-500 border-2 border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded-lg mt-1 sm:mt-0 w-fit">
+                      (مُعتمد ومقفل)
+                    </span>
+                  )}
+                </span>
               </button>
               <button
                 onClick={() => {
+                  if (team2Ready) return;
                   setSelectedTeam(2);
                   setStep("setup");
                 }}
-                className="w-full group bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-slate-800 border-4 border-slate-900 dark:border-black text-rose-600 dark:text-rose-400 rounded-2xl p-5 font-black text-xl flex items-center gap-4 transition-all active:translate-y-1.5 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] border-b-8 active:border-b-4"
+                disabled={team2Ready}
+                className={
+                  team2Ready
+                    ? "w-full bg-slate-100 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500 rounded-2xl p-5 font-black text-xl flex items-center gap-4 cursor-not-allowed"
+                    : "w-full group bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-slate-800 border-4 border-slate-900 dark:border-black text-rose-600 dark:text-rose-400 rounded-2xl p-5 font-black text-xl flex items-center gap-4 transition-all active:translate-y-1.5 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] border-b-8 active:border-b-4"
+                }
               >
-                <div className="w-14 h-14 rounded-xl bg-rose-100 dark:bg-rose-900/40 border-4 border-rose-300 dark:border-rose-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <User size={24} strokeWidth={3} />
+                <div
+                  className={
+                    team2Ready
+                      ? "w-14 h-14 rounded-xl bg-slate-200 dark:bg-slate-700 border-4 border-slate-300 dark:border-slate-600 flex items-center justify-center"
+                      : "w-14 h-14 rounded-xl bg-rose-100 dark:bg-rose-900/40 border-4 border-rose-300 dark:border-rose-700 flex items-center justify-center group-hover:scale-110 transition-transform"
+                  }
+                >
+                  {team2Ready ? (
+                    <Lock size={24} strokeWidth={3} />
+                  ) : (
+                    <User size={24} strokeWidth={3} />
+                  )}
                 </div>
-                <span className="flex-1 text-right">{team2Name}</span>
+                <span className="flex-1 text-right flex flex-col sm:flex-row sm:items-center justify-between">
+                  <span>{team2Name}</span>
+                  {team2Ready && (
+                    <span className="text-sm font-bold text-rose-500 border-2 border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded-lg mt-1 sm:mt-0 w-fit">
+                      (مُعتمد ومقفل)
+                    </span>
+                  )}
+                </span>
               </button>
             </div>
           </div>
