@@ -2,20 +2,24 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { Cairo } from "next/font/google";
+// استدعينا أداة التوجيه من Next.js
+import { useRouter } from "next/navigation";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
-
 export default function LoginPage() {
+  const router = useRouter(); // تفعيل أداة التوجيه
   const [activeTab, setActiveTab] = useState<"password" | "otp">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  // دخلنا تهيئة سوبابيس داخل المكون عشان تتحدث مع كل طلب وما تقرأ من الكاش القديم
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
 
   const handlePasswordLogin = async () => {
     if (!email || !password) {
@@ -34,7 +38,9 @@ export default function LoginPage() {
         setMessage(`خطأ: ${error.message}`);
       } else if (data.session) {
         setMessage("تم تسجيل الدخول بنجاح! جاري تحويلك...");
-        window.location.href = "/admin";
+        // الحركة السحرية: نحدث بيانات السيرفر إجبارياً بعدين نحولك للآدمن
+        router.refresh();
+        router.push("/admin");
       }
     } catch (err) {
       setMessage("حدث خطأ غير متوقع أثناء تسجيل الدخول.");

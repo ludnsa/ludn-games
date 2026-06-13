@@ -4,7 +4,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Cairo } from "next/font/google";
-import { supabase } from "@/lib/supabase";
+// التعديل الجوهري: استدعينا المكتبة الجديدة بدال الملف القديم
+import { createBrowserClient } from "@supabase/ssr";
 import {
   Database,
   FolderTree,
@@ -19,6 +20,7 @@ import {
   HelpCircle,
   MapPin,
   LogOut,
+  Loader2,
 } from "lucide-react";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
@@ -117,6 +119,13 @@ const StatBox = ({ icon, title, count, colorTheme, className = "" }: any) => {
 };
 
 export default function AdminDashboardMain() {
+  // تهيئة سوبابيس عشان يقرأ الكوكيز صح
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [wdStats, setWdStats] = useState<{
     countries: number;
     questions: number;
@@ -130,26 +139,41 @@ export default function AdminDashboardMain() {
     general: 0,
   });
 
-  // مرجع لعداد وقت الخمول
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // دالة تسجيل الخروج الأساسية
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
 
-  // نظام تتبع الخمول وتسجيل الخروج التلقائي
   useEffect(() => {
+    const checkAuth = async () => {
+      // اللحين راح يشيك على الكوكيز بشكل سليم
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+
+      if (error || !session) {
+        window.location.href = "/login";
+      } else {
+        setIsAuthChecking(false);
+      }
+    };
+
+    checkAuth();
+  }, [supabase.auth]);
+
+  useEffect(() => {
+    if (isAuthChecking) return;
+
     const resetTimer = () => {
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-      // ضبط الوقت على 15 دقيقة (15 * 60 * 1000 = 900,000 ملي ثانية)
       logoutTimerRef.current = setTimeout(() => {
         handleLogout();
       }, 900000);
     };
 
-    // الأحداث اللي تدل على إن المستخدم متواجد وما زال شغال
     const events = [
       "mousedown",
       "mousemove",
@@ -157,29 +181,27 @@ export default function AdminDashboardMain() {
       "scroll",
       "touchstart",
     ];
-
     const handleActivity = () => {
       resetTimer();
     };
 
-    // ربط مراقبة الأحداث بالصفحة
     events.forEach((event) => {
       document.addEventListener(event, handleActivity);
     });
 
-    // تشغيل العداد لأول مرة عند دخول الصفحة
     resetTimer();
 
-    // تنظيف الأحداث والعداد لو طلع من الصفحة عشان ما يصير مشاكل بالذاكرة
     return () => {
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
       events.forEach((event) => {
         document.removeEventListener(event, handleActivity);
       });
     };
-  }, []);
+  }, [isAuthChecking]);
 
   useEffect(() => {
+    if (isAuthChecking) return;
+
     try {
       const wdCountriesRaw = localStorage.getItem("admin_wd_countries_db");
       const wdChallengesRaw = localStorage.getItem("admin_wd_challenges_db");
@@ -236,7 +258,7 @@ export default function AdminDashboardMain() {
     };
 
     fetchCWStats();
-  }, []);
+  }, [isAuthChecking, supabase]);
 
   const handleExportBackup = () => {
     const keysToBackup = [
@@ -285,6 +307,20 @@ export default function AdminDashboardMain() {
     reader.readAsText(file);
     e.target.value = "";
   };
+
+  if (isAuthChecking) {
+    return (
+      <div
+        className={`min-h-screen w-full flex flex-col items-center justify-center bg-slate-950 ${cairo.className}`}
+        dir="rtl"
+      >
+        <Loader2 className="animate-spin text-indigo-500 mb-4" size={48} />
+        <p className="text-white font-bold">
+          جاري التحقق من الصلاحيات الأمنية...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <main
