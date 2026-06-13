@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Cairo } from "next/font/google";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr";
 import {
   Swords,
   Trash2,
@@ -96,6 +96,11 @@ const ParticleBackground = () => {
 };
 
 export default function CastleWarAdmin() {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
   const [cwActiveSubTab, setCwActiveSubTab] = useState<
     "30sec" | "5sec" | "team" | "general"
   >("30sec");
@@ -145,7 +150,7 @@ export default function CastleWarAdmin() {
       }
     };
     fetchSettings();
-  }, []);
+  }, [supabase]);
 
   const saveCw30Data = async (newData: any) => {
     setCw30SecDB(newData);
@@ -346,7 +351,6 @@ export default function CastleWarAdmin() {
 
       <ParticleBackground />
 
-      {/* نظام الإشعارات المنبثقة (Toasts) */}
       {toast && (
         <div
           className={`fixed top-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl shadow-lg z-[100] font-black text-sm flex items-center gap-2 animate-in slide-in-from-top-4 ${toast.type === "success" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`}
@@ -391,7 +395,6 @@ export default function CastleWarAdmin() {
 
         <section className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] p-3 md:p-6 shadow-sm flex flex-col min-h-0 transition-colors duration-500 overflow-hidden">
           <div className="flex flex-col h-full animate-in fade-in min-h-0">
-            {/* التبويبات بسكرول أفقي للموبايل */}
             <div className="flex overflow-x-auto hide-scrollbar bg-slate-100 dark:bg-slate-950/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 mb-4 shrink-0 gap-2 text-[11px] sm:text-xs">
               {[
                 { id: "30sec", icon: <Clock size={16} />, label: "30 ثانية" },
@@ -418,7 +421,6 @@ export default function CastleWarAdmin() {
             </div>
 
             <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/50 rounded-2xl p-3 md:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-              {/* واجهة التحديات (30ث، 5ث، فريق) */}
               {["30sec", "5sec", "team"].includes(cwActiveSubTab) && (
                 <div className="animate-in fade-in flex flex-col h-full min-h-0">
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between mb-4 shrink-0 shadow-sm">
@@ -717,7 +719,6 @@ export default function CastleWarAdmin() {
                 </div>
               )}
 
-              {/* واجهة الأسئلة العامة */}
               {cwActiveSubTab === "general" && (
                 <div className="animate-in fade-in flex flex-col h-full min-h-0">
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-4 shadow-sm shrink-0">
@@ -871,7 +872,7 @@ export default function CastleWarAdmin() {
                                   : [...prev, idx],
                               )
                             }
-                            className={`cursor-pointer border p-4 rounded-2xl flex items-start gap-4 shadow-sm transition-all ${isSelected ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/50" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700"}`}
+                            className={`cursor-pointer border p-4 rounded-2xl flex items-start gap-4 shadow-sm transition-all ${isSelected ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:emerald-500/50" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700"}`}
                           >
                             <div
                               className={`w-5 h-5 rounded shrink-0 flex items-center justify-center border mt-1 transition-colors ${isSelected ? "bg-emerald-600 border-emerald-600" : "border-slate-300 dark:border-slate-500"}`}
