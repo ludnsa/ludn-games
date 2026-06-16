@@ -31,6 +31,7 @@ import {
   Crown,
   Shuffle,
   CheckCircle2,
+  Crosshair,
 } from "lucide-react";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
@@ -77,6 +78,7 @@ export default function WorldDominationGame() {
     | "playing"
     | "gameOver"
   >("lobby");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [team1Name, setTeam1Name] = useState<string>("الفريق الأول");
   const [team2Name, setTeam2Name] = useState<string>("الفريق الثاني");
   const [score1, setScore1] = useState<number>(200);
@@ -135,23 +137,32 @@ export default function WorldDominationGame() {
   const [quickProtectTeam, setQuickProtectTeam] = useState<1 | 2 | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setAudienceUrl(
-        `${window.location.origin}/games/world-domination/audience`
-      );
-    }
-    const savedCountries = localStorage.getItem("admin_wd_countries_db");
-    if (savedCountries) {
-      try {
-        setDbCountries(JSON.parse(savedCountries));
-      } catch (e) {}
-    }
-    const savedChallenges = localStorage.getItem("admin_wd_challenges_db");
-    if (savedChallenges) {
-      try {
-        setDbWdChallenges(JSON.parse(savedChallenges));
-      } catch (e) {}
-    }
+    const initGame = () => {
+      setIsLoading(true);
+      if (typeof window !== "undefined") {
+        setAudienceUrl(
+          `${window.location.origin}/games/world-domination/audience`
+        );
+      }
+      const savedCountries = localStorage.getItem("admin_wd_countries_db");
+      if (savedCountries) {
+        try {
+          setDbCountries(JSON.parse(savedCountries));
+        } catch (e) {}
+      }
+      const savedChallenges = localStorage.getItem("admin_wd_challenges_db");
+      if (savedChallenges) {
+        try {
+          setDbWdChallenges(JSON.parse(savedChallenges));
+        } catch (e) {}
+      }
+      
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 400);
+    };
+
+    initGame();
   }, []);
 
   useEffect(() => {
@@ -936,6 +947,22 @@ export default function WorldDominationGame() {
   const countriesLeft = countries.filter((c) => c.owner === null).length;
   const team1Owned = countries.filter((c) => c.owner === 1).length;
   const team2Owned = countries.filter((c) => c.owner === 2).length;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-black text-2xl" dir="rtl">
+        <div className="relative flex items-center justify-center mb-8">
+          <Globe className="w-28 h-28 text-slate-200 dark:text-slate-800 animate-spin-slow" />
+          <TankIcon size={48} className="text-emerald-500 absolute animate-pulse drop-shadow-lg" />
+          <Crosshair className="w-16 h-16 text-rose-500 absolute animate-ping opacity-70" />
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <h2 className="text-3xl text-emerald-600 dark:text-emerald-400 animate-pulse drop-shadow-sm">جاري حشد الجيوش...</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-bold tracking-widest">تجهيز الخرائط وتوزيع الدبابات</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main

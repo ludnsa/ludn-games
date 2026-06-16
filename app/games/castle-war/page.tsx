@@ -293,6 +293,11 @@ export default function CastleBattleMainScreen() {
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        fetch: (url, options) => fetch(url, { ...options, cache: "no-store" }),
+      },
+    }
   );
 
   const [gameState, setGameState] = useState<"lobby" | "playing" | "gameOver">(
@@ -1368,8 +1373,15 @@ export default function CastleBattleMainScreen() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-[#0f172a] text-blue-600 dark:text-blue-400 font-black text-2xl">
-        <RefreshCw className="animate-spin mr-4 w-8 h-8" /> جاري تجهيز القلعة والبيانات...
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-white font-black text-2xl" dir="rtl">
+        <div className="relative flex items-center justify-center mb-8">
+          <Shield className="w-24 h-24 text-slate-200 dark:text-slate-800 animate-pulse" />
+          <Swords className="w-16 h-16 text-rose-500 absolute animate-spin-slow drop-shadow-lg" strokeWidth={2.5} />
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <h2 className="text-3xl text-cyan-600 dark:text-cyan-400 animate-pulse drop-shadow-sm">جاري شحذ السيوف...</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-bold tracking-widest">تجهيز بيانات المعركة والأسئلة</p>
+        </div>
       </div>
     );
   }
