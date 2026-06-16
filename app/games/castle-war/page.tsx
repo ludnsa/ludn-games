@@ -298,6 +298,8 @@ export default function CastleBattleMainScreen() {
   const [gameState, setGameState] = useState<"lobby" | "playing" | "gameOver">(
     "lobby",
   );
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [roomCode, setRoomCode] = useState("");
   const roomCodeRef = useRef("");
   const [joinUrl, setJoinUrl] = useState("");
@@ -459,25 +461,32 @@ export default function CastleBattleMainScreen() {
   useEffect(() => {
     synthRef.current = createSoundSynth();
     const initGame = async () => {
-      const newRoomCode = generateAlphanumericCode(5);
-      setRoomCode(newRoomCode);
-      roomCodeRef.current = newRoomCode;
-      setJoinUrl(
-        `${window.location.origin}/games/castle-war/join?code=${newRoomCode}`,
-      );
+      setIsLoading(true);
+      try {
+        const newRoomCode = generateAlphanumericCode(5);
+        setRoomCode(newRoomCode);
+        roomCodeRef.current = newRoomCode;
+        setJoinUrl(
+          `${window.location.origin}/games/castle-war/join?code=${newRoomCode}`,
+        );
 
-      await supabase
-        .from("cw_rooms")
-        .upsert({ room_code: newRoomCode, live_sync: {} });
+        await supabase
+          .from("cw_rooms")
+          .upsert({ room_code: newRoomCode, live_sync: {} });
 
-      const { data } = await supabase.from("cw_settings").select("*");
-      if (data) {
-        data.forEach((item) => {
-          if (item.id === "admin_cw_30sec_db") setCw30SecDB(item.data);
-          if (item.id === "admin_cw_5sec_db") setCw5SecDB(item.data);
-          if (item.id === "admin_cw_team_db") setCwTeamDB(item.data);
-          if (item.id === "admin_cw_general_db") setCwGenDB(item.data);
-        });
+        const { data } = await supabase.from("cw_settings").select("*");
+        if (data) {
+          data.forEach((item) => {
+            if (item.id === "admin_cw_30sec_db") setCw30SecDB(item.data);
+            if (item.id === "admin_cw_5sec_db") setCw5SecDB(item.data);
+            if (item.id === "admin_cw_team_db") setCwTeamDB(item.data);
+            if (item.id === "admin_cw_general_db") setCwGenDB(item.data);
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
       }
     };
     initGame();
@@ -1356,6 +1365,14 @@ export default function CastleBattleMainScreen() {
 
   const cardClass =
     "bg-white dark:bg-slate-800 border-4 border-slate-900 dark:border-black rounded-3xl shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] transition-colors duration-300";
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 dark:bg-[#0f172a] text-blue-600 dark:text-blue-400 font-black text-2xl">
+        <RefreshCw className="animate-spin mr-4 w-8 h-8" /> جاري تجهيز القلعة والبيانات...
+      </div>
+    );
+  }
 
   return (
     <main
