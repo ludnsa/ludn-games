@@ -147,9 +147,12 @@ export default function WorldDominationGame() {
   useEffect(() => {
     const initGame = async () => {
       setIsLoading(true);
+      const newCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+      setRoomCode(newCode);
+      
       if (typeof window !== "undefined") {
         setAudienceUrl(
-          `${window.location.origin}/games/world-domination/audience`
+          `${window.location.origin}/games/world-domination/audience?room=${newCode}`
         );
       }
       
@@ -311,12 +314,6 @@ export default function WorldDominationGame() {
     setCapitals({ team1: null, team2: null });
     setMapPosition({ center: [0, 0], zoom: 1, name: "العالم" });
     setStolenCapitalAlert(null);
-
-    const newCode = Math.random().toString(36).substring(2, 7).toUpperCase();
-    setRoomCode(newCode);
-    if (typeof window !== "undefined") {
-      setAudienceUrl(`${window.location.origin}/games/world-domination/audience?room=${newCode}`);
-    }
 
     setGameState("setupMap");
   };
@@ -1171,8 +1168,13 @@ export default function WorldDominationGame() {
             {audienceUrl && (
               <div className="flex flex-col items-center justify-center gap-3 lg:gap-4 mb-6 lg:mb-8">
                 <p className="text-slate-500 dark:text-slate-400 font-bold text-xs lg:text-sm">
-                  امسح الباركود لدخول شاشة الجمهور (رادار المعركة)
+                  امسح الباركود لدخول شاشة الجمهور أو أدخل الكود:
                 </p>
+                <div className="bg-slate-100 dark:bg-slate-800 px-6 py-2 rounded-xl border-2 border-blue-500 mb-2">
+                  <p className="text-2xl lg:text-4xl font-mono font-black text-blue-600 dark:text-blue-400 tracking-widest">
+                    {roomCode}
+                  </p>
+                </div>
                 <div className="bg-white p-2 rounded-xl lg:rounded-2xl shadow-sm border-2 border-slate-200">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(audienceUrl)}`}

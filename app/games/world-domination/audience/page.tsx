@@ -109,13 +109,16 @@ export default function WorldDominationAudience() {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'wd_rooms',
           filter: `room_code=eq.${roomCode}`
         },
         (payload) => {
-          setLiveData(payload.new.live_sync);
+          const newData = payload.new as any;
+          if (newData && newData.live_sync) {
+            setLiveData(newData.live_sync);
+          }
         }
       )
       .subscribe();
@@ -127,28 +130,28 @@ export default function WorldDominationAudience() {
 
   if (!roomCode) {
     return (
-      <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 ${cairo.className}`} dir="rtl">
-        <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 max-w-sm w-full text-center shadow-xl border border-slate-200 dark:border-slate-800">
+      <div className={`relative z-[999] pointer-events-auto min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 ${cairo.className}`} dir="rtl">
+        <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 max-w-sm w-full text-center shadow-xl border border-slate-200 dark:border-slate-800 relative z-[1000]">
           <Globe className="w-16 h-16 text-blue-500 mx-auto mb-6 animate-pulse" />
           <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">الدخول للرادار</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-bold mb-6">الرجاء إدخال كود الغرفة المكون من 4 أحرف للانضمام لشاشة الجمهور.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-bold mb-6">الرجاء إدخال كود الغرفة المكون من 5 أحرف للانضمام لشاشة الجمهور.</p>
           <input
             type="text"
             value={inputCode}
             onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-            placeholder="مثال: W7K9"
-            maxLength={4}
-            className="w-full text-center p-4 bg-slate-100 dark:bg-slate-800 rounded-xl font-mono text-2xl font-black mb-4 uppercase outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+            placeholder="مثال: W7K9X"
+            maxLength={5}
+            className="relative z-[1010] pointer-events-auto w-full text-center p-4 bg-slate-100 dark:bg-slate-800 rounded-xl font-mono text-2xl font-black mb-4 uppercase outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
           />
           <button
             onClick={() => {
-              if (inputCode.length >= 4) {
+              if (inputCode.length >= 5) {
                 setRoomCode(inputCode);
                 window.history.pushState({}, '', `?room=${inputCode}`);
               }
             }}
-            disabled={inputCode.length < 4}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-black transition-colors"
+            disabled={inputCode.length < 5}
+            className="relative z-[1010] pointer-events-auto w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-black transition-colors"
           >
             انضمام للغرفة
           </button>
