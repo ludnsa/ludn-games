@@ -1810,122 +1810,86 @@ export default function WorldDominationGame() {
                 className={`relative bg-[#7bc3f5] dark:bg-[#287cb5] rounded-3xl lg:rounded-[3rem] border-4 border-slate-300 dark:border-slate-800 overflow-hidden shadow-inner flex flex-col items-center justify-center flex-1 w-full h-full shrink-0`}
               >
                 <ComposableMap
-                  projectionConfig={{ scale: 200 }}
-                  className="w-full h-full absolute inset-0"
-                >
-                  <ZoomableGroup
-                    center={mapPosition.center}
-                    zoom={mapPosition.zoom}
-                    onMoveEnd={(pos) =>
-                      setMapPosition({
-                        center: pos.coordinates as [number, number],
-                        zoom: pos.zoom,
-                        name: mapPosition.name,
-                      })
-                    }
-                  >
-                    <Geographies geography={geoUrl}>
-                      {({ geographies }) =>
-                        geographies.map((geo) => {
-                          const country = countries.find(
-                            (c) => c.geoId === geo.id
-                          );
-                          let fillColor = "#cbd5e1";
-                          if (country) {
-                            if (country.owner === 1) fillColor = "#06b6d4";
-                            else if (country.owner === 2) fillColor = "#f43f5e";
-                            else if (country.isChallenge) fillColor = "#a855f7";
-                            else fillColor = "#facc15";
-                          }
-                          return (
-                            <Geography
-                              key={geo.rsmKey}
-                              geography={geo}
-                              onClick={() => handleCountryClick(geo.id)}
-                              style={{
-                                default: {
-                                  fill: fillColor,
-                                  outline: "none",
-                                  stroke: "#334155",
-                                  strokeWidth: 0.8,
-                                },
-                                hover: {
-                                  fill: country ? "#3b82f6" : fillColor,
-                                  cursor: "pointer",
-                                  outline: "none",
-                                  strokeWidth: 1.5,
-                                },
-                              }}
-                            />
-                          );
-                        })
-                      }
-                    </Geographies>
-                    {countries.map((c) => {
-                      const centroid = geoCentroid({ id: c.geoId } as any);
-                      if (!centroid || isNaN(centroid[0]) || isNaN(centroid[1]))
-                        return null;
-
-                      const isProtected = protectedCountries[c.id];
-
-                      let label = c.name;
-                      if (c.id === capitals.team1 || c.id === capitals.team2) {
-                        label += " 👑";
-                      }
-
-                      return (
-                        <Marker
-                          key={`m-${c.id}`}
-                          coordinates={centroid as [number, number]}
+                          projectionConfig={{ scale: 200 }}
+                          className="w-full h-full absolute inset-0"
                         >
-                          {isProtected && (
-                            <g transform="translate(0, -14)">
-                              <circle
-                                r="8"
-                                fill="#10b981"
-                                stroke="#fff"
-                                strokeWidth="1"
-                              />
-                              <Shield
-                                width="10"
-                                height="10"
-                                x="-5"
-                                y="-5"
-                                color="white"
-                                strokeWidth="2.5"
-                              />
-                            </g>
-                          )}
-                          {c.isStolen && (
-                            <g transform="translate(0, -18)">
-                              <Swords
-                                width="18"
-                                height="18"
-                                x="-9"
-                                y="-9"
-                                color="black"
-                                strokeWidth="3"
-                              />
-                            </g>
-                          )}
-                          <text
-                            textAnchor="middle"
-                            y={3}
-                            fill={c.owner ? "#fff" : "#1e293b"}
-                            style={{
-                              fontFamily: "Cairo",
-                              fontSize: "8px",
-                              fontWeight: "900",
-                              pointerEvents: "none",
-                            }}
+                          <ZoomableGroup
+                            center={mapPosition.center}
+                            zoom={mapPosition.zoom}
+                            onMoveEnd={(pos) =>
+                              setMapPosition({
+                                center: pos.coordinates as [number, number],
+                                zoom: pos.zoom,
+                                name: mapPosition.name,
+                              })
+                            }
                           >
-                            {label}
-                          </text>
-                        </Marker>
-                      );
-                    })}
-                  </ZoomableGroup>
-                </ComposableMap>
+                            <Geographies geography={geoUrl}>
+                              {({ geographies }) => (
+                                <>
+                                  {geographies.map((geo) => {
+                                    const country = countries.find((c) => c.geoId === geo.id);
+                                    let fillColor = "#cbd5e1";
+                                    if (country) {
+                                      if (country.owner === 1) fillColor = "#06b6d4";
+                                      else if (country.owner === 2) fillColor = "#f43f5e";
+                                      else if (country.isChallenge) fillColor = "#a855f7";
+                                      else fillColor = "#facc15";
+                                    }
+                                    return (
+                                      <Geography
+                                        key={geo.rsmKey}
+                                        geography={geo}
+                                        onClick={() => handleCountryClick(geo.id)}
+                                        style={{
+                                          default: { fill: fillColor, outline: "none", stroke: "#334155", strokeWidth: 0.8 },
+                                          hover: { fill: country ? "#3b82f6" : fillColor, cursor: "pointer", outline: "none", strokeWidth: 1.5 },
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                  {geographies.map((geo) => {
+                                    const country = countries.find((c) => c.geoId === geo.id);
+                                    if (!country) return null;
+                                    
+                                    const centroid = geoCentroid(geo);
+                                    if (!centroid || isNaN(centroid[0]) || isNaN(centroid[1])) return null;
+
+                                    const isProtected = protectedCountries[country.id];
+                                    let label = country.name;
+                                    if (country.id === capitals.team1 || country.id === capitals.team2) {
+                                      label += " 👑";
+                                    }
+
+                                    return (
+                                      <Marker key={`m-${country.id}`} coordinates={centroid as [number, number]}>
+                                        {isProtected && (
+                                          <g transform="translate(0, -14)">
+                                            <circle r="8" fill="#10b981" stroke="#fff" strokeWidth="1" />
+                                            <Shield width="10" height="10" x="-5" y="-5" color="white" strokeWidth="2.5" />
+                                          </g>
+                                        )}
+                                        {country.isStolen && (
+                                          <g transform="translate(0, -18)">
+                                            <Swords width="18" height="18" x="-9" y="-9" color="black" strokeWidth="3" />
+                                          </g>
+                                        )}
+                                        <text
+                                          textAnchor="middle"
+                                          y={3}
+                                          fill={country.owner ? "#fff" : "#1e293b"}
+                                          style={{ fontFamily: "Cairo", fontSize: "8px", fontWeight: "900", pointerEvents: "none" }}
+                                        >
+                                          {label}
+                                        </text>
+                                      </Marker>
+                                    );
+                                  })}
+                                </>
+                              )}
+                            </Geographies>
+                          </ZoomableGroup>
+                        </ComposableMap>
               </div>
             </div>
           </div>
