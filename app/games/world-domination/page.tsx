@@ -132,18 +132,66 @@ export default function WorldDominationGame() {
     protect: 5,
     airStrike: 3,
     capitalCapture: 2,
+    spy: 2,
   });
   const [cards2, setCards2] = useState({
     capture: 3,
     protect: 5,
     airStrike: 3,
     capitalCapture: 2,
+    spy: 2,
   });
   const [protectedCountries, setProtectedCountries] = useState<any>({});
+  const [spiedCountryId, setSpiedCountryId] = useState<string | null>(null);
 
   const [forcedWinner, setForcedWinner] = useState<1 | 2 | null>(null);
   const [quickProtectTeam, setQuickProtectTeam] = useState<1 | 2 | null>(null);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
+  // دالة استرجاع اللعبة فوراً عند فتح أو تحديث الصفحة
+  useEffect(() => {
+    const savedSession = localStorage.getItem("wd_live_sync");
+    if (savedSession) {
+      try {
+        const parsed = JSON.parse(savedSession);
+        // لا نسترجع اللعبة إلا إذا كانت فعلًا شغالة (تجاوزت اللوبي وما انتهت)
+        if (parsed.gameState && parsed.gameState !== "lobby" && parsed.gameState !== "gameOver") {
+          setRoomCode(parsed.roomCode);
+          setSpiedCountryId(parsed.spiedCountryId || null);
+          setGameState(parsed.gameState);
+          setTeam1Name(parsed.team1Name);
+          setTeam2Name(parsed.team2Name);
+          setScore1(parsed.score1);
+          setScore2(parsed.score2);
+          setTurn(parsed.turn);
+          setCountries(parsed.countries);
+          setSelectedCountry(parsed.selectedCountry);
+          setTimer(parsed.timer);
+          setTeam1Choice(parsed.team1Choice);
+          setTeam2Choice(parsed.team2Choice);
+          setShowResult(parsed.showResult);
+          setIsAttacking(parsed.isAttacking);
+          setIsQuestionRevealed(parsed.isQuestionRevealed);
+          setCards1(parsed.cards1);
+          setCards2(parsed.cards2);
+          setProtectedCountries(parsed.protectedCountries);
+          setChallengesUsed1(parsed.challengesUsed1);
+          setChallengesUsed2(parsed.challengesUsed2);
+          setMapPosition(parsed.mapPosition);
+          setCapitals(parsed.capitals);
+          setStolenCapitalAlert(parsed.stolenCapitalAlert);
+          
+          if (typeof window !== "undefined" && parsed.roomCode) {
+            setAudienceUrl(`${window.location.origin}/games/world-domination/audience?room=${parsed.roomCode}`);
+          }
+        }
+      } catch (e) {
+        console.error("فشل استرجاع الجلسة السابقة:", e);
+      }
+    }
+    // السماح للكود بالبدء في المزامنة بعد التأكد من الاسترجاع
+    setIsInitialized(true);
+  }, []);
   useEffect(() => {
     const initGame = async () => {
       setIsLoading(true);
@@ -178,13 +226,15 @@ export default function WorldDominationGame() {
   }, [supabase]);
 
   useEffect(() => {
-    if (!roomCode) return;
+    // إيقاف المزامنة تماماً حتى نتأكد أننا قرأنا الذاكرة عشان ما نمسح اللعبة بالخطأ
+    if (!isInitialized || !roomCode) return;
 
     // تنظيف مصفوفة الدول من الأسئلة الثقيلة لحماية السيرفر وتقليل الحجم والكوست
     const cleanCountries = countries ? countries.map(({ questions, ...rest }) => rest) : [];
 
     // حفظ نسخة محليّة كاملة للمتصفح الحالي لضمان استقرار الواجهة
     const localSyncData = {
+      roomCode, spiedCountryId,
       gameState, team1Name, team2Name, score1, score2, turn, countries,
       selectedCountry: isAttacking && !selectedCountry?.activeQuestion ? null : selectedCountry,
       timer, team1Choice, team2Choice, showResult, isAttacking, isQuestionRevealed,
@@ -220,6 +270,7 @@ export default function WorldDominationGame() {
           map_position: mapPosition,
           capitals: capitals,
           stolen_capital_alert: stolenCapitalAlert,
+          spied_country_id: spiedCountryId,
           countries: cleanCountries,
           created_at: new Date().toISOString()
         });
@@ -252,6 +303,8 @@ export default function WorldDominationGame() {
     mapPosition,
     capitals,
     stolenCapitalAlert,
+    spiedCountryId,
+    isInitialized,
     supabase,
     roomCode
   ]);
@@ -309,9 +362,10 @@ export default function WorldDominationGame() {
     setTurn(1);
     setChallengesUsed1(0);
     setChallengesUsed2(0);
-    setCards1({ capture: 3, protect: 5, airStrike: 3, capitalCapture: 2 });
-    setCards2({ capture: 3, protect: 5, airStrike: 3, capitalCapture: 2 });
+    setCards1({ capture: 3, protect: 5, airStrike: 3, capitalCapture: 2, spy: 2 });
+    setCards2({ capture: 3, protect: 5, airStrike: 3, capitalCapture: 2, spy: 2 });
     setProtectedCountries({});
+    setSpiedCountryId(null);
     setIsAttacking(false);
     setIsQuestionRevealed(false);
     setForcedWinner(null);
@@ -319,6 +373,10 @@ export default function WorldDominationGame() {
     setCapitals({ team1: null, team2: null });
     setMapPosition({ center: [0, 0], zoom: 1, name: "العالم" });
     setStolenCapitalAlert(null);
+    setSpiedCountryId(null);
+    
+    // مسح الذاكرة القديمة بالكامل عشان نبدأ حرب نظيفة ومستقلة
+    localStorage.removeItem("wd_live_sync");
 
     setGameState("setupMap");
   };
@@ -493,7 +551,9 @@ export default function WorldDominationGame() {
           const shuffledNormal = [...normalFree].sort(
             () => 0.5 - Math.random()
           );
-          const num2000 = Math.min(4, shuffledNormal.length);
+          
+          const target2000Count = (countriesLimit / 10) * 2 + 2;
+          const num2000 = Math.min(target2000Count, shuffledNormal.length);
           const upgradedIds = shuffledNormal.slice(0, num2000).map((c) => c.id);
 
           return updated.map((c) =>
@@ -737,38 +797,56 @@ export default function WorldDominationGame() {
       return;
     }
 
-    if (
-      confirm(
-        `القصف المدمر! سيتم خصم بطاقة قصف، وسيتم خصم نصف قيمة الدولة (${Math.floor(selectedCountry.value / 2)}) من رصيد المدافع ومن قيمة الدولة نفسها، ولن تتحرر الدولة. هل أنت متأكد؟`
-      )
-    ) {
-      if (turn === 1) {
-        setCards1((prev: any) => ({ ...prev, airStrike: prev.airStrike - 1 }));
-      } else {
-        setCards2((prev: any) => ({ ...prev, airStrike: prev.airStrike - 1 }));
-      }
+    const isProtected = protectedCountries[selectedCountry.id];
 
-      const penalty = Math.floor(selectedCountry.value / 2);
-      if (selectedCountry.owner === 1)
-        setScore1((s) => Math.max(0, s - penalty));
-      if (selectedCountry.owner === 2)
-        setScore2((s) => Math.max(0, s - penalty));
-
-      setProtectedCountries((prev: any) => {
-        const next = { ...prev };
-        delete next[selectedCountry.id];
-        return next;
-      });
-
-      const updatedCountries = countries.map((c) => {
-        if (c.id === selectedCountry.id) {
-          return { ...c, value: Math.max(0, c.value - penalty) };
+    if (isProtected) {
+      if (
+        confirm(
+          "هذه الدولة محمية! القصف سيكسر درع الحماية فقط دون خصم نقاط الدولة أو رصيد المدافع. هل أنت متأكد؟"
+        )
+      ) {
+        if (turn === 1) {
+          setCards1((prev: any) => ({ ...prev, airStrike: prev.airStrike - 1 }));
+        } else {
+          setCards2((prev: any) => ({ ...prev, airStrike: prev.airStrike - 1 }));
         }
-        return c;
-      });
 
-      setCountries(updatedCountries);
-      setSelectedCountry(null);
+        setProtectedCountries((prev: any) => {
+          const next = { ...prev };
+          delete next[selectedCountry.id];
+          return next;
+        });
+
+        setSelectedCountry(null);
+      }
+    } else {
+      if (
+        confirm(
+          `القصف المدمر! سيتم خصم بطاقة قصف، وسيتم خصم نصف قيمة الدولة (${Math.floor(selectedCountry.value / 2)}) من رصيد المدافع ومن قيمة الدولة نفسها، ولن تتحرر الدولة. هل أنت متأكد؟`
+        )
+      ) {
+        if (turn === 1) {
+          setCards1((prev: any) => ({ ...prev, airStrike: prev.airStrike - 1 }));
+        } else {
+          setCards2((prev: any) => ({ ...prev, airStrike: prev.airStrike - 1 }));
+        }
+
+        const penalty = Math.floor(selectedCountry.value / 2);
+        if (selectedCountry.owner === 1)
+          setScore1((s) => Math.max(0, s - penalty));
+        if (selectedCountry.owner === 2)
+          setScore2((s) => Math.max(0, s - penalty));
+
+        const updatedCountries = countries.map((c) => {
+          if (c.id === selectedCountry.id) {
+            return { ...c, value: Math.max(0, c.value - penalty) };
+          }
+          return c;
+        });
+
+        setCountries(updatedCountries);
+        setSelectedCountry(null);
+      }
     }
   };
 
@@ -791,6 +869,34 @@ export default function WorldDominationGame() {
       "تم تفعيل الحماية! الدولة أصبحت محصنة ضد الدبابات (لكنها لا تزال معرضة للقصف)."
     );
     if (!showResult) setSelectedCountry(null);
+  };
+
+  const handleSpyAction = (teamId: 1 | 2) => {
+    const currentCards = teamId === 1 ? cards1 : cards2;
+    if (currentCards.spy <= 0) {
+      alert("لقد استنفذ الفريق جميع بطاقات التجسس!");
+      return;
+    }
+
+    const hidden2000Countries = countries.filter(
+      (c) => c.value === 2000 && c.owner === null && !c.isChallenge
+    );
+
+    if (hidden2000Countries.length === 0) {
+      alert("لا توجد دول حرة بقيمة 2000 نقطة حالياً على الخريطة.");
+      return;
+    }
+
+    const randomCountry =
+      hidden2000Countries[Math.floor(Math.random() * hidden2000Countries.length)];
+
+    if (confirm(`سيتم تفعيل التجسس لفريق ${teamId === 1 ? team1Name : team2Name} وكشف دولة 2000. متأكد؟`)) {
+      if (teamId === 1) setCards1((p: any) => ({ ...p, spy: p.spy - 1 }));
+      else setCards2((p: any) => ({ ...p, spy: p.spy - 1 }));
+      
+      setSpiedCountryId(randomCountry.id);
+      alert(`🕵️ تمت العملية بنجاح!\nالدولة المكتشفة هي: ${randomCountry.name}\n(ستظهر أيقونة نيشان 🎯 فوقها في الخريطة)`);
+    }
   };
 
   const handleConfirmAnswers = () => {
@@ -827,6 +933,7 @@ export default function WorldDominationGame() {
     setIsAttacking(false);
     setIsQuestionRevealed(false);
     setForcedWinner(null);
+    setSpiedCountryId(null);
     setTurn((t) => (t === 1 ? 2 : 1));
   };
 
@@ -1711,15 +1818,27 @@ export default function WorldDominationGame() {
                     <Crown size={10} className="lg:w-[12px] lg:h-[12px]" /> غزو:{" "}
                     {cards1.capitalCapture}
                   </span>
+                  <span className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
+                    <Crosshair size={10} className="lg:w-[12px] lg:h-[12px]" /> تجسس:{" "}
+                    {cards1.spy}
+                  </span>
                 </div>
-                <button
-                  onClick={() => setQuickProtectTeam(1)}
-                  disabled={cards1.protect === 0}
-                  className="mt-2 lg:mt-3 w-full py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-300 dark:border-emerald-700"
-                >
-                  <Shield size={12} className="lg:w-[14px] lg:h-[14px]" /> حماية
-                  سريعة لدولة
-                </button>
+                <div className="flex gap-2 mt-2 lg:mt-3">
+                  <button
+                    onClick={() => setQuickProtectTeam(1)}
+                    disabled={cards1.protect === 0}
+                    className="flex-1 py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-300 dark:border-emerald-700"
+                  >
+                    <Shield size={12} className="lg:w-[14px] lg:h-[14px]" /> حماية
+                  </button>
+                  <button
+                    onClick={() => handleSpyAction(1)}
+                    disabled={cards1.spy === 0}
+                    className="flex-1 py-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-300 dark:border-indigo-700"
+                  >
+                    <Crosshair size={12} className="lg:w-[14px] lg:h-[14px]" /> تجسس
+                  </button>
+                </div>
               </div>
 
               {/* صندوق الفريق الثاني */}
@@ -1774,15 +1893,27 @@ export default function WorldDominationGame() {
                     <Crown size={10} className="lg:w-[12px] lg:h-[12px]" /> غزو:{" "}
                     {cards2.capitalCapture}
                   </span>
+                  <span className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
+                    <Crosshair size={10} className="lg:w-[12px] lg:h-[12px]" /> تجسس:{" "}
+                    {cards2.spy}
+                  </span>
                 </div>
-                <button
-                  onClick={() => setQuickProtectTeam(2)}
-                  disabled={cards2.protect === 0}
-                  className="mt-2 lg:mt-3 w-full py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-300 dark:border-emerald-700"
-                >
-                  <Shield size={12} className="lg:w-[14px] lg:h-[14px]" /> حماية
-                  سريعة لدولة
-                </button>
+                <div className="flex gap-2 mt-2 lg:mt-3">
+                  <button
+                    onClick={() => setQuickProtectTeam(2)}
+                    disabled={cards2.protect === 0}
+                    className="flex-1 py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-300 dark:border-emerald-700"
+                  >
+                    <Shield size={12} className="lg:w-[14px] lg:h-[14px]" /> حماية
+                  </button>
+                  <button
+                    onClick={() => handleSpyAction(2)}
+                    disabled={cards2.spy === 0}
+                    className="flex-1 py-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-300 dark:border-indigo-700"
+                  >
+                    <Crosshair size={12} className="lg:w-[14px] lg:h-[14px]" /> تجسس
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1797,6 +1928,7 @@ export default function WorldDominationGame() {
                   setIsAttacking(false);
                   setIsQuestionRevealed(false);
                   setForcedWinner(null);
+                  setSpiedCountryId(null);
                 }}
                 className="px-6 py-2.5 lg:px-12 lg:py-4 bg-amber-500 hover:bg-amber-600 text-slate-900 font-black text-sm lg:text-xl rounded-2xl shadow-lg flex items-center gap-2 lg:gap-3 transition-all active:scale-95 border-2 border-amber-600/50"
               >
@@ -1827,11 +1959,13 @@ export default function WorldDominationGame() {
                             <Geographies geography={geoUrl}>
                               {({ geographies }) => (
                                 <>
+                                  {/* 1. رسم وتلوين الدول (مع صب دولة التجسس بالبرتقالي مباشرة) */}
                                   {geographies.map((geo) => {
                                     const country = countries.find((c) => c.geoId === geo.id);
                                     let fillColor = "#cbd5e1";
                                     if (country) {
-                                      if (country.owner === 1) fillColor = "#06b6d4";
+                                      if (spiedCountryId === country.id) fillColor = "#f97316"; // تلوين دولة التجسس بالبرتقالي المميز
+                                      else if (country.owner === 1) fillColor = "#06b6d4";
                                       else if (country.owner === 2) fillColor = "#f43f5e";
                                       else if (country.isChallenge) fillColor = "#a855f7";
                                       else fillColor = "#facc15";
@@ -1848,6 +1982,8 @@ export default function WorldDominationGame() {
                                       />
                                     );
                                   })}
+                                  
+                                  {/* 2. رسم الأسماء والأيقونات الأخرى (تم نسف النيشان المرتفع) */}
                                   {geographies.map((geo) => {
                                     const country = countries.find((c) => c.geoId === geo.id);
                                     if (!country) return null;
