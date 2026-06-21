@@ -204,38 +204,42 @@ export default function AdminDashboardMain() {
   useEffect(() => {
     if (isAuthChecking) return;
 
-    try {
-      const wdCountriesRaw = localStorage.getItem("admin_wd_countries_db");
-      const wdChallengesRaw = localStorage.getItem("admin_wd_challenges_db");
+    const fetchWDStats = async () => {
+      try {
+        const { data, error } = await supabase.from("wd_settings").select("*");
+        if (data && !error) {
+          let countriesCount = 0;
+          let questionsCount = 0;
+          let challengesCount = 0;
+          let details: { name: string; qCount: number }[] = [];
 
-      let countriesCount = 0;
-      let questionsCount = 0;
-      let details: { name: string; qCount: number }[] = [];
+          data.forEach((item) => {
+            if (item.id === "admin_wd_countries_db" && item.data) {
+              countriesCount = item.data.length;
+              item.data.forEach((c: any) => {
+                const qCount = c.questions ? c.questions.length : 0;
+                questionsCount += qCount;
+                details.push({ name: c.name, qCount });
+              });
+              localStorage.setItem("admin_wd_countries_db", JSON.stringify(item.data));
+            }
+            if (item.id === "admin_wd_challenges_db" && item.data) {
+              challengesCount = item.data.length;
+              localStorage.setItem("admin_wd_challenges_db", JSON.stringify(item.data));
+            }
+          });
 
-      if (wdCountriesRaw) {
-        const parsed = JSON.parse(wdCountriesRaw);
-        countriesCount = parsed.length;
-        parsed.forEach((c: any) => {
-          const qCount = c.questions ? c.questions.length : 0;
-          questionsCount += qCount;
-          details.push({ name: c.name, qCount });
-        });
+          setWdStats({
+            countries: countriesCount,
+            questions: questionsCount,
+            challenges: challengesCount,
+            countryDetails: details,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching WD stats", error);
       }
-
-      let challengesCount = 0;
-      if (wdChallengesRaw) {
-        challengesCount = JSON.parse(wdChallengesRaw).length;
-      }
-
-      setWdStats({
-        countries: countriesCount,
-        questions: questionsCount,
-        challenges: challengesCount,
-        countryDetails: details,
-      });
-    } catch (e) {
-      console.error("Error parsing WD stats", e);
-    }
+    };
 
     const fetchCWStats = async () => {
       try {
@@ -274,6 +278,7 @@ export default function AdminDashboardMain() {
       }
     };
 
+    fetchWDStats();
     fetchCWStats();
     fetchAWStats();
   }, [isAuthChecking, supabase]);
