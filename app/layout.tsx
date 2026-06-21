@@ -27,8 +27,8 @@ export default function RootLayout({
         {/* الهيدر */}
         {/* <Header /> */}
         
-        {/* شلنا الـ relative z-10 عشان ما يغطي على الفوتر */}
-        <main className="flex-1 flex flex-col w-full">
+        {/* رجعنا الـ relative z-10 عشان المحتوى يطفو فوق الخلفية، والفوتر بأمان لأنه z-40 */}
+        <main className="flex-1 flex flex-col w-full relative z-10">
           {children}
         </main>
 

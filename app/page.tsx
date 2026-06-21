@@ -27,6 +27,7 @@ import {
   Laptop,
   Package,
   User,
+  Gavel,
 } from "lucide-react";
 
 const tajawal = Tajawal({
@@ -162,6 +163,8 @@ const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
       return "bg-rose-500 border-rose-700 hover:bg-rose-400";
     if (id === "world-domination")
       return "bg-blue-500 border-blue-700 hover:bg-blue-400";
+    if (id === "auction")
+      return "bg-amber-500 border-amber-700 hover:bg-amber-400 text-slate-900";
     return "bg-blue-500 border-blue-700 hover:bg-blue-400";
   };
 
@@ -175,6 +178,11 @@ const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
       return {
         card: "border-blue-200 dark:border-blue-900/60 shadow-xl shadow-blue-100 dark:shadow-blue-900/20 hover:shadow-blue-200 dark:hover:shadow-blue-900/40",
         icon: "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20",
+      };
+    if (id === "auction")
+      return {
+        card: "border-amber-200 dark:border-amber-900/60 shadow-xl shadow-amber-100 dark:shadow-amber-900/20 hover:shadow-amber-200 dark:hover:shadow-amber-900/40",
+        icon: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20",
       };
     return {
       card: "border-slate-200 dark:border-slate-900/60 shadow-xl shadow-slate-100 dark:shadow-slate-900/20 hover:shadow-slate-200 dark:hover:shadow-slate-900/40",
@@ -257,6 +265,15 @@ const GAMES = [
     path: "/games/world-domination",
     color: "from-blue-500 to-indigo-600",
   },
+  {
+    id: "auction",
+    title: "المزاد",
+    description:
+      "لعبة مزادية وتكتيكية لتحديد الفائز بالمزايدة على السؤال الصحيح.",
+      icon: <Gavel className="w-8 h-8 text-amber-500" />,
+    path: "/games/auction",
+    color: "from-amber-500 to-yellow-600",
+  },
 ];
 
 export default function HomePage() {
@@ -309,7 +326,9 @@ export default function HomePage() {
         window.location.href = `/games/castle-war/join?code=${code}`;
       else if (prefix === "W")
         window.location.href = `/games/world-domination/join?code=${code}`;
-      else setJoinError("كود الغرفة غير صحيح. تأكد من إدخال الكود بدقة.");
+      else 
+        // بما أن كود حرب المزايدات عشوائي، أي كود ما يبدأ بـ C أو W بيحولهم للمزايدات مباشرة
+        window.location.href = `/games/auction/team?room=${code}`;
     }
   };
 
@@ -688,7 +707,7 @@ export default function HomePage() {
               جرب أنظمتنا الترفيهية والتفاعلية المبنية بأحدث التقنيات
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 w-full max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto">
             {GAMES.map((game, index) => (
               <PlayfulGameCard key={game.id} game={game} index={index} />
             ))}
@@ -931,8 +950,15 @@ export default function HomePage() {
                     href="/games/world-domination"
                     className="hover:text-blue-500 transition-colors flex items-center gap-2"
                   >
-                    <Globe size={18} className="text-blue-500" /> السيطرة على
-                    العالم
+                    <Globe size={18} className="text-blue-500" /> السيطرة على العالم
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/games/auction"
+                    className="hover:text-amber-500 transition-colors flex items-center gap-2"
+                  >
+                    <Gavel size={18} className="text-amber-500" /> حرب المزايدات
                   </Link>
                 </li>
               </ul>

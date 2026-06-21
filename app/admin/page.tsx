@@ -4,7 +4,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Cairo } from "next/font/google";
-// التعديل الجوهري: استدعينا المكتبة الجديدة بدال الملف القديم
 import { createBrowserClient } from "@supabase/ssr";
 import {
   Database,
@@ -21,6 +20,7 @@ import {
   MapPin,
   LogOut,
   Loader2,
+  Gavel,
 } from "lucide-react";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
@@ -101,6 +101,7 @@ const StatBox = ({ icon, title, count, colorTheme, className = "" }: any) => {
   const themes = {
     rose: "bg-white dark:bg-slate-900 border-rose-100 dark:border-rose-900/30 text-rose-600 dark:text-rose-400",
     blue: "bg-white dark:bg-slate-900 border-blue-100 dark:border-blue-900/30 text-blue-600 dark:text-blue-400",
+    amber: "bg-white dark:bg-slate-900 border-amber-100 dark:border-amber-900/30 text-amber-600 dark:text-amber-400",
   };
 
   return (
@@ -119,7 +120,6 @@ const StatBox = ({ icon, title, count, colorTheme, className = "" }: any) => {
 };
 
 export default function AdminDashboardMain() {
-  // تهيئة سوبابيس عشان يقرأ الكوكيز صح
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -138,6 +138,9 @@ export default function AdminDashboardMain() {
     team: 0,
     general: 0,
   });
+  const [awStats, setAwStats] = useState({
+    questions: 0,
+  });
 
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -148,7 +151,6 @@ export default function AdminDashboardMain() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // اللحين راح يشيك على الكوكيز بشكل سليم
       const {
         data: { session },
         error,
@@ -257,7 +259,23 @@ export default function AdminDashboardMain() {
       }
     };
 
+    const fetchAWStats = async () => {
+      try {
+        const { data, error } = await supabase.from("aw_settings").select("*");
+        if (data && !error) {
+          let questions = 0;
+          data.forEach((item) => {
+            if (item.id === "admin_aw_questions_db") questions = item.data?.length || 0;
+          });
+          setAwStats({ questions });
+        }
+      } catch (error) {
+        console.error("Error fetching AW stats", error);
+      }
+    };
+
     fetchCWStats();
+    fetchAWStats();
   }, [isAuthChecking, supabase]);
 
   const handleExportBackup = () => {
@@ -268,6 +286,7 @@ export default function AdminDashboardMain() {
       "admin_cw_5sec_db",
       "admin_cw_team_db",
       "admin_cw_general_db",
+      "admin_aw_questions_db", // أضفنا بنك أسئلة المزايدات للنسخ الاحتياطي
     ];
     const backupData: any = {};
     keysToBackup.forEach((key) => {
@@ -311,7 +330,7 @@ export default function AdminDashboardMain() {
           }
 
           // 3. تحديد الجدول المناسب والرفع المباشر لـ Supabase
-          const tableName = key.includes("wd_") ? "wd_settings" : key.includes("cw_") ? "cw_settings" : null;
+          const tableName = key.includes("wd_") ? "wd_settings" : key.includes("cw_") ? "cw_settings" : key.includes("aw_") ? "aw_settings" : null;
           
           if (tableName) {
             await supabase.from(tableName).upsert({
@@ -388,51 +407,17 @@ export default function AdminDashboardMain() {
         </header>
 
         <section className="flex-1 flex flex-col items-center">
-          <div className="w-full max-w-5xl mb-12">
+          <div className="w-full max-w-6xl mb-12">
             <div className="flex items-center gap-2 mb-6 justify-center">
               <Activity className="text-emerald-500" size={28} />
               <h3 className="text-2xl font-black text-slate-900 dark:text-white">
                 إحصائيات النظام
               </h3>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
-              <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-rose-200 dark:border-rose-900/50 rounded-[2rem] p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2.5 bg-rose-100 dark:bg-rose-500/20 text-rose-600 rounded-xl">
-                    <Swords size={24} />
-                  </div>
-                  <h4 className="text-xl font-black text-slate-800 dark:text-slate-100">
-                    حرب القلاع
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <StatBox
-                    icon={<Clock size={18} />}
-                    title="30 ثانية"
-                    count={cwStats.q30}
-                    colorTheme="rose"
-                  />
-                  <StatBox
-                    icon={<Timer size={18} />}
-                    title="5 ثواني"
-                    count={cwStats.q5}
-                    colorTheme="rose"
-                  />
-                  <StatBox
-                    icon={<Target size={18} />}
-                    title="تحدي فريق"
-                    count={cwStats.team}
-                    colorTheme="rose"
-                  />
-                  <StatBox
-                    icon={<HelpCircle size={18} />}
-                    title="أسئلة عامة"
-                    count={cwStats.general}
-                    colorTheme="rose"
-                  />
-                </div>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-blue-200 dark:border-blue-900/50 rounded-[2rem] p-6 shadow-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
+              
+              {/* إحصائيات السيطرة على العالم */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-blue-200 dark:border-blue-900/50 rounded-[2rem] p-6 shadow-sm flex flex-col">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2.5 bg-blue-100 dark:bg-blue-500/20 text-blue-600 rounded-xl">
                     <Globe size={24} />
@@ -442,66 +427,88 @@ export default function AdminDashboardMain() {
                   </h4>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <StatBox
-                    icon={<MapPin size={18} />}
-                    title="الدول"
-                    count={wdStats.countries}
-                    colorTheme="blue"
-                  />
-                  <StatBox
-                    icon={<HelpCircle size={18} />}
-                    title="أسئلة"
-                    count={wdStats.questions}
-                    colorTheme="blue"
-                  />
-                  <StatBox
-                    icon={<Target size={18} />}
-                    title="تحديات"
-                    count={wdStats.challenges}
-                    colorTheme="blue"
-                    className="col-span-2"
-                  />
+                  <StatBox icon={<MapPin size={18} />} title="الدول" count={wdStats.countries} colorTheme="blue" />
+                  <StatBox icon={<HelpCircle size={18} />} title="أسئلة" count={wdStats.questions} colorTheme="blue" />
+                  <StatBox icon={<Target size={18} />} title="تحديات" count={wdStats.challenges} colorTheme="blue" className="col-span-2" />
                 </div>
                 <div className="mt-auto border-t border-blue-100 dark:border-blue-900/30 pt-4">
-                  <h5 className="text-[11px] font-black text-slate-500 mb-3">
-                    تفصيل الأسئلة لكل دولة:
-                  </h5>
+                  <h5 className="text-[11px] font-black text-slate-500 mb-3">تفصيل الأسئلة لكل دولة:</h5>
                   <div className="flex flex-wrap gap-2 max-h-[90px] overflow-y-auto custom-scroll pr-1">
                     {wdStats.countryDetails.map((c, i) => (
-                      <div
-                        key={i}
-                        className="bg-white dark:bg-slate-900 border border-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1.5 rounded-lg flex items-center gap-2"
-                      >
-                        {c.name}
-                        <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-black">
-                          {c.qCount}
-                        </span>
+                      <div key={i} className="bg-white dark:bg-slate-900 border border-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1.5 rounded-lg flex items-center gap-2">
+                        {c.name} <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-black">{c.qCount}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
+
+              {/* إحصائيات حرب القلاع */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-rose-200 dark:border-rose-900/50 rounded-[2rem] p-6 shadow-sm flex flex-col">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2.5 bg-rose-100 dark:bg-rose-500/20 text-rose-600 rounded-xl">
+                    <Swords size={24} />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-slate-100">
+                    حرب القلاع
+                  </h4>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <StatBox icon={<Clock size={18} />} title="30 ثانية" count={cwStats.q30} colorTheme="rose" />
+                  <StatBox icon={<Timer size={18} />} title="5 ثواني" count={cwStats.q5} colorTheme="rose" />
+                  <StatBox icon={<Target size={18} />} title="تحدي فريق" count={cwStats.team} colorTheme="rose" />
+                  <StatBox icon={<HelpCircle size={18} />} title="أسئلة عامة" count={cwStats.general} colorTheme="rose" />
+                </div>
+              </div>
+
+              {/* إحصائيات حرب المزايدات */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 border-2 border-amber-200 dark:border-amber-900/50 rounded-[2rem] p-6 shadow-sm flex flex-col">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2.5 bg-amber-100 dark:bg-amber-500/20 text-amber-600 rounded-xl">
+                    <Gavel size={24} />
+                  </div>
+                  <h4 className="text-xl font-black text-slate-800 dark:text-slate-100">
+                    حرب المزايدات
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <StatBox icon={<HelpCircle size={18} />} title="إجمالي الأسئلة" count={awStats.questions} colorTheme="amber" />
+                </div>
+              </div>
+
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl mb-12">
             <Link href="/admin/world-domination" className="group">
-              <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 rounded-3xl p-8 flex flex-col items-center hover:border-blue-500 transition-all">
-                <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl mb-4">
+              <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 rounded-3xl p-8 flex flex-col items-center justify-center hover:border-blue-500 transition-all h-full">
+                <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
                   <Globe size={40} />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white text-center">
                   السيطرة على العالم
                 </h3>
               </div>
             </Link>
+            
             <Link href="/admin/castle-war" className="group">
-              <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 rounded-3xl p-8 flex flex-col items-center hover:border-rose-500 transition-all">
-                <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl mb-4">
+              <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 rounded-3xl p-8 flex flex-col items-center justify-center hover:border-rose-500 transition-all h-full">
+                <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
                   <Swords size={40} />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white text-center">
                   حرب القلاع
+                </h3>
+              </div>
+            </Link>
+
+            <Link href="/admin/auction" className="group">
+              <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 rounded-3xl p-8 flex flex-col items-center justify-center hover:border-amber-500 transition-all h-full">
+                <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
+                  <Gavel size={40} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white text-center">
+                  حرب المزايدات
                 </h3>
               </div>
             </Link>
@@ -512,11 +519,11 @@ export default function AdminDashboardMain() {
             <div className="flex gap-3">
               <button
                 onClick={handleExportBackup}
-                className="flex-1 bg-indigo-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+                className="flex-1 bg-indigo-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors"
               >
                 <Download size={18} /> حفظ
               </button>
-              <label className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer">
+              <label className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-emerald-700 transition-colors">
                 <Upload size={18} /> استعادة
                 <input
                   type="file"
