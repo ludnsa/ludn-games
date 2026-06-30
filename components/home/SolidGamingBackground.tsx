@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 
-export const SolidGamingBackground = () => {
+export default function SolidGamingBackground() {
   const { theme } = useTheme();
   const [icons, setIcons] = useState<any[]>([]);
 

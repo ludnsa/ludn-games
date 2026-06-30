@@ -34,9 +34,10 @@ export interface WDCountry {
   value: number;
   originalValue: number;
   activeQuestion?: WDQuestion | null; 
-  questions?: WDQuestion[];
+  questions: WDQuestion[];
   forbiddenFor?: number[];
   isStolen?: boolean;
+  wasOwnedBefore?: boolean;
 }
 
 export interface CWQuestion {

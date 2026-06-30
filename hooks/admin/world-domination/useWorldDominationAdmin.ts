@@ -89,8 +89,9 @@ export function useWorldDominationAdmin() {
       await saveToSupabase("admin_wd_countries_db", newData);
       setEditingCountryId(null);
     } else {
-      const newCountry = {
+      const newCountry: WDCountry = {
         id: `c_${Date.now()}`, geoId: selectedGeoId, name: newWdCountryName.trim(), value: 0, questions: [],
+        isActive: true, isChallenge: false, owner: null, lastOwner: null, originalValue: 0
       };
       const newData = [...wdCountries, newCountry];
       setWdCountries(newData);

@@ -456,7 +456,7 @@ export function useWorldDomination() {
             c.id === country.id
               ? {
                   ...c,
-                  owner: 2,
+                  owner: 2 as const,
                   wasOwnedBefore: true,
                   value: 0,
                   originalValue: 0,

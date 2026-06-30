@@ -7,7 +7,7 @@ export function useWDCountries() {
   const [countriesLimit, setCountriesLimit] = useState<number>(20);
   const [challengesCount, setChallengesCount] = useState<number>(2);
   const [countries, setCountries] = useState<WDCountry[]>([]);
-  const [selectedCountry, setSelectedCountry] = useState<WDCountry | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<any>(null);
   const [mapPosition, setMapPosition] = useState({
     center: [0, 0] as [number, number],
     zoom: 1,

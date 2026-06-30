@@ -7,7 +7,6 @@ import { useCWRoom } from "./games/castle-war/useCWRoom";
 import { useCWCombat } from "./games/castle-war/useCWCombat";
 import { useCWChallenges } from "./games/castle-war/useCWChallenges";
 import { useDebounceCallback } from "@/lib/game/debounce";
-import { SoundType, createSoundSynth } from "@/lib/game/audio";
 
 export const TOTAL_SOLDIERS = 120;
 export const ROOMS_COUNT = 15;
