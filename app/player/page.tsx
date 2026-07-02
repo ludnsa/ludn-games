@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Tajawal } from "next/font/google";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { checkPhoneUnique } from "@/app/actions/auth";
 import { 
   Home, 
   MessageCircle, 
@@ -108,11 +109,9 @@ export default function PlayerLoginPage() {
   const [authPassword, setAuthPassword] = useState("");
   
   // حالات الإدخال الخاصة بإنشاء الحساب
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [countryCode, setCountryCode] = useState("+966");
   const [phone, setPhone] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   // حالات خاصة بالقائمة المنسدلة العصرية
@@ -200,16 +199,8 @@ export default function PlayerLoginPage() {
         setAuthLoading(false);
       }
     } else {
-      if (!firstName || !lastName || !authEmail || !phone || !authPassword || !confirmPassword) {
+      if (!fullName || !authEmail || !phone || !authPassword) {
         setNotification({ isOpen: true, message: "الرجاء تعبئة جميع الحقول المطلوبة.", type: "error" });
-        return;
-      }
-      if (firstName.trim().includes(' ') || lastName.trim().includes(' ')) {
-        setNotification({ isOpen: true, message: "الاسم الأول والثاني لازم يكونون بدون مسافات (كلمة واحدة لكل حقل).", type: "error" });
-        return;
-      }
-      if (authPassword !== confirmPassword) {
-        setNotification({ isOpen: true, message: "كلمة المرور وتأكيد كلمة المرور غير متطابقة.", type: "error" });
         return;
       }
       if (!termsAccepted) {
@@ -220,27 +211,41 @@ export default function PlayerLoginPage() {
       setAuthLoading(true);
       try {
         const fullPhoneNumber = `${countryCode}${phone}`;
+        
+        // التحقق من أن رقم الجوال غير مستخدم مسبقاً
+        const { isUnique } = await checkPhoneUnique(fullPhoneNumber);
+        if (!isUnique) {
+          setNotification({ isOpen: true, message: "هذا البريد الإلكتروني أو رقم الجوال مستخدم.", type: "error" });
+          setAuthLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
           email: authEmail,
           password: authPassword,
           options: {
             data: {
-              first_name: firstName.trim(),
-              last_name: lastName.trim(),
+              first_name: fullName.trim(),
+              last_name: "", // تركناها فارغة لأننا نستخدم اسماً واحداً
               phone_number: fullPhoneNumber,
             },
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
-        if (error) throw error;
+        
+        // التقاط خطأ الإيميل المستخدم
+        if (error) {
+          if (error.status === 422 || (error.message && error.message.includes("already registered"))) {
+            throw new Error("هذا البريد الإلكتروني أو رقم الجوال مستخدم.");
+          }
+          throw error;
+        }
         
         setNotification({ isOpen: true, message: "تم إنشاء الحساب بنجاح! شيك على إيميلك لتفعيل الحساب.", type: "success" });
         setIsLoginMode(true);
-        setFirstName("");
-        setLastName("");
+        setFullName("");
         setPhone("");
         setAuthPassword("");
-        setConfirmPassword("");
         setTermsAccepted(false);
       } catch (error: any) {
         console.error("Email auth error:", error);
@@ -300,24 +305,13 @@ export default function PlayerLoginPage() {
             <form onSubmit={handleEmailAuth} className="flex flex-col gap-3">
               
               {!isLoginMode && (
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    maxLength={12}
-                    placeholder="الاسم الأول"
-                    className="w-1/2 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 md:p-4 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500 transition-colors"
-                  />
-                  <input
-  type="text"
-  value={lastName}
-  onChange={(e) => setLastName(e.target.value)}
-  maxLength={12}
-  placeholder="الاسم الثاني"
-  className="w-1/2 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 md:p-4 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500 transition-colors"
-/>
-                </div>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="الاسم الثنائي"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 md:p-4 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500 transition-colors"
+                />
               )}
 
               <input
@@ -417,28 +411,18 @@ export default function PlayerLoginPage() {
               )}
 
               {!isLoginMode && (
-                <>
+                <div className="flex items-center gap-2 mt-1 px-1">
                   <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="تأكيد كلمة المرور"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 md:p-4 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500 transition-colors"
+                    type="checkbox"
+                    id="terms"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="w-5 h-5 accent-blue-600 rounded cursor-pointer shrink-0"
                   />
-
-                  <div className="flex items-center gap-2 mt-1 px-1">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
-                    />
-                    <label htmlFor="terms" className="text-sm font-bold text-slate-600 dark:text-slate-400 cursor-pointer">
-                      أوافق على الشروط والأحكام
-                    </label>
-                  </div>
-                </>
+                  <label htmlFor="terms" className="text-sm font-bold text-slate-600 dark:text-slate-400 cursor-pointer">
+                    أوافق على <Link href="#" className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300">الشروط والأحكام</Link>
+                  </label>
+                </div>
               )}
 
               <button
@@ -451,10 +435,10 @@ export default function PlayerLoginPage() {
             </form>
 
             <button
+              type="button"
               onClick={() => {
                 setIsLoginMode(!isLoginMode);
                 setAuthPassword("");
-                setConfirmPassword("");
               }}
               className="text-slate-500 dark:text-slate-400 font-bold text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
