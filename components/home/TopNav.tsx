@@ -14,12 +14,15 @@ import {
   LogOut,
   Sun,
   Moon,
+  Menu,
+  X,
 } from "lucide-react";
 
 export const TopNav = ({ scrollToSection }: { scrollToSection?: (e: React.MouseEvent<HTMLAnchorElement>, id: string) => void }) => {
   const { theme, setTheme } = useTheme();
   const { userSession, profile, logout } = useAuth();
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   React.useEffect(() => setMounted(true), []);
@@ -29,7 +32,8 @@ export const TopNav = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
   };
 
   return (
-    <div className="fixed top-4 left-0 right-0 z-[60] w-full max-w-7xl mx-auto px-2 md:px-4">
+    <>
+      <div className="fixed top-4 left-0 right-0 z-[60] w-full max-w-7xl mx-auto px-2 md:px-4">
       <div className="bg-white/95 dark:bg-slate-800/95 rounded-2xl border-4 border-slate-900 dark:border-black p-2 md:p-3 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] flex justify-between items-center transition-colors duration-300">
         <Link href="/" className="transition-transform hover:scale-105 active:scale-95 shrink-0 pl-1 md:pl-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -55,6 +59,10 @@ export const TopNav = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
         </nav>
 
         <div className="flex gap-1.5 md:gap-2 pr-1 md:pr-2 items-center">
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden w-10 h-10 md:w-11 md:h-11 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 text-slate-600 dark:text-slate-300 rounded-xl flex items-center justify-center transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:translate-y-0.5 active:border-b-0">
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          
           {userSession && profile ? (
             <div className="relative z-[70]">
               <button 
@@ -118,7 +126,28 @@ export const TopNav = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
             )}
           </button>
         </div>
+        </div>
       </div>
-    </div>
+
+      {isMobileMenuOpen && (
+        <div className="lg:hidden fixed top-[90px] left-2 right-2 z-[50] bg-white dark:bg-slate-800 rounded-2xl border-4 border-slate-900 dark:border-slate-950 p-4 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] flex flex-col gap-3 animate-in slide-in-from-top-4 duration-200">
+          <a href="/#hero" onClick={(e) => { setIsMobileMenuOpen(false); if(scrollToSection) scrollToSection(e, "hero"); }} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
+            <Home size={18} className="text-slate-500" /> <span>الرئيسية</span>
+          </a>
+          <a href="/#about-section" onClick={(e) => { setIsMobileMenuOpen(false); if(scrollToSection) scrollToSection(e, "about-section"); }} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
+            <Info size={18} className="text-purple-500" /> <span>عن المنصة</span>
+          </a>
+          <a href="/#games-section" onClick={(e) => { setIsMobileMenuOpen(false); if(scrollToSection) scrollToSection(e, "games-section"); }} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
+            <Gamepad2 size={18} className="text-emerald-500" /> <span>الألعاب والخدمات</span>
+          </a>
+          <a href="/#contact-section" onClick={(e) => { setIsMobileMenuOpen(false); if(scrollToSection) scrollToSection(e, "contact-section"); }} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
+            <MessageCircle size={18} className="text-blue-500" /> <span>تواصل معنا</span>
+          </a>
+          <Link href="/guides" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
+            <Info size={18} className="text-cyan-500" /> <span>كيف تلعب؟</span>
+          </Link>
+        </div>
+      )}
+    </>
   );
 };

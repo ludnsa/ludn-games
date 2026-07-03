@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ChevronDown, Search, Globe } from "lucide-react";
+import { ChevronDown, Search, Globe, Gamepad2 } from "lucide-react";
 
 export const HeroSection = ({ 
   scrollToSection, 
@@ -24,10 +24,10 @@ export const HeroSection = ({
           <Search className="w-6 h-6 md:w-8 md:h-8" strokeWidth={3} />
           <span>دخول الغرفة</span>
         </button>
-        <a href="https://ludn.sa/" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto flex-1 flex items-center justify-center gap-3 px-6 md:px-8 py-4 md:py-5 bg-blue-600 border-b-4 border-blue-800 hover:bg-blue-500 text-white rounded-2xl font-black text-lg md:text-xl transition-all active:scale-95 active:border-b-0 active:translate-y-1">
-          <Globe className="w-6 h-6 md:w-8 md:h-8" strokeWidth={3} />
-          <span>موقع لدن</span>
-        </a>
+        <button onClick={(e) => scrollToSection(e as any, "games-section")} className="w-full sm:w-auto flex-1 flex items-center justify-center gap-3 px-6 md:px-8 py-4 md:py-5 bg-blue-600 border-b-4 border-blue-800 hover:bg-blue-500 text-white rounded-2xl font-black text-lg md:text-xl transition-all active:scale-95 active:border-b-0 active:translate-y-1">
+          <Gamepad2 className="w-6 h-6 md:w-8 md:h-8" strokeWidth={3} />
+          <span>ابدأ اللعب</span>
+        </button>
       </div>
 
       <a href="#games-section" onClick={(e) => scrollToSection(e, "games-section")} className="mt-12 md:mt-16 animate-bounce cursor-pointer flex items-center justify-center w-12 h-12 md:w-14 md:h-14 bg-white dark:bg-slate-800 border-b-4 border-slate-200 dark:border-slate-950 rounded-full text-slate-400 dark:text-slate-500 hover:text-blue-500 transition-all active:translate-y-1 active:border-b-0">

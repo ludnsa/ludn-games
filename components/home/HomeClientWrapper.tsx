@@ -77,8 +77,8 @@ export function HomeClientWrapper() {
 
       <div className="relative z-10 w-full flex-1 flex flex-col pt-4">
         <HeroSection scrollToSection={scrollToSection} setIsJoinModalOpen={setIsJoinModalOpen} />
-        <AboutSection setIsJoinModalOpen={setIsJoinModalOpen} />
         <GamesSection />
+        <AboutSection setIsJoinModalOpen={setIsJoinModalOpen} />
         <ContactSection />
         <Footer scrollToSection={scrollToSection} />
       </div>
