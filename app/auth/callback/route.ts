@@ -34,9 +34,18 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error) {
-      // إذا كان هناك رابط توجيه مخصص (next) نعطيه الأولوية
+      // التحقق من الرابط لمنع (Open Redirect)
+      let safeNext = '/';
       if (next) {
-        return NextResponse.redirect(`${origin}${next}`)
+        // التأكد من أن الرابط يبدأ بـ / ولا يبدأ بـ // أو http
+        if (next.startsWith('/') && !next.startsWith('//')) {
+          safeNext = next;
+        }
+      }
+
+      // إذا كان هناك رابط توجيه مخصص (next) نعطيه الأولوية
+      if (safeNext !== '/') {
+        return NextResponse.redirect(`${origin}${safeNext}`)
       }
 
       // جلب بيانات المستخدم الحالي

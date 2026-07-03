@@ -31,6 +31,16 @@ export async function getWDSettings() {
 
 // مزامنة حالة الغرفة (تحديث أو إنشاء)
 export async function syncRoomState(roomCode: string, payload: any) {
+  // التحقق من هوية المستخدم أولاً لضمان الأمان
+  const userClient = await getSupabaseServer();
+  const { data: { user }, error: authError } = await userClient.auth.getUser();
+
+  if (authError || !user) {
+    console.error("Unauthorized room sync attempt:", authError);
+    return { success: false, error: "Unauthorized: You must be logged in to modify room state." };
+  }
+
+  // استخدام صلاحيات الأدمن فقط لتجاوز RLS وتحديث البيانات
   const supabase = getSupabaseServiceRole();
   
   // التحقق من صحة البيانات باستخدام Zod
