@@ -40,13 +40,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const { data } = await supabase
         .from("profiles")
-        .select("first_name, last_name, email")
+        .select("full_name, email")
         .eq("id", user.id)
         .maybeSingle();
 
       const userProfile = data || {
-        first_name: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || "لاعب",
-        last_name: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ')[1] || "جديد",
+        full_name: user.user_metadata?.full_name || "لاعب جديد",
       };
 
       setProfile({ ...userProfile, email: user.email });

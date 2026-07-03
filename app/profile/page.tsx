@@ -23,8 +23,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  const [editFirstName, setEditFirstName] = useState("");
-  const [editLastName, setEditLastName] = useState("");
+  const [editFullName, setEditFullName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
   const [notification, setNotification] = useState({ isOpen: false, message: "", type: "success" });
@@ -49,19 +48,17 @@ export default function ProfilePage() {
         
         const { data } = await supabase
           .from("profiles")
-          .select("first_name, last_name, phone_number, email")
+          .select("full_name, phone_number, email")
           .eq("id", user.id)
           .maybeSingle();
 
         const userProfile = data || {
-          first_name: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || "لاعب",
-          last_name: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ')[1] || "جديد",
+          full_name: user.user_metadata?.full_name || "لاعب جديد",
           phone_number: user.user_metadata?.phone_number || "",
         };
 
         setProfile({ ...userProfile, email: user.email });
-        setEditFirstName(userProfile.first_name || "");
-        setEditLastName(userProfile.last_name || "");
+        setEditFullName(userProfile.full_name || "");
         setEditPhone(userProfile.phone_number || "");
 
       } catch (err) {
@@ -75,8 +72,8 @@ export default function ProfilePage() {
   }, []);
 
   const handleSaveChanges = async () => {
-    if (!editFirstName || !editLastName) {
-      setNotification({ isOpen: true, message: "الأسماء مطلوبة ولا يمكن تركها فارغة.", type: "error" });
+    if (!editFullName) {
+      setNotification({ isOpen: true, message: "الاسم مطلوب ولا يمكن تركه فارغاً.", type: "error" });
       return;
     }
     setSaveLoading(true);
@@ -84,8 +81,7 @@ export default function ProfilePage() {
       const { error } = await supabase
         .from("profiles")
         .update({
-          first_name: editFirstName.trim(),
-          last_name: editLastName.trim(),
+          full_name: editFullName.trim(),
           phone_number: editPhone.trim(),
         })
         .eq("id", userSession.id);
@@ -173,10 +169,10 @@ export default function ProfilePage() {
                   className="flex items-center gap-1.5 md:gap-2 p-1 pr-2 md:pr-3 bg-slate-100 dark:bg-slate-900 rounded-xl md:rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 transition-colors"
                 >
                   <span className="text-xs md:text-sm font-black hidden sm:inline-block max-w-[100px] truncate text-slate-800 dark:text-slate-200">
-                    {profile.first_name}
+                    {profile.full_name}
                   </span>
                   <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 text-white font-black rounded-lg md:rounded-xl flex items-center justify-center text-xs md:text-sm shadow-inner uppercase">
-                    {profile.first_name?.[0]}{profile.last_name?.[0]}
+                    {profile.full_name?.split(' ')[0]?.[0]}{profile.full_name?.split(' ')[1]?.[0] || ""}
                   </div>
                   <ChevronDown size={14} className={`transition-transform text-slate-500 ${isAvatarDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
@@ -246,12 +242,8 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-5 mb-8">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-black text-slate-500 dark:text-slate-400 mb-2">الاسم الأول</label>
-                  <input type="text" value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} maxLength={12} className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-3.5 text-base font-bold outline-none focus:border-blue-500 transition-colors text-slate-900 dark:text-white" />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-black text-slate-500 dark:text-slate-400 mb-2">الاسم الثاني</label>
-                  <input type="text" value={editLastName} onChange={(e) => setEditLastName(e.target.value)} maxLength={12} className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-3.5 text-base font-bold outline-none focus:border-blue-500 transition-colors text-slate-900 dark:text-white" />
+                  <label className="block text-sm font-black text-slate-500 dark:text-slate-400 mb-2">الاسم الثنائي</label>
+                  <input type="text" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} maxLength={24} className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-3.5 text-base font-bold outline-none focus:border-blue-500 transition-colors text-slate-900 dark:text-white" />
                 </div>
               </div>
               <div>

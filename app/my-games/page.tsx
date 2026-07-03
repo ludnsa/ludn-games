@@ -44,13 +44,12 @@ export default function MyGamesPage() {
         // جلب بيانات الحساب عشان الهيدر (الاسم والأيقونة)
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("first_name, last_name, email")
+          .select("full_name, email")
           .eq("id", user.id)
           .maybeSingle();
 
         const userProfile = profileData || {
-          first_name: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || "لاعب",
-          last_name: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ')[1] || "جديد",
+          full_name: user.user_metadata?.full_name || "لاعب جديد",
         };
         setProfile({ ...userProfile, email: user.email });
 
@@ -152,10 +151,10 @@ export default function MyGamesPage() {
                   className="flex items-center gap-1.5 md:gap-2 p-1 pr-2 md:pr-3 bg-slate-100 dark:bg-slate-900 rounded-xl md:rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 transition-colors"
                 >
                   <span className="text-xs md:text-sm font-black hidden sm:inline-block max-w-[100px] truncate text-slate-800 dark:text-slate-200">
-                    {profile.first_name}
+                    {profile.full_name}
                   </span>
                   <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 text-white font-black rounded-lg md:rounded-xl flex items-center justify-center text-xs md:text-sm shadow-inner uppercase">
-                    {profile.first_name?.[0]}{profile.last_name?.[0]}
+                    {profile.full_name?.split(' ')[0]?.[0]}{profile.full_name?.split(' ')[1]?.[0] || ""}
                   </div>
                   <ChevronDown size={14} className={`transition-transform text-slate-500 ${isAvatarDropdownOpen ? "rotate-180" : ""}`} />
                 </button>

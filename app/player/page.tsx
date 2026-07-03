@@ -225,8 +225,7 @@ export default function PlayerLoginPage() {
           password: authPassword,
           options: {
             data: {
-              first_name: fullName.trim(),
-              last_name: "", // تركناها فارغة لأننا نستخدم اسماً واحداً
+              full_name: fullName.trim(),
               phone_number: fullPhoneNumber,
             },
             emailRedirectTo: `${window.location.origin}/auth/callback`,
@@ -240,13 +239,10 @@ export default function PlayerLoginPage() {
           }
           throw error;
         }
-        
-        setNotification({ isOpen: true, message: "تم إنشاء الحساب بنجاح! شيك على إيميلك لتفعيل الحساب.", type: "success" });
-        setIsLoginMode(true);
-        setFullName("");
-        setPhone("");
-        setAuthPassword("");
-        setTermsAccepted(false);
+        setNotification({ isOpen: true, message: "تم إنشاء الحساب بنجاح! جاري توجيهك...", type: "success" });
+        setTimeout(() => {
+          router.push("/");
+        }, 1500);
       } catch (error: any) {
         console.error("Email auth error:", error);
         setNotification({ isOpen: true, message: error.message || "حدث خطأ أثناء التسجيل.", type: "error" });

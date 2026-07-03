@@ -5,8 +5,7 @@ import { UpdateProfileSchema } from "@/lib/schemas";
 
 export async function updateProfile(formData: FormData) {
   const data = {
-    firstName: formData.get("firstName"),
-    lastName: formData.get("lastName"),
+    fullName: formData.get("fullName"),
     phoneNumber: formData.get("phoneNumber") || "",
   };
 
@@ -28,8 +27,7 @@ export async function updateProfile(formData: FormData) {
     const { error } = await supabase
       .from("profiles")
       .update({
-        first_name: parsed.data.firstName,
-        last_name: parsed.data.lastName,
+        full_name: parsed.data.fullName,
         phone_number: parsed.data.phoneNumber,
       })
       .eq("id", user.id);

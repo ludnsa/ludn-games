@@ -8,8 +8,7 @@ export const ContactMessageSchema = z.object({
 });
 
 export const UpdateProfileSchema = z.object({
-  firstName: z.string().min(2, "الاسم الأول مطلوب"),
-  lastName: z.string().min(2, "الاسم الأخير مطلوب"),
+  fullName: z.string().min(2, "الاسم الثنائي مطلوب"),
   phoneNumber: z.string().optional(),
 });
 
