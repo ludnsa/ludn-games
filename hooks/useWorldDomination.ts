@@ -111,7 +111,7 @@ export function useWorldDomination() {
     }
   }, []);
 
-  // دالة تهيئة اللعبة (جلب الأسئلة)
+  // دالة تهيئة اللعبة (جلب الدول والأسئلة من إعدادات الآدمن)
   const initGame = async () => {
     if (isInitialized) return;
     try {
@@ -125,65 +125,32 @@ export function useWorldDomination() {
         );
       }
 
+      // جلب جميع البيانات من wd_settings (نفس المصدر الذي يحفظ فيه الآدمن)
       try {
         const { data, error } = await supabase.from("wd_settings").select("*");
         if (data && !error) {
-          const cLim = data.find((row) => row.key === "countries_limit")?.value;
-          const chCnt = data.find((row) => row.key === "challenges_count")?.value;
-          if (cLim !== undefined) setCountriesLimit(Number(cLim));
-          if (chCnt !== undefined) setChallengesCount(Number(chCnt));
-        }
-      } catch (e) {
-        console.error("خطأ في جلب الإعدادات:", e);
-      }
+          data.forEach((item) => {
+            // قراءة الإعدادات العامة (حد الدول وعدد التحديات)
+            if (item.key === "countries_limit" && item.value !== undefined) {
+              setCountriesLimit(Number(item.value));
+            }
+            if (item.key === "challenges_count" && item.value !== undefined) {
+              setChallengesCount(Number(item.value));
+            }
 
-      try {
-        const { data, error } = await supabase
-          .from("questions_bank")
-          .select("id, question, options, answer, country")
-          .eq("category", "world_domination")
-          .order("id", { ascending: false });
+            // قراءة الدول وأسئلتها (المصدر الصحيح: admin_wd_countries_db)
+            if (item.id === "admin_wd_countries_db" && item.data) {
+              setDbCountries(item.data);
+            }
 
-        if (data && !error) {
-          const grouped: any = {};
-          data.forEach((q: any) => {
-            if (q.country) {
-              if (!grouped[q.country]) grouped[q.country] = [];
-              let opts = [];
-              if (Array.isArray(q.options)) {
-                opts = q.options;
-              } else if (typeof q.options === "string") {
-                try {
-                  opts = JSON.parse(q.options);
-                } catch (e) {
-                  opts = [];
-                }
-              }
-              grouped[q.country].push({ q: q.question, options: opts, a: q.answer });
+            // قراءة تحديات الحكم (المصدر الصحيح: admin_wd_challenges_db)
+            if (item.id === "admin_wd_challenges_db" && item.data) {
+              setDbWdChallenges(item.data);
             }
           });
-          const mappedCountries = Object.keys(grouped).map((countryName, index) => ({
-            id: `db-${index}`,
-            name: countryName,
-            geoId: "",
-            questions: grouped[countryName],
-          })) as any;
-          setDbCountries(mappedCountries);
         }
       } catch (e) {
-        console.error("خطأ في جلب بيانات البنك:", e);
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("questions_bank")
-          .select("question")
-          .eq("category", "wd_challenge");
-        if (data && !error) {
-          setDbWdChallenges(data.map((row: any) => row.question));
-        }
-      } catch (e) {
-        console.error("خطأ في جلب بيانات البنك:", e);
+        console.error("خطأ في جلب بيانات اللعبة:", e);
       }
 
       setTimeout(() => {

@@ -220,7 +220,7 @@ export default function PlayerLoginPage() {
           return;
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: authEmail,
           password: authPassword,
           options: {
@@ -239,10 +239,19 @@ export default function PlayerLoginPage() {
           }
           throw error;
         }
-        setNotification({ isOpen: true, message: "تم إنشاء الحساب بنجاح! جاري توجيهك...", type: "success" });
-        setTimeout(() => {
-          router.push("/");
-        }, 1500);
+
+        // بعد التسجيل، نتأكد أن الجلسة مفعلة قبل الانتقال
+        // Supabase قد يعيد جلسة مباشرة إذا كان Confirm Email معطلاً
+        if (data.session) {
+          setNotification({ isOpen: true, message: "تم إنشاء الحساب بنجاح! جاري توجيهك...", type: "success" });
+          // الانتظار قليلاً ثم تحديث الصفحة بالكامل لضمان أن الـ Middleware يقرأ الجلسة الجديدة
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 1500);
+        } else {
+          // في حال كان تأكيد الإيميل مفعلاً
+          setNotification({ isOpen: true, message: "تم إنشاء الحساب! الرجاء تفعيل حسابك من البريد الإلكتروني.", type: "success" });
+        }
       } catch (error: any) {
         console.error("Email auth error:", error);
         setNotification({ isOpen: true, message: error.message || "حدث خطأ أثناء التسجيل.", type: "error" });
