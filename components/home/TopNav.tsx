@@ -37,7 +37,7 @@ export const TopNav = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
       <div className="bg-white/95 dark:bg-slate-800/95 rounded-2xl border-4 border-slate-900 dark:border-black p-2 md:p-3 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] flex justify-between items-center transition-colors duration-300">
         <Link href="/" className="transition-transform hover:scale-105 active:scale-95 shrink-0 pl-1 md:pl-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 object-contain" />
+          <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 w-auto max-w-[140px] md:max-w-[200px] object-contain" />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-1.5 md:gap-3">

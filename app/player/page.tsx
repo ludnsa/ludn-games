@@ -274,7 +274,7 @@ export default function PlayerLoginPage() {
       <header className="w-full max-w-7xl mx-auto px-4 pt-6 relative z-50">
         <div className="bg-white/95 dark:bg-slate-800/95 rounded-2xl border-4 border-slate-900 dark:border-black p-3 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] flex justify-between items-center transition-colors duration-300">
           <Link href="/" className="transition-transform hover:scale-105 active:scale-95 shrink-0 pl-2">
-            <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 object-contain" />
+            <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 w-auto max-w-[140px] md:max-w-[200px] object-contain" />
           </Link>
 
           <nav className="hidden sm:flex items-center gap-3">
@@ -490,7 +490,7 @@ export default function PlayerLoginPage() {
       <footer className="w-full bg-white dark:bg-slate-800 border-t-8 border-slate-200 dark:border-slate-950 pt-12 pb-8 relative z-10 transition-colors duration-300 mt-auto">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div className="flex flex-col items-center md:items-start gap-4">
-            <img src="/logo.svg" alt="الشعار" className="h-16 md:h-20 object-contain" />
+            <img src="/logo.svg" alt="الشعار" className="h-16 md:h-20 w-auto max-w-[160px] md:max-w-[240px] object-contain" />
             <p className="text-slate-500 dark:text-slate-400 font-bold text-sm text-center md:text-right mt-2 max-w-xs">
               منصة ألعاب تفاعلية تجمع العائلة والأصدقاء في لحظات مليئة بالحماس والضحك.
             </p>
