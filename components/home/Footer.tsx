@@ -8,7 +8,7 @@ export const Footer = ({ scrollToSection }: { scrollToSection: (e: React.MouseEv
       <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 md:gap-8 mb-12">
         <div className="flex flex-col items-center sm:items-start gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="https://ludn.sa/full_logo.svg?dpl=dpl_9jc3BNjB3uY2VzRn5kQd3MZSNLaW" alt="لدن التقنية" className="h-12 md:h-14 object-contain dark:brightness-0 dark:invert" />
+          <img src="/logo.svg" alt="الشعار" className="h-16 md:h-20 object-contain" />
           <p className="text-slate-500 dark:text-slate-400 font-bold text-sm text-center sm:text-right mt-2 leading-relaxed max-w-xs">منصة ألعاب تفاعلية تجمع العائلة والأصدقاء في لحظات مليئة بالحماس والضحك.</p>
           <div className="flex items-center gap-3 mt-2">
             <a href="https://ludn.sa/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-sm transition-all border-b-2 border-blue-800 active:border-b-0 active:translate-y-0.5">

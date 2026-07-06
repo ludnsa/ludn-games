@@ -125,7 +125,7 @@ export default function MyGamesPage() {
       <div className="fixed top-4 left-0 right-0 z-[60] w-full max-w-7xl mx-auto px-2 md:px-4">
         <div className="bg-white/95 dark:bg-slate-800/95 rounded-2xl border-4 border-slate-900 dark:border-black p-2 md:p-3 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] flex justify-between items-center transition-colors duration-300">
           <Link href="/" className="transition-transform hover:scale-105 active:scale-95 shrink-0 pl-1 md:pl-2">
-            <img src="https://ludn.sa/full_logo.svg?dpl=dpl_9jc3BNjB3uY2VzRn5kQd3MZSNLaW" alt="لدن التقنية" className="h-8 md:h-12 object-contain dark:brightness-0 dark:invert" />
+            <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 object-contain" />
           </Link>
 
           <nav className="hidden lg:flex items-center gap-1.5 md:gap-3">
@@ -266,7 +266,7 @@ export default function MyGamesPage() {
       <footer className="w-full bg-white dark:bg-slate-800 border-t-8 border-slate-200 dark:border-slate-950 pt-12 md:pt-16 pb-8 relative z-10 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 md:gap-8 mb-12">
           <div className="flex flex-col items-center sm:items-start gap-4">
-            <img src="https://ludn.sa/full_logo.svg?dpl=dpl_9jc3BNjB3uY2VzRn5kQd3MZSNLaW" alt="لدن التقنية" className="h-12 md:h-14 object-contain dark:brightness-0 dark:invert" />
+            <img src="/logo.svg" alt="الشعار" className="h-16 md:h-20 object-contain" />
             <p className="text-slate-500 dark:text-slate-400 font-bold text-sm text-center sm:text-right mt-2 leading-relaxed max-w-xs">منصة ألعاب تفاعلية تجمع العائلة والأصدقاء في لحظات مليئة بالحماس والضحك.</p>
             <a href="https://x.com/LudnSA" target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-all border-b-2 border-slate-200 dark:border-slate-900 active:border-b-0 active:translate-y-0.5">
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 24.95H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>

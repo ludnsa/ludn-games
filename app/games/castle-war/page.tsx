@@ -61,7 +61,7 @@ export default function CastleBattleMainScreen() {
       <div className="fixed top-4 left-0 right-0 z-[60] w-full max-w-7xl mx-auto px-4">
         <div className="bg-white/95 dark:bg-slate-800/95 rounded-2xl border-b-4 border-slate-200 dark:border-slate-950 p-2 md:p-3 shadow-xl flex justify-between items-center transition-colors duration-300">
           <Link href="/" className="transition-transform hover:scale-105 active:scale-95 shrink-0 pl-2">
-            <img src="https://ludn.sa/full_logo.svg?dpl=dpl_9jc3BNjB3uY2VzRn5kQd3MZSNLaW" alt="لدن التقنية" className="h-10 md:h-12 object-contain dark:brightness-0 dark:invert" />
+            <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 object-contain" />
           </Link>
           <nav className="hidden md:flex items-center gap-1.5 md:gap-3">
             <Link href="/" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
