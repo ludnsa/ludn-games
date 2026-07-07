@@ -127,7 +127,7 @@ export function useAuctionReferee() {
     if (!roomCode) return;
 
     const fetchBidsFallback = async () => {
-      const { data } = await supabase.from("auction_rooms").select("t1_bid, t2_bid").eq("room_code", roomCode).neq("t1_balance", -Math.random()).single();
+      const { data } = await supabase.from("auction_rooms").select("t1_bid, t2_bid").eq("room_code", roomCode).neq("t1_balance", -Date.now()).single();
       if (data) {
         if (data.t1_bid !== null && data.t1_bid !== undefined) setT1Bid(data.t1_bid);
         if (data.t2_bid !== null && data.t2_bid !== undefined) setT2Bid(data.t2_bid);

@@ -60,7 +60,7 @@ export function useAuctionTeam() {
     if (!isJoined || !roomCode) return;
 
     const fetchInitialData = async () => {
-      const { data } = await supabase.from("auction_rooms").select("*").eq("room_code", roomCode).neq("t1_balance", -Math.random()).single();
+      const { data } = await supabase.from("auction_rooms").select("*").eq("room_code", roomCode).neq("t1_balance", -Date.now()).single();
       if (data) {
         setLiveData((prev: any) => {
           if (data.game_state === "bidding" && prev?.game_state !== "bidding") {
@@ -115,7 +115,7 @@ export function useAuctionTeam() {
       .from("auction_rooms")
       .select("t1_device_id, t2_device_id")
       .eq("room_code", roomCode)
-      .neq("t1_balance", -Math.random()) // CACHE BUSTER
+      .neq("t1_balance", -Date.now()) // CACHE BUSTER
       .single();
 
     if (fetchError || !roomData) {
@@ -169,7 +169,7 @@ export function useAuctionTeam() {
       .from("auction_rooms")
       .select("t1_device_id, t2_device_id")
       .eq("room_code", roomCode)
-      .neq("t1_balance", -Math.random()) // CACHE BUSTER
+      .neq("t1_balance", -Date.now()) // CACHE BUSTER
       .single();
     if (checkRoom) {
       const requiredId = teamId === 1 ? checkRoom.t1_device_id : checkRoom.t2_device_id;
