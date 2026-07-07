@@ -125,7 +125,7 @@ export function useAuctionTeam() {
       return;
     }
 
-    if (currentRoom[colName] === deviceId) {
+    if ((currentRoom as any)[colName] === deviceId) {
       setIsJoined(true);
       return;
     }
