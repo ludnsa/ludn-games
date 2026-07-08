@@ -75,12 +75,19 @@ export function useAdminDashboard() {
         const { count: questionsCount } = await supabase.from("wd_country_questions").select("*", { count: 'exact', head: true });
         const { count: challengesCount } = await supabase.from("wd_challenges").select("*", { count: 'exact', head: true });
 
-        // للتبسيط في لوحة التحكم، سنحسب الإجماليات فقط
+        const { data: countries } = await supabase.from("wd_countries").select("id, name");
+        const { data: questions } = await supabase.from("wd_country_questions").select("country_id");
+
+        const countryDetails = countries?.map(c => ({
+          name: c.name,
+          qCount: questions?.filter(q => q.country_id === c.id).length || 0
+        })).sort((a, b) => b.qCount - a.qCount) || [];
+
         setWdStats({ 
           countries: countriesCount || 0, 
           questions: questionsCount || 0, 
           challenges: challengesCount || 0, 
-          countryDetails: [] 
+          countryDetails 
         });
       } catch (error) {
         console.error("Error fetching WD stats", error);
