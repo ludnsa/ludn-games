@@ -5,11 +5,17 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { generateRoomCode } from "@/lib/game/room-code";
 import { shuffleArray } from "@/lib/game/shuffle";
 import { useGameTimer } from "@/hooks/shared/useGameTimer";
+import { useGameAccess } from "@/hooks/shared/useGameAccess";
+import { useRouter } from "next/navigation";
 
 
 export function useAuctionReferee() {
   const supabase = getSupabaseBrowser();
+  const router = useRouter();
+  const { checkAccess, consumeGameSession } = useGameAccess();
+  
   const [mounted, setMounted] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [gameState, setGameState] = useState<
     "setup" | "bidding" | "preRisk" | "questionReveal" | "optionsDecision" | "buyOffer" | "options" | "rewardChoice" | "result" | "gameOver"
   >("setup");
@@ -59,6 +65,13 @@ export function useAuctionReferee() {
 
   useEffect(() => {
     setMounted(true);
+    
+    const getSession = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getSession();
+
     const initRoom = async () => {
       let savedCode = sessionStorage.getItem("auction_referee_room_code");
       if (savedCode) {
@@ -134,6 +147,15 @@ export function useAuctionReferee() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (gameState === "gameOver") {
+      const timer = setTimeout(() => {
+        router.push("/my-games");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState, router]);
 
   // Timer logic is now handled by useGameTimer hook
 
@@ -250,6 +272,20 @@ export function useAuctionReferee() {
   };
 
   const startGame = async () => {
+    if (!userId) {
+      triggerAlert("يجب تسجيل الدخول لإنشاء الغرفة.");
+      return;
+    }
+
+    // Gatekeeper Check
+    const access = await checkAccess("auction", userId);
+    if (!access.allowed) {
+      triggerConfirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟", () => {
+        router.push("/packages");
+      });
+      return;
+    }
+
     const { data: realQuestions, error } = await supabase
       .from("aw_questions")
       .select("*");
@@ -281,6 +317,9 @@ export function useAuctionReferee() {
       timer: 25, is_timer_running: false, is_question_visible: false,
       selected_option: null
     }).eq("room_code", roomCode);
+
+    // Consume the token or free trial
+    await consumeGameSession("auction", userId, access.reason);
 
     setSelectedOption(null);
     setGameState("bidding");
@@ -456,7 +495,7 @@ export function useAuctionReferee() {
   };
 
   const nextQuestion = async () => {
-    if (currentIndex + 1 >= questions.length) {
+    if (currentIndex + 1 >= questions.length || (t1Balance <= 0 && t2Balance <= 0)) {
       setGameState("gameOver");
     } else {
       setCurrentIndex(p => p + 1);

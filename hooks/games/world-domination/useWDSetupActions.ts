@@ -1,7 +1,21 @@
 export function useWDSetupActions(ctx: any) {
-  const startGame = () => {
+  const startGame = async () => {
+    if (!ctx.userId) {
+      ctx.showAlert("يجب تسجيل الدخول لبدء اللعبة.");
+      return;
+    }
+
     if (ctx.dbCountries.length === 0) {
       ctx.showAlert("الرجاء إضافة دول من لوحة تحكم الآدمن أولاً!");
+      return;
+    }
+
+    // Gatekeeper Check
+    const access = await ctx.checkAccess("world-domination", ctx.userId);
+    if (!access.allowed) {
+      ctx.showConfirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟", () => {
+        ctx.router.push("/packages");
+      });
       return;
     }
 
@@ -58,6 +72,10 @@ export function useWDSetupActions(ctx: any) {
     ctx.setSpiedCountryId(null);
 
     localStorage.removeItem("wd_live_sync");
+    
+    // Consume Token or Free Trial
+    await ctx.consumeGameSession("world-domination", ctx.userId, access.reason);
+    
     ctx.setGameState("setupMap");
   };
 

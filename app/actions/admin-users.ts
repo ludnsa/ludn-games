@@ -31,12 +31,17 @@ export async function getAdminUsers() {
     return { error: error.message };
   }
 
+  // Fetch profiles to get tokens
+  const { data: profiles } = await supabase.from("profiles").select("id, available_tokens");
+  const profilesMap = new Map(profiles?.map(p => [p.id, p.available_tokens || 0]) || []);
+
   const users = data.users.map((user) => ({
     id: user.id,
     email: user.email || "",
     phone: user.phone || user.user_metadata?.phone || "",
     name: user.user_metadata?.name || user.user_metadata?.full_name || "بدون اسم",
     createdAt: user.created_at,
+    tokens: profilesMap.get(user.id) || 0,
   }));
 
   return { users };
@@ -58,7 +63,7 @@ export async function deleteAdminUser(userId: string) {
   return { success: true };
 }
 
-export async function updateAdminUser(userId: string, updates: { name?: string; phone?: string; email?: string; password?: string }) {
+export async function updateAdminUser(userId: string, updates: { name?: string; phone?: string; email?: string; password?: string; tokens?: number }) {
   const cookieStore = await cookies();
   const supabase = getAdminClient(cookieStore);
 
@@ -97,6 +102,7 @@ export async function updateAdminUser(userId: string, updates: { name?: string; 
   if (updates.name) profileUpdates.name = updates.name;
   if (updates.phone) profileUpdates.phone = updates.phone;
   if (updates.email) profileUpdates.email = updates.email;
+  if (updates.tokens !== undefined) profileUpdates.available_tokens = updates.tokens;
 
   if (Object.keys(profileUpdates).length > 0) {
     await supabase.from("profiles").update(profileUpdates).eq("id", userId);

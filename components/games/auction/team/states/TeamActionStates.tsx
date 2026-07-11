@@ -27,11 +27,19 @@ export default function TeamActionStates({ ctx }: { ctx: any }) {
   }
 
   if (state === "gameOver") {
+    const t1P = ctx.liveData.t1_points || 0;
+    const t2P = ctx.liveData.t2_points || 0;
+    const t1N = ctx.liveData.t1_name || "الفريق الأول";
+    const t2N = ctx.liveData.t2_name || "الفريق الثاني";
+
     return (
       <div className="bg-white dark:bg-slate-900 p-12 rounded-[2.5rem] shadow-2xl border-4 border-yellow-500 text-center w-full animate-in zoom-in duration-700">
          <Trophy className="w-24 h-24 text-yellow-500 mx-auto mb-6 animate-pulse" />
          <h2 className="text-4xl font-black mb-4 text-slate-800 dark:text-white">انتهت الحرب!</h2>
-         <p className="text-xl font-bold text-slate-500 mb-8">الرجاء النظر للشاشة الرئيسية لمعرفة الفائز النهائي.</p>
+         <div className="text-xl md:text-3xl font-black text-slate-600 dark:text-slate-300 mb-6">
+           الـفـائـز الـنـهـائـي: {t1P > t2P ? <span className="text-cyan-600 dark:text-cyan-400">{t1N}</span> : t1P < t2P ? <span className="text-rose-600 dark:text-rose-400">{t2N}</span> : <span className="text-amber-500">تعادل عادل</span>}
+         </div>
+         <p className="text-xl font-bold text-slate-500 mb-8">الرجاء النظر للشاشة الرئيسية للتفاصيل.</p>
       </div>
     );
   }

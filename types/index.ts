@@ -4,6 +4,7 @@ export interface UserProfile {
   full_name: string;
   phone_number?: string;
   email?: string;
+  available_tokens?: number;
 }
 
 // أنواع بيانات مكتبة الألعاب للمستخدم

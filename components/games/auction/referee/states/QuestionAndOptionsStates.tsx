@@ -9,7 +9,7 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
   const {
     gameState, isDoubleRisk, timer, isQuestionVisible, setIsQuestionVisible,
     questions, currentIndex, isTimerRunning, setIsTimerRunning, setPlayMode, setGameState,
-    selectedOption, setSelectedOption, handleAnswer, triggerConfirm, roomCode, playMode
+    selectedOption, setSelectedOption, handleAnswer, triggerConfirm, roomCode, playMode, nextQuestion
   } = ctx;
 
   return (
@@ -69,6 +69,17 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
                      <span className="text-[10px] md:text-xs font-bold opacity-90">غير متاح مع الدبل</span>
                   </div>
                 )}
+             </div>
+           )}
+
+           {timer <= 0 && (
+             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in">
+               <button 
+                 onClick={() => triggerConfirm("هل أنت متأكد من إلغاء السؤال لأن الوقت انتهى والانتقال للسؤال التالي؟", nextQuestion)} 
+                 className="w-full py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black rounded-xl border-b-4 border-slate-400 dark:border-slate-900 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex items-center justify-center gap-2"
+               >
+                 <XCircle size={20} /> إلغاء السؤال لانقضاء الوقت
+               </button>
              </div>
            )}
         </div>
@@ -148,6 +159,17 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
                  اعتماد النتيجة والانتقال <ArrowRight size={24} />
                </button>
              )
+           )}
+
+           {timer <= 0 && (
+             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in">
+               <button 
+                 onClick={() => triggerConfirm("هل أنت متأكد من إلغاء السؤال لأن الوقت انتهى والانتقال للسؤال التالي؟", nextQuestion)} 
+                 className="w-full py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black rounded-xl border-b-4 border-slate-400 dark:border-slate-900 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex items-center justify-center gap-2"
+               >
+                 <XCircle size={20} /> إلغاء السؤال لانقضاء الوقت
+               </button>
+             </div>
            )}
         </div>
       )}

@@ -7,6 +7,8 @@ import { useCWRoom } from "./games/castle-war/useCWRoom";
 import { useCWCombat } from "./games/castle-war/useCWCombat";
 import { useCWChallenges } from "./games/castle-war/useCWChallenges";
 import { useDebounceCallback } from "@/lib/game/debounce";
+import { useGameAccess } from "@/hooks/shared/useGameAccess";
+import { useRouter } from "next/navigation";
 
 export const TOTAL_SOLDIERS = 120;
 export const ROOMS_COUNT = 15;
@@ -120,6 +122,9 @@ export function useCastleWar() {
   const flow = useCWGameFlow();
   const combat = useCWCombat();
   const challenges = useCWChallenges();
+  const router = useRouter();
+  const { checkAccess, consumeGameSession } = useGameAccess();
+  const [userId, setUserId] = useState<string | null>(null);
 
   const {
     roomCode, setRoomCode, roomCodeRef, joinUrl, setJoinUrl, linkCopied, setLinkCopied,
@@ -163,10 +168,26 @@ export function useCastleWar() {
   };
 
   useEffect(() => {
+    if (gameState === "gameOver") {
+      const timer = setTimeout(() => {
+        router.push("/my-games");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState, router]);
+
+  useEffect(() => {
     const checkTheme = () => setIsDarkMode(document.documentElement.classList.contains("dark"));
     checkTheme();
     const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+    const getSession = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getSession();
+
     return () => observer.disconnect();
   }, []);
 
@@ -326,8 +347,27 @@ export function useCastleWar() {
     }, isMajor ? 1000 : 600);
   };
 
-  const startBattle = () => {
-    if (team1Ready && team2Ready && team1Data && team2Data) setGameState("playing");
+  const startBattle = async () => {
+    if (team1Ready && team2Ready && team1Data && team2Data) {
+      if (!userId) {
+        alert("يجب تسجيل الدخول لبدء اللعبة.");
+        return;
+      }
+
+      // Gatekeeper Check
+      const access = await checkAccess("castle-war", userId);
+      if (!access.allowed) {
+        if (window.confirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟")) {
+          router.push("/packages");
+        }
+        return;
+      }
+
+      // Consume the token or free trial
+      await consumeGameSession("castle-war", userId, access.reason);
+      
+      setGameState("playing");
+    }
   };
 
   const getChallengeTitle = (type: ChallengeType) => {

@@ -16,7 +16,8 @@ import {
   Gavel, 
   ChevronDown,
   User,
-  Search
+  Search,
+  Zap
 } from "lucide-react";
 
 const tajawal = Tajawal({
@@ -281,8 +282,8 @@ export default function PlayerLoginPage() {
             <Link href="/" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
               <Home size={18} className="text-slate-500 dark:text-slate-400" /> <span>الرئيسية</span>
             </Link>
-            <Link href="/#contact-section" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-              <MessageCircle size={18} className="text-blue-500" /> <span>تواصل معنا</span>
+            <Link href="/packages" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
+              <Zap size={18} className="text-amber-500" /> <span>باقات الألعاب</span>
             </Link>
           </nav>
 
@@ -499,7 +500,7 @@ export default function PlayerLoginPage() {
             <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">روابط سريعة</h3>
             <ul className="flex flex-col gap-3 font-bold text-slate-600 dark:text-slate-300">
               <li><Link href="/" className="hover:text-blue-500 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-blue-500" /> الرئيسية</Link></li>
-              <li><Link href="/#contact-section" className="hover:text-blue-500 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-blue-500" /> تواصل معنا</Link></li>
+              <li><Link href="/packages" className="hover:text-blue-500 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-blue-500" /> باقات الألعاب</Link></li>
             </ul>
           </div>
           <div className="flex flex-col items-center md:items-start gap-4">

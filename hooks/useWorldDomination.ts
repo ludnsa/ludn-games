@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useWDRoom } from "./games/world-domination/useWDRoom";
 import { useWDGameFlow } from "./games/world-domination/useWDGameFlow";
 import { useWDCountries } from "./games/world-domination/useWDCountries";
 import { useWDCards } from "./games/world-domination/useWDCards";
 import { useWDCombat } from "./games/world-domination/useWDCombat";
 import { useGameDialog } from "./shared/useGameDialog";
+import { useGameAccess } from "./shared/useGameAccess";
+import { useRouter } from "next/navigation";
 
 // New Action Hooks
 import { useWDSync } from "./games/world-domination/useWDSync";
@@ -22,6 +24,18 @@ export function useWorldDomination() {
   const cardsCtx = useWDCards();
   const combat = useWDCombat();
   const dialogCtx = useGameDialog();
+  const router = useRouter();
+  const { checkAccess, consumeGameSession } = useGameAccess();
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (flow.gameState === "gameOver") {
+      const timer = setTimeout(() => {
+        router.push("/my-games");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [flow.gameState, router]);
 
   const {
     roomCode, setRoomCode, isInitialized, setIsInitialized,
@@ -71,6 +85,12 @@ export function useWorldDomination() {
 
   // دالة استرجاع اللعبة فوراً عند فتح أو تحديث الصفحة
   useEffect(() => {
+    const getSession = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getSession();
+
     const savedSession = localStorage.getItem("wd_live_sync");
     if (savedSession) {
       try {
@@ -218,7 +238,9 @@ export function useWorldDomination() {
     isAttacking, setIsAttacking, isQuestionRevealed, setIsQuestionRevealed, team1Choice, setTeam1Choice,
     team2Choice, setTeam2Choice, challengesUsed1, setChallengesUsed1, challengesUsed2, setChallengesUsed2,
     // Dialogs
-    dialog, showAlert, showConfirm, closeDialog
+    dialog, showAlert, showConfirm, closeDialog,
+    // Access
+    userId, checkAccess, consumeGameSession, router
   };
 
   useWDSync(ctx);

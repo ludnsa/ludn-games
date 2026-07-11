@@ -9,6 +9,7 @@ type AdminUser = {
   phone: string;
   name: string;
   createdAt: string;
+  tokens: number;
 };
 
 export default function AdminUsersSection() {
@@ -22,6 +23,7 @@ export default function AdminUsersSection() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editTokens, setEditTokens] = useState<number>(0);
   const [editPassword, setEditPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -66,6 +68,7 @@ export default function AdminUsersSection() {
     setEditName(user.name);
     setEditEmail(user.email || "");
     setEditPhone(user.phone || "");
+    setEditTokens(user.tokens || 0);
     setEditPassword(""); // Blank password implies no change
   };
 
@@ -82,10 +85,11 @@ export default function AdminUsersSection() {
         email: editEmail,
         phone: editPhone,
         password: editPassword,
+        tokens: editTokens,
       });
 
       if (res.success) {
-        setUsers(users.map(u => u.id === editingUserId ? { ...u, name: editName, email: editEmail, phone: editPhone } : u));
+        setUsers(users.map(u => u.id === editingUserId ? { ...u, name: editName, email: editEmail, phone: editPhone, tokens: editTokens } : u));
         setEditingUserId(null);
       } else {
         alert("فشل التحديث: " + res.error);
@@ -153,6 +157,7 @@ export default function AdminUsersSection() {
             <tr className="border-b-2 border-slate-100 dark:border-slate-800">
               <th className="py-3 px-4 text-sm font-black text-slate-500">الإسم</th>
               <th className="py-3 px-4 text-sm font-black text-slate-500">البريد الإلكتروني</th>
+              <th className="py-3 px-4 text-sm font-black text-slate-500 text-center">رصيد الألعاب</th>
               <th className="py-3 px-4 text-sm font-black text-slate-500">رقم الجوال</th>
               <th className="py-3 px-4 text-sm font-black text-slate-500 text-center">تاريخ التسجيل</th>
               <th className="py-3 px-4 text-sm font-black text-slate-500 text-center">إجراءات</th>
@@ -172,6 +177,10 @@ export default function AdminUsersSection() {
                       <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1">البريد الإلكتروني</label>
                         <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">رصيد الألعاب</label>
+                        <input type="number" min="0" value={editTokens} onChange={(e) => setEditTokens(parseInt(e.target.value) || 0)} className="w-full p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-lg outline-none focus:border-emerald-500 font-black" />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1">رقم الجوال</label>
@@ -195,6 +204,11 @@ export default function AdminUsersSection() {
                   <>
                     <td className="py-4 px-4 font-bold text-slate-800 dark:text-slate-200">{user.name}</td>
                     <td className="py-4 px-4 text-slate-600 dark:text-slate-400" dir="ltr">{user.email || "—"}</td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-black px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        {user.tokens || 0}
+                      </span>
+                    </td>
                     <td className="py-4 px-4 text-slate-600 dark:text-slate-400" dir="ltr">{user.phone || "—"}</td>
                     <td className="py-4 px-4 text-slate-500 text-sm text-center" dir="ltr">
                       {new Date(user.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}

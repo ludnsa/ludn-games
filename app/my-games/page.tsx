@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { fetchUserGamesAction, fetchUserProfileAction } from "@/app/actions/gameAccess";
 import { 
   Gamepad2, Swords, Globe, Gavel, ArrowRight, Home, Info, 
-  MessageCircle, ChevronDown, User, Sun, Moon, LogOut 
+  MessageCircle, ChevronDown, User, Sun, Moon, LogOut, Zap
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ export default function MyGamesPage() {
   const [profile, setProfile] = useState<any>(null);
   const [userGames, setUserGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [availableTokens, setAvailableTokens] = useState<number>(0);
 
   // حالات الهيدر
   const [isDark, setIsDark] = useState(true);
@@ -41,24 +43,16 @@ export default function MyGamesPage() {
 
         setUserSession(user);
 
-        // جلب بيانات الحساب عشان الهيدر (الاسم والأيقونة)
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("full_name, email")
-          .eq("id", user.id)
-          .maybeSingle();
-
+        // جلب بيانات الحساب باستخدام Server Action لتخطي الـ RLS
+        const profileData = await fetchUserProfileAction(user.id);
         const userProfile = profileData || {
           full_name: user.user_metadata?.full_name || "لاعب جديد",
         };
         setProfile({ ...userProfile, email: user.email });
+        setAvailableTokens(profileData?.available_tokens || 0);
 
-        // جلب بيانات الألعاب
-        const { data: gamesData } = await supabase
-          .from("user_games")
-          .select("*")
-          .eq("user_id", user.id);
-          
+        // جلب بيانات الألعاب باستخدام Server Action لتخطي الـ RLS
+        const gamesData = await fetchUserGamesAction(user.id);
         setUserGames(gamesData || []);
 
       } catch (err) {
@@ -138,8 +132,8 @@ export default function MyGamesPage() {
             <Link href="/#games-section" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
               <Gamepad2 size={16} className="text-emerald-500" /> <span>الألعاب والخدمات</span>
             </Link>
-            <Link href="/#contact-section" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-              <MessageCircle size={16} className="text-blue-500" /> <span>تواصل معنا</span>
+            <Link href="/packages" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
+              <Zap size={16} className="text-amber-500" /> <span>باقات الألعاب</span>
             </Link>
           </nav>
 
@@ -176,6 +170,10 @@ export default function MyGamesPage() {
                           <div className="mx-6 border-b border-red-500/60 dark:border-red-500/40 my-1"></div>
                           <Link href="/my-games" className="block px-6 py-2.5 text-right text-base font-bold text-slate-800 dark:text-white hover:text-blue-600 transition-colors">
                             ألعابي
+                          </Link>
+                          <div className="mx-6 border-b border-red-500/60 dark:border-red-500/40 my-1"></div>
+                          <Link href="/packages" className="block px-6 py-2.5 text-right text-base font-bold text-slate-800 dark:text-white hover:text-blue-600 transition-colors">
+                            باقات الألعاب
                           </Link>
                           <div className="mx-6 border-b border-red-500/60 dark:border-red-500/40 my-1"></div>
                           <Link href="/guides" className="flex items-center justify-between px-6 py-2.5 text-right text-base font-bold text-slate-800 dark:text-white hover:text-cyan-600 transition-colors">
@@ -225,8 +223,38 @@ export default function MyGamesPage() {
             <h1 className="text-2xl md:text-3xl font-black mb-4 flex items-center gap-3">
               <Gamepad2 className="text-purple-500 w-8 h-8" /> مكتبة ألعابي
             </h1>
-            <p className="text-base font-bold text-slate-500 dark:text-slate-400 mb-8">
-              هنا قائمة بألعابك المشتراة وإحصائيات لعبك لها:
+
+            <div className="flex flex-col md:flex-row gap-4 mb-8">
+              <div className="flex-1 bg-indigo-50 dark:bg-indigo-900/30 border-2 border-indigo-200 dark:border-indigo-800 p-4 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Zap className="text-indigo-500 w-8 h-8" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400">رصيد الألعاب المتاح</p>
+                    <p className="text-2xl font-black text-indigo-700 dark:text-indigo-300">{availableTokens} لعبة</p>
+                  </div>
+                </div>
+                <Link href="/packages" className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-xl text-sm transition-colors">
+                  شراء باقة
+                </Link>
+              </div>
+            </div>
+
+            {userGames.reduce((acc, game) => acc + (game.games_played || 0), 0) === 0 && (
+              <div className="bg-emerald-50 dark:bg-emerald-900/30 border-2 border-emerald-200 dark:border-emerald-800 p-4 rounded-2xl flex items-center gap-3 mb-6 animate-in fade-in slide-in-from-top-4">
+                <div className="bg-emerald-100 dark:bg-emerald-800 p-2 rounded-xl">
+                  <Gamepad2 className="text-emerald-600 dark:text-emerald-400 w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-emerald-800 dark:text-emerald-300 font-black text-lg">تجربة مجانية بانتظارك! 🎁</h3>
+                  <p className="text-sm md:text-base font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                    لديك تجربة مجانية <span className="underline decoration-wavy underline-offset-4">واحدة</span> يمكنك استخدامها لتجربة أي لعبة تختارها. بعد انتهائها، ستحتاج لشراء باقة للاستمرار باللعب.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <p className="text-base font-bold text-slate-500 dark:text-slate-400 mb-6">
+              هنا قائمة بألعابك وإحصائيات لعبك لها:
             </p>
             
             <div className="flex flex-col gap-4">
@@ -243,16 +271,11 @@ export default function MyGamesPage() {
                       </div>
                       <div>
                         <h4 className="text-base md:text-lg font-black mb-1 text-slate-900 dark:text-white">{game.title}</h4>
-                        {isPurchased ? (
-                          <span className="text-[11px] md:text-xs font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-1 rounded-md border border-emerald-200 dark:border-emerald-800/50">مشتراة ✓</span>
-                        ) : (
-                          <span className="text-[11px] md:text-xs font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/30 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-800/50">غير مشتراة</span>
-                        )}
                       </div>
                     </div>
                     <div className="text-left bg-white dark:bg-slate-800 p-2.5 md:p-3 rounded-xl border border-slate-100 dark:border-slate-700 min-w-[80px] md:min-w-[100px]">
                       <p className="text-[10px] md:text-xs font-bold text-slate-400 mb-1">مرات اللعب</p>
-                      <p className={`text-lg md:text-xl font-black ${isPurchased ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>{playedCount}</p>
+                      <p className="text-lg md:text-xl font-black text-slate-900 dark:text-white">{playedCount}</p>
                     </div>
                   </div>
                 );
