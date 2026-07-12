@@ -168,7 +168,7 @@ export default function AdminUsersSection() {
               <tr key={user.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                 
                 {editingUserId === user.id ? (
-                  <td colSpan={5} className="py-4 px-4">
+                  <td colSpan={6} className="py-4 px-4">
                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/30 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1">الإسم</label>
@@ -178,9 +178,30 @@ export default function AdminUsersSection() {
                         <label className="block text-xs font-bold text-slate-500 mb-1">البريد الإلكتروني</label>
                         <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-indigo-500" />
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">رصيد الألعاب</label>
-                        <input type="number" min="0" value={editTokens} onChange={(e) => setEditTokens(parseInt(e.target.value) || 0)} className="w-full p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-lg outline-none focus:border-emerald-500 font-black" />
+                      <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-emerald-50/50 dark:bg-emerald-900/10 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/20">
+                        <div>
+                          <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1">الرصيد الحالي (تعديل يدوي)</label>
+                          <input type="number" min="0" value={editTokens} onChange={(e) => setEditTokens(parseInt(e.target.value) || 0)} className="w-full p-2 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-lg outline-none focus:border-emerald-500 font-black" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1">إضافة باقة سريعة (تزيد على الرصيد)</label>
+                          <select 
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (val > 0) {
+                                setEditTokens(prev => prev + val);
+                                e.target.value = "0"; // reset
+                              }
+                            }}
+                            className="w-full p-2 bg-emerald-500 text-white border border-emerald-600 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 font-bold cursor-pointer"
+                          >
+                            <option value="0">اختر باقة لإضافتها...</option>
+                            <option value="1">باقة المبتدئين (لعبة واحدة)</option>
+                            <option value="3">باقة المحترفين (3 ألعاب)</option>
+                            <option value="5">باقة الأساطير (5 ألعاب)</option>
+                            <option value="10">باقة كبار الشخصيات (10 ألعاب)</option>
+                          </select>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1">رقم الجوال</label>
@@ -230,7 +251,7 @@ export default function AdminUsersSection() {
             
             {filteredUsers.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-slate-500 font-bold">
+                <td colSpan={6} className="py-12 text-center text-slate-500 font-bold">
                   {searchQuery ? "لا توجد نتائج مطابقة للبحث." : "لا يوجد مستخدمين مسجلين بعد."}
                 </td>
               </tr>

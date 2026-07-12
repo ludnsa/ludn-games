@@ -38,7 +38,7 @@ export async function getAdminUsers() {
   const users = data.users.map((user) => ({
     id: user.id,
     email: user.email || "",
-    phone: user.phone || user.user_metadata?.phone || "",
+    phone: user.phone || user.user_metadata?.phone_number || user.user_metadata?.phone || "",
     name: user.user_metadata?.name || user.user_metadata?.full_name || "بدون اسم",
     createdAt: user.created_at,
     tokens: profilesMap.get(user.id) || 0,
@@ -97,15 +97,15 @@ export async function updateAdminUser(userId: string, updates: { name?: string; 
     return { success: false, error: error.message };
   }
 
-  // Sync with profiles table if it exists
-  const profileUpdates: any = {};
-  if (updates.name) profileUpdates.name = updates.name;
-  if (updates.phone) profileUpdates.phone = updates.phone;
+  // Sync with profiles table using upsert
+  const profileUpdates: any = { id: userId };
+  if (updates.name) profileUpdates.full_name = updates.name;
+  if (updates.phone) profileUpdates.phone_number = updates.phone;
   if (updates.email) profileUpdates.email = updates.email;
   if (updates.tokens !== undefined) profileUpdates.available_tokens = updates.tokens;
 
-  if (Object.keys(profileUpdates).length > 0) {
-    await supabase.from("profiles").update(profileUpdates).eq("id", userId);
+  if (Object.keys(profileUpdates).length > 1) { // >1 because id is always present
+    await supabase.from("profiles").upsert(profileUpdates);
   }
 
   revalidatePath("/admin");
