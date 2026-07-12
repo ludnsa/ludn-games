@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { Users, Trash2, Edit, Save, X, Loader2, Key, Search } from "lucide-react";
+import { Users, Trash2, Edit, Save, X, Loader2, Key, Search, Zap } from "lucide-react";
 import { getAdminUsers, deleteAdminUser, updateAdminUser } from "@/app/actions/admin-users";
 
 type AdminUser = {
@@ -178,29 +178,40 @@ export default function AdminUsersSection() {
                         <label className="block text-xs font-bold text-slate-500 mb-1">البريد الإلكتروني</label>
                         <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-indigo-500" />
                       </div>
-                      <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-emerald-50/50 dark:bg-emerald-900/10 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/20">
+                      <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/80 p-5 rounded-2xl border-2 border-indigo-100 dark:border-indigo-900/50 shadow-sm">
                         <div>
-                          <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1">الرصيد الحالي (تعديل يدوي)</label>
-                          <input type="number" min="0" value={editTokens} onChange={(e) => setEditTokens(parseInt(e.target.value) || 0)} className="w-full p-2 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-lg outline-none focus:border-emerald-500 font-black" />
+                          <label className="block text-sm font-black text-indigo-700 dark:text-indigo-400 mb-2 flex items-center gap-2">
+                            <span className="bg-indigo-100 dark:bg-indigo-900/50 p-1.5 rounded-lg"><Edit size={16} /></span>
+                            تعديل الرصيد يدوياً
+                          </label>
+                          <input type="number" min="0" value={editTokens} onChange={(e) => setEditTokens(parseInt(e.target.value) || 0)} className="w-full p-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl outline-none focus:border-indigo-500 font-black text-lg transition-colors" />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1">إضافة باقة سريعة (تزيد على الرصيد)</label>
-                          <select 
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (val > 0) {
-                                setEditTokens(prev => prev + val);
-                                e.target.value = "0"; // reset
-                              }
-                            }}
-                            className="w-full p-2 bg-emerald-500 text-white border border-emerald-600 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 font-bold cursor-pointer"
-                          >
-                            <option value="0">اختر باقة لإضافتها...</option>
-                            <option value="1">باقة المبتدئين (لعبة واحدة)</option>
-                            <option value="3">باقة المحترفين (3 ألعاب)</option>
-                            <option value="5">باقة الأساطير (5 ألعاب)</option>
-                            <option value="10">باقة كبار الشخصيات (10 ألعاب)</option>
-                          </select>
+                          <label className="block text-sm font-black text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-2">
+                            <span className="bg-emerald-100 dark:bg-emerald-900/50 p-1.5 rounded-lg"><Zap size={16} /></span>
+                            إضافة ألعاب سريعة (تزيد على الرصيد)
+                          </label>
+                          <div className="relative">
+                            <select 
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (val > 0) {
+                                  setEditTokens(prev => prev + val);
+                                  e.target.value = "0"; // reset
+                                }
+                              }}
+                              className="w-full p-3 bg-gradient-to-l from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white border-none rounded-xl outline-none focus:ring-4 focus:ring-emerald-500/30 font-black text-lg cursor-pointer appearance-none shadow-md shadow-emerald-500/20 transition-all"
+                            >
+                              <option value="0" className="bg-slate-800 text-white">اختر عدد الألعاب...</option>
+                              <option value="1" className="bg-slate-800 text-white">+ لعبة واحدة</option>
+                              <option value="3" className="bg-slate-800 text-white">+ 3 ألعاب</option>
+                              <option value="6" className="bg-slate-800 text-white">+ 6 ألعاب</option>
+                              <option value="10" className="bg-slate-800 text-white">+ 10 ألعاب</option>
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-white">
+                              <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <div>
