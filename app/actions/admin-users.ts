@@ -67,8 +67,26 @@ export async function updateAdminUser(userId: string, updates: { name?: string; 
   const cookieStore = await cookies();
   const supabase = getAdminClient(cookieStore);
 
+  // Fetch current user to only apply changes
+  const { data: { user } } = await supabase.auth.admin.getUserById(userId);
+  if (!user) return { success: false, error: "User not found" };
+
+  // 1. Update Profiles FIRST (so tokens always update)
+  const profileUpdates: any = { id: userId };
+  if (updates.name) profileUpdates.full_name = updates.name;
+  if (updates.phone) profileUpdates.phone_number = updates.phone;
+  if (updates.email) profileUpdates.email = updates.email;
+  if (updates.tokens !== undefined) profileUpdates.available_tokens = updates.tokens;
+
+  if (Object.keys(profileUpdates).length > 1) {
+    await supabase.from("profiles").upsert(profileUpdates);
+  }
+
+  // 2. Prepare authUpdates only for changed fields
   const authUpdates: any = {};
-  if (updates.email) authUpdates.email = updates.email;
+  if (updates.email && updates.email !== user.email) {
+    authUpdates.email = updates.email;
+  }
   
   if (updates.phone) {
     let phoneStr = updates.phone.trim();
@@ -79,33 +97,35 @@ export async function updateAdminUser(userId: string, updates: { name?: string; 
     } else if (!phoneStr.startsWith("+")) {
       phoneStr = "+" + phoneStr.replace(/\D/g, "");
     }
-    authUpdates.phone = phoneStr;
+    // Compare with current phone (Supabase stores it without + sometimes, so just clean compare)
+    if (phoneStr !== user.phone && phoneStr.replace("+", "") !== user.phone) {
+      authUpdates.phone = phoneStr;
+    }
   }
   
   if (updates.password && updates.password.length > 0) authUpdates.password = updates.password;
 
   const userMetadataUpdates: any = {};
-  if (updates.name) userMetadataUpdates.name = updates.name;
-  if (updates.phone) userMetadataUpdates.phone = updates.phone;
+  if (updates.name && updates.name !== user.user_metadata?.name && updates.name !== user.user_metadata?.full_name) {
+    userMetadataUpdates.name = updates.name;
+  }
+  if (updates.phone && updates.phone !== user.user_metadata?.phone && updates.phone !== user.user_metadata?.phone_number) {
+    userMetadataUpdates.phone = updates.phone;
+  }
 
   if (Object.keys(userMetadataUpdates).length > 0) {
     authUpdates.user_metadata = userMetadataUpdates;
   }
 
-  const { error } = await supabase.auth.admin.updateUserById(userId, authUpdates);
-  if (error) {
-    return { success: false, error: error.message };
-  }
-
-  // Sync with profiles table using upsert
-  const profileUpdates: any = { id: userId };
-  if (updates.name) profileUpdates.full_name = updates.name;
-  if (updates.phone) profileUpdates.phone_number = updates.phone;
-  if (updates.email) profileUpdates.email = updates.email;
-  if (updates.tokens !== undefined) profileUpdates.available_tokens = updates.tokens;
-
-  if (Object.keys(profileUpdates).length > 1) { // >1 because id is always present
-    await supabase.from("profiles").upsert(profileUpdates);
+  // Only call updateUserById if there are actual auth changes
+  if (Object.keys(authUpdates).length > 0) {
+    const { error } = await supabase.auth.admin.updateUserById(userId, authUpdates);
+    if (error) {
+      console.error("updateUserById error:", error);
+      // Return success but with a warning, since profile (tokens) was updated!
+      revalidatePath("/admin");
+      return { success: true, error: "تم تحديث الرصيد، لكن فشل تحديث بيانات الدخول (قد يكون البريد أو رقم الجوال مستخدم لحساب آخر)." };
+    }
   }
 
   revalidatePath("/admin");
