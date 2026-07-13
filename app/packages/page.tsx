@@ -7,6 +7,7 @@ import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/home/TopNav";
+import { GAME_PACKAGES, PackageData } from "@/lib/packages";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -14,8 +15,7 @@ export default function PackagesPage() {
   const supabase = getSupabaseBrowser();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
+  const [loadingPkgId, setLoadingPkgId] = useState<number | null>(null);
   const [availableTokens, setAvailableTokens] = useState<number>(0);
 
   useEffect(() => {
@@ -30,45 +30,50 @@ export default function PackagesPage() {
     fetchUser();
   }, [supabase]);
 
-  const packages = [
-    { id: 1, name: "لعبة واحدة", tokens: 1, price: 11.5, icon: <Zap className="text-blue-500 w-10 h-10" /> },
-    { id: 2, name: "ثلاث ألعاب", tokens: 3, price: 34.5, icon: <Shield className="text-emerald-500 w-10 h-10" /> },
-    { id: 3, name: "ست ألعاب", tokens: 6, price: 65.0, icon: <Crown className="text-amber-500 w-10 h-10" />, popular: true },
-    { id: 4, name: "عشر ألعاب", tokens: 10, price: 115.0, icon: <Crown className="text-purple-500 w-10 h-10" /> },
-  ];
+  // Icons mapping
+  const packageIcons: Record<number, React.ReactNode> = {
+    1: <Zap className="text-blue-500 w-10 h-10" />,
+    2: <Shield className="text-emerald-500 w-10 h-10" />,
+    3: <Crown className="text-amber-500 w-10 h-10" />,
+    4: <Crown className="text-purple-500 w-10 h-10" />,
+  };
 
-  const handlePurchase = async (pkg: typeof packages[0]) => {
+  const handlePurchase = (pkg: PackageData) => {
     if (!userId) {
       alert("يجب تسجيل الدخول لشراء الباقات");
+      router.push("/player");
       return;
     }
 
-    setLoading(true);
-    // محاكاة عملية الدفع وإضافة الرصيد
-    setTimeout(async () => {
-      try {
-        const newTokens = availableTokens + pkg.tokens;
-        await supabase.from("profiles").update({ available_tokens: newTokens }).eq("id", userId);
-        
-        setAvailableTokens(newTokens);
-        setSuccessMsg(`تم إضافة ${pkg.tokens} ألعاب لرصيدك بنجاح!`);
-        
-        setTimeout(() => {
-          setSuccessMsg("");
-          router.push("/my-games"); // توجيه للألعاب بعد النجاح
-        }, 3000);
-      } catch (err) {
-        console.error("Error updating tokens", err);
-      } finally {
-        setLoading(false);
-      }
+    setLoadingPkgId(pkg.id);
+    
+    // شاشة الانتظار الاحترافية قبل التوجيه لصفحة الدفع
+    setTimeout(() => {
+      router.push(`/checkout?pkg=${pkg.id}`);
     }, 1500);
   };
 
   return (
-    <main className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 md:p-8 pt-32 md:pt-40 ${cairo.className}`} dir="rtl">
+    <main className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 md:p-8 pt-32 md:pt-40 relative ${cairo.className}`} dir="rtl">
       <TopNav />
       
+      {/* شاشة تحميل احترافية شفافة تغطي الشاشة عند اختيار باقة */}
+      {loadingPkgId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-slate-700 max-w-sm w-[90%] text-center">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full"></div>
+              <Crown className="text-amber-400 w-16 h-16 animate-bounce relative z-10" />
+            </div>
+            <h2 className="text-2xl font-black text-white mb-2">جاري التجهيز...</h2>
+            <p className="text-slate-400 font-bold mb-6 text-sm">ننقلك الآن لصفحة الدفع الآمنة</p>
+            <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500 w-full animate-pulse origin-left"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="max-w-6xl mx-auto flex items-center justify-between mb-12">
         <div className="flex items-center gap-4">
@@ -86,16 +91,9 @@ export default function PackagesPage() {
         </div>
       </header>
 
-      {successMsg && (
-        <div className="max-w-xl mx-auto mb-8 bg-emerald-100 dark:bg-emerald-900/40 border-2 border-emerald-500 text-emerald-700 dark:text-emerald-400 p-4 rounded-2xl font-black flex items-center justify-center gap-2 animate-in slide-in-from-top-4">
-          <CheckCircle2 size={24} />
-          {successMsg}
-        </div>
-      )}
-
       {/* Packages Grid */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {packages.map((pkg) => (
+        {GAME_PACKAGES.map((pkg) => (
           <div key={pkg.id} className={`relative bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border-4 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl flex flex-col ${pkg.popular ? "border-amber-400 dark:border-amber-500 shadow-[0_10px_40px_-10px_rgba(251,191,36,0.3)]" : "border-slate-200 dark:border-slate-800"}`}>
             
             {pkg.popular && (
@@ -105,7 +103,7 @@ export default function PackagesPage() {
             )}
 
             <div className="bg-slate-50 dark:bg-slate-800 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-              {pkg.icon}
+              {packageIcons[pkg.id]}
             </div>
             
             <h3 className="text-2xl font-black text-center mb-2">{pkg.name}</h3>
@@ -130,10 +128,10 @@ export default function PackagesPage() {
 
             <button 
               onClick={() => handlePurchase(pkg)}
-              disabled={loading}
+              disabled={loadingPkgId !== null}
               className={`w-full py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 transition-all ${pkg.popular ? "bg-amber-400 hover:bg-amber-300 text-slate-900" : "bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white"}`}
             >
-              {loading ? <Loader2 className="animate-spin w-6 h-6" /> : <><CreditCard size={20} /> شراء محاكى للتجربة</>}
+              {loadingPkgId === pkg.id ? <Loader2 className="animate-spin w-6 h-6" /> : <><CreditCard size={20} /> شراء</>}
             </button>
           </div>
         ))}
@@ -141,3 +139,4 @@ export default function PackagesPage() {
     </main>
   );
 }
+
