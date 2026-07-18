@@ -22,11 +22,11 @@ export default function TermsPage() {
   const content = {
     terms: (
       <div className="space-y-6">
-        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-4 border-b-2 border-indigo-100 dark:border-indigo-900/30 pb-4">اتفاقية الشروط والأحكام لمنصة (games.ludn.sa)</h2>
+        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-4 border-b-2 border-indigo-100 dark:border-indigo-900/30 pb-4">اتفاقية الشروط والأحكام لمنصة ألعاب لدن</h2>
         <div className="space-y-4 text-slate-700 dark:text-slate-300 font-bold text-sm leading-loose">
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
             <h3 className="text-lg font-black text-indigo-600 dark:text-indigo-400 mb-2">1. مقدمة وقبول الشروط</h3>
-            <p>أهلاً بك في منصة (games.ludn.sa). يمثل دخولك واستخدامك لهذه المنصة موافقة تامة ومطلقة على جميع الشروط والأحكام الواردة هنا. تخضع هذه الوثيقة للأنظمة والقوانين المعمول بها في المملكة العربية السعودية، وتحديداً نظام التجارة الإلكترونية ونظام حماية البيانات الشخصية.</p>
+            <p>أهلاً بك في منصة ألعاب لدن. يمثل دخولك واستخدامك لهذه المنصة موافقة تامة ومطلقة على جميع الشروط والأحكام الواردة هنا. تخضع هذه الوثيقة للأنظمة والقوانين المعمول بها في المملكة العربية السعودية، وتحديداً نظام التجارة الإلكترونية ونظام حماية البيانات الشخصية.</p>
           </div>
 
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
@@ -60,7 +60,7 @@ export default function TermsPage() {
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
             <h3 className="text-lg font-black text-indigo-600 dark:text-indigo-400 mb-2">5. حقوق الملكية الفكرية</h3>
             <ul className="list-disc list-inside space-y-2 marker:text-indigo-400">
-              <li>جميع المحتويات المتوفرة على المنصة (بما في ذلك الألعاب، النصوص، التصاميم، الأكواد، والشعارات) هي ملكية حصرية لمنصة (games.ludn.sa) أو لمزودي الخدمة التابعين لها.</li>
+              <li>جميع المحتويات المتوفرة على المنصة (بما في ذلك الألعاب، النصوص، التصاميم، الأكواد، والشعارات) هي ملكية حصرية لمنصة ألعاب لدن أو لمزودي الخدمة التابعين لها.</li>
               <li>لا يُسمح للمستخدم بنسخ، أو توزيع، أو تعديل، أو الهندسة العكسية لأي من الألعاب أو البرمجيات المتاحة في المنصة.</li>
             </ul>
           </div>
@@ -78,7 +78,7 @@ export default function TermsPage() {
 
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
             <h3 className="text-lg font-black text-indigo-600 dark:text-indigo-400 mb-2">7. الخصوصية وحماية البيانات (PDPL)</h3>
-            <p>تلتزم منصة (games.ludn.sa) بحماية خصوصية بيانات المستخدمين وفقاً لـ "نظام حماية البيانات الشخصية" في المملكة العربية السعودية. استخدام المنصة لمعلومات المستخدم (مثل البريد الإلكتروني أو بيانات الربط مع Google و iCloud) يتم فقط لغرض تفعيل الحساب، تقديم الخدمة، وتطوير تجربة المستخدم، ولا يتم بيعها أو مشاركتها مع أطراف ثالثة لأغراض تسويقية دون موافقة صريحة.</p>
+            <p>تلتزم منصة ألعاب لدن بحماية خصوصية بيانات المستخدمين وفقاً لـ "نظام حماية البيانات الشخصية" في المملكة العربية السعودية. استخدام المنصة لمعلومات المستخدم (مثل البريد الإلكتروني أو بيانات الربط مع Google و iCloud) يتم فقط لغرض تفعيل الحساب، تقديم الخدمة، وتطوير تجربة المستخدم، ولا يتم بيعها أو مشاركتها مع أطراف ثالثة لأغراض تسويقية دون موافقة صريحة.</p>
           </div>
 
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
@@ -91,7 +91,7 @@ export default function TermsPage() {
 
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
             <h3 className="text-lg font-black text-indigo-600 dark:text-indigo-400 mb-2">9. التعديل على الشروط والأحكام</h3>
-            <p>تحتفظ إدارة منصة (games.ludn.sa) بالحق في تعديل أو تحديث هذه الشروط في أي وقت. سيتم إشعار المستخدمين بأي تغييرات جوهرية عبر البريد الإلكتروني أو من خلال إشعار بارز في المنصة، ويعتبر الاستمرار في استخدام المنصة بعد التعديل موافقة عليه.</p>
+            <p>تحتفظ إدارة منصة ألعاب لدن بالحق في تعديل أو تحديث هذه الشروط في أي وقت. سيتم إشعار المستخدمين بأي تغييرات جوهرية عبر البريد الإلكتروني أو من خلال إشعار بارز في المنصة، ويعتبر الاستمرار في استخدام المنصة بعد التعديل موافقة عليه.</p>
           </div>
 
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">

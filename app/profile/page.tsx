@@ -154,7 +154,7 @@ export default function ProfilePage() {
               <Info size={16} className="text-purple-500" /> <span>عن المنصة</span>
             </Link>
             <Link href="/#games-section" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-              <Gamepad2 size={16} className="text-emerald-500" /> <span>الألعاب والخدمات</span>
+              <Gamepad2 size={16} className="text-emerald-500" /> <span>الألعاب</span>
             </Link>
             <Link href="/#contact-section" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
               <MessageCircle size={16} className="text-blue-500" /> <span>تواصل معنا</span>
@@ -297,12 +297,12 @@ export default function ProfilePage() {
             <ul className="flex flex-col gap-3 font-bold text-sm md:text-base text-slate-600 dark:text-slate-300">
               <li><Link href="/#hero" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-blue-500" /> الرئيسية</Link></li>
               <li><Link href="/#about-section" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-purple-500" /> عن المنصة</Link></li>
-              <li><Link href="/#games-section" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-emerald-500" /> الألعاب والخدمات</Link></li>
+              <li><Link href="/#games-section" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-emerald-500" /> الألعاب</Link></li>
               <li><Link href="/#contact-section" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-amber-500" /> تواصل معنا</Link></li>
             </ul>
           </div>
           <div className="flex flex-col items-center sm:items-start gap-4 sm:col-span-2 md:col-span-1">
-            <h3 className="text-lg md:text-xl font-black text-slate-900 dark:text-white mb-2">الألعاب والخدمات</h3>
+            <h3 className="text-lg md:text-xl font-black text-slate-900 dark:text-white mb-2">الألعاب</h3>
             <ul className="flex flex-col gap-3 font-bold text-sm md:text-base text-slate-600 dark:text-slate-300">
               <li><Link href="/games/castle-war" className="hover:text-rose-500 transition-colors flex items-center gap-2"><Swords size={18} className="text-rose-500" /> حرب القلاع</Link></li>
               <li><Link href="/games/world-domination" className="hover:text-blue-500 transition-colors flex items-center gap-2"><Globe size={18} className="text-blue-500" /> السيطرة على العالم</Link></li>

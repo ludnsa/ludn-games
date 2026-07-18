@@ -526,7 +526,7 @@ export default function PlayerLoginPage() {
             </ul>
           </div>
           <div className="flex flex-col items-center md:items-start gap-4">
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">الألعاب والخدمات</h3>
+            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">الألعاب</h3>
             <ul className="flex flex-col gap-3 font-bold text-slate-600 dark:text-slate-300">
               <li><Link href="/games/castle-war" className="hover:text-rose-500 transition-colors flex items-center gap-2"><Swords size={18} className="text-rose-500" /> حرب القلاع</Link></li>
               <li><Link href="/games/world-domination" className="hover:text-blue-500 transition-colors flex items-center gap-2"><Globe size={18} className="text-blue-500" /> السيطرة على العالم</Link></li>

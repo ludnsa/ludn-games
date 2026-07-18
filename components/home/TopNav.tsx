@@ -49,7 +49,7 @@ export const TopNav = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
             <Info size={16} className="text-purple-500" /> <span>عن المنصة</span>
           </a>
           <a href="/#games-section" onClick={(e) => scrollToSection ? scrollToSection(e, "games-section") : null} className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-            <Gamepad2 size={16} className="text-emerald-500" /> <span>الألعاب والخدمات</span>
+            <Gamepad2 size={16} className="text-emerald-500" /> <span>الألعاب</span>
           </a>
           <Link href="/packages" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
             <Zap size={16} className="text-amber-500" /> <span>باقات الألعاب</span>
@@ -145,7 +145,7 @@ export const TopNav = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
             <Info size={18} className="text-purple-500" /> <span>عن المنصة</span>
           </a>
           <a href="/#games-section" onClick={(e) => { setIsMobileMenuOpen(false); if(scrollToSection) scrollToSection(e, "games-section"); }} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
-            <Gamepad2 size={18} className="text-emerald-500" /> <span>الألعاب والخدمات</span>
+            <Gamepad2 size={18} className="text-emerald-500" /> <span>الألعاب</span>
           </a>
           <Link href="/packages" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
             <Zap size={18} className="text-amber-500" /> <span>باقات الألعاب</span>

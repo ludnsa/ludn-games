@@ -84,7 +84,7 @@ export const GamesSection = () => {
   return (
     <section id="games-section" className="max-w-7xl mx-auto w-full px-4 py-16 relative z-10 pt-16 md:pt-20">
       <div className="text-center mb-12 md:mb-16">
-        <h2 className="text-3xl md:text-5xl font-black mb-3 md:mb-4 text-slate-900 dark:text-white">منصة الألعاب والخدمات</h2>
+        <h2 className="text-3xl md:text-5xl font-black mb-3 md:mb-4 text-slate-900 dark:text-white">منصة الألعاب</h2>
         <p className="text-lg md:text-xl font-bold text-slate-500 dark:text-slate-400">جرب أنظمتنا الترفيهية والتفاعلية المبنية بأحدث التقنيات</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto">

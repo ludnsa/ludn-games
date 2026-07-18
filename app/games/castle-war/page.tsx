@@ -31,10 +31,11 @@ export default function CastleBattleMainScreen() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame
   } = useCastleWar();
 
   const cardClass = "bg-white dark:bg-slate-800 border-4 border-slate-900 dark:border-black rounded-3xl shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] transition-colors duration-300";
+  const [showEndGameModal, setShowEndGameModal] = React.useState(false);
 
   if (isAccessChecking) {
     return <AccessLoadingScreen />;
@@ -99,9 +100,16 @@ export default function CastleBattleMainScreen() {
       </div>
 
       <div className="relative z-20 w-full max-w-7xl mx-auto flex justify-between items-center mb-6 px-2 md:px-0">
-        <Link href="/" className="py-2 px-4 bg-rose-500 hover:bg-rose-400 text-white dark:text-slate-900 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-2 font-black text-sm">
-          <ArrowRight size={18} strokeWidth={3} /> <span className="hidden sm:inline">رجوع</span>
-        </Link>
+        <div className="flex gap-2 items-center">
+          <Link href="/" className="py-2 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-2 font-black text-sm">
+            <Home size={18} strokeWidth={3} /> <span className="hidden sm:inline">الرئيسية</span>
+          </Link>
+          {gameState === "playing" && (
+            <button onClick={() => setShowEndGameModal(true)} className="py-2 px-4 bg-rose-500 hover:bg-rose-400 text-white border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-2 font-black text-sm">
+              <Ban size={18} strokeWidth={3} /> <span className="hidden sm:inline">إنهاء اللعبة</span>
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           <button onClick={() => window.open(`/games/castle-war/display?code=${roomCode}`, "_blank")} className="py-2 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400 rounded-xl border-2 border-slate-900 dark:border-black border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-sm flex items-center justify-center gap-1.5 font-black text-xs md:text-sm">
             <MonitorPlay size={16} /> <span className="hidden sm:inline">شاشة الجمهور 📺</span>
@@ -186,7 +194,7 @@ export default function CastleBattleMainScreen() {
 
             {gameState === "playing" && (
               <>
-                <div className={`w-full bg-white dark:bg-slate-800 border-4 border-slate-900 dark:border-black rounded-3xl p-4 flex flex-col items-center justify-center gap-2 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] transition-colors duration-500`}>
+                <div className={`w-full bg-white dark:bg-slate-800 border-4 border-slate-900 dark:border-black rounded-3xl p-4 flex flex-col items-center justify-center gap-2 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] transition-colors duration-500 relative`}>
                   <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-xl border-2 border-slate-200 dark:border-slate-700">
                     <Swords className={`w-5 h-5 transition-colors ${attackingTeam === 1 ? "text-cyan-500" : "text-rose-500"}`} />
                     <span className="text-sm font-black text-slate-600 dark:text-slate-400">دور الهجوم:</span>
@@ -476,6 +484,27 @@ export default function CastleBattleMainScreen() {
             <button onClick={nextTurn} className={`w-full py-6 text-2xl font-black rounded-2xl border-4 border-b-8 active:border-b-4 active:translate-y-1 shadow-[6px_6px_0px_#000] flex items-center justify-center gap-3 transition-all ${resultType === "spy" ? "bg-slate-900 text-white border-slate-900 hover:bg-slate-800" : "bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-white"}`}>
               <Swords className="w-8 h-8" strokeWidth={2.5} /> <span>إنهاء الدور والتالي</span>
             </button>
+          </div>
+        </div>
+      )}
+      {showEndGameModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-800 border-8 border-slate-900 dark:border-black rounded-[3rem] p-8 max-w-md w-full shadow-[16px_16px_0px_#0f172a] dark:shadow-[16px_16px_0px_#000] text-center animate-in zoom-in-95 duration-300">
+            <div className="mx-auto w-24 h-24 bg-rose-100 dark:bg-rose-900/40 border-4 border-rose-500 rounded-full flex items-center justify-center mb-6 shadow-inner">
+              <Ban className="w-12 h-12 text-rose-600 dark:text-rose-400 animate-pulse" strokeWidth={3} />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-4 leading-tight">إنهاء اللعبة؟</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-bold mb-8 text-lg">
+              هل أنت متأكد من رغبتك في إنهاء الحرب الآن؟ سيتم إعلان النتيجة فوراً ولن تتمكن من التراجع.
+            </p>
+            <div className="flex gap-4">
+              <button onClick={() => { setShowEndGameModal(false); endGame(); }} className="flex-1 py-4 bg-rose-500 hover:bg-rose-400 text-white font-black text-xl rounded-2xl border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-1 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] transition-all">
+                إنهاء اللعبة
+              </button>
+              <button onClick={() => setShowEndGameModal(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-black text-xl rounded-2xl border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-1 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] transition-all">
+                تراجع
+              </button>
+            </div>
           </div>
         </div>
       )}

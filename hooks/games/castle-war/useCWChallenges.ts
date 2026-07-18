@@ -22,6 +22,7 @@ export function useCWChallenges() {
   const [genTimer, setGenTimer] = useState<number>(15);
   const [isGenTimerRunning, setIsGenTimerRunning] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
+  const [targetEndTime, setTargetEndTime] = useState<number | null>(null);
 
   return {
     cw30SecDB, setCw30SecDB,
@@ -40,6 +41,7 @@ export function useCWChallenges() {
     usedChallengesT2, setUsedChallengesT2,
     genTimer, setGenTimer,
     isGenTimerRunning, setIsGenTimerRunning,
-    timerStarted, setTimerStarted
+    timerStarted, setTimerStarted,
+    targetEndTime, setTargetEndTime
   };
 }

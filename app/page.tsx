@@ -12,7 +12,7 @@ const tajawal = Tajawal({
 
 export const metadata = {
   title: "منصة ألعاب لدن",
-  description: "شريكك التقني لتطوير مواقع وتطبيقات حديثة تلبي طموحاتك وتعزز نجاحك في العالم الرقمي.",
+  description: "عيش جو التحدي مع ألعاب لدن الجماعية ، خيارك الأول لجمعة العائلة وشباب الإستراحة وزملاءك في العمل.",
 };
 
 export default function HomePage() {

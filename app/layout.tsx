@@ -9,7 +9,7 @@ const cairo = Cairo({ subsets: ['arabic'], weight: ['400', '700', '900'] })
 
 export const metadata = {
   title: 'منصة لدن التقنية',
-  description: 'شريكك التقني لتطوير مواقع وتطبيقات حديثة',
+  description: 'عيش جو التحدي مع ألعاب لدن الجماعية',
 }
 
 export default function RootLayout({

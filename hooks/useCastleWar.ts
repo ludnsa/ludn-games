@@ -154,7 +154,7 @@ export function useCastleWar() {
     showGenAnswer, setShowGenAnswer, selectedOption, setSelectedOption, guessT1, setGuessT1,
     guessT2, setGuessT2, guessesRevealed, setGuessesRevealed, usedChallengesT1, setUsedChallengesT1,
     usedChallengesT2, setUsedChallengesT2, genTimer, setGenTimer, isGenTimerRunning, setIsGenTimerRunning,
-    timerStarted, setTimerStarted
+    timerStarted, setTimerStarted, targetEndTime, setTargetEndTime
   } = challenges;
 
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -169,14 +169,29 @@ export function useCastleWar() {
 
   useEffect(() => {
     if (gameState === "gameOver") {
-      // إزالة علامة اللعبة النشطة عند انتهاء اللعبة
       sessionStorage.removeItem("cw_active_session");
+      sessionStorage.removeItem("cw_referee_room");
       const timer = setTimeout(() => {
         router.push("/my-games");
       }, 5000);
       return () => clearTimeout(timer);
     }
   }, [gameState, router]);
+
+  const endGame = () => {
+    setGameState("gameOver");
+    let msg = "انتهت اللعبة بالتعادل";
+    let type: "team1Win" | "team2Win" | "draw" | "" = "draw";
+    if (hp1 > hp2) {
+      msg = `انتصر ${team1Name}!`;
+      type = "team1Win";
+    } else if (hp2 > hp1) {
+      msg = `انتصر ${team2Name}!`;
+      type = "team2Win";
+    }
+    setResultMsg(msg);
+    setResultType(type);
+  };
 
   const [isAccessChecking, setIsAccessChecking] = useState(true);
 
@@ -229,20 +244,22 @@ export function useCastleWar() {
     const liveData = {
       gameState, hp1, hp2, revealed1, revealed2, attackingTeam, turn,
       spiedTarget1, spiedTarget2, team1Data, team2Data, team1Name, team2Name,
-      battleStep, activeChallengeName,
+      battleStep, activeChallengeName, activeChallengeType,
       activeChallengeData: activeChallengeData
-        ? typeof activeChallengeData === "string" ? activeChallengeData : { q: activeChallengeData.q, options: activeChallengeData.options }
+        ? typeof activeChallengeData === "string" ? activeChallengeData : { q: activeChallengeData.q, options: activeChallengeData.options, ...(showGenAnswer ? { a: activeChallengeData.a } : {}) }
         : null,
       isChallengeRevealed, genTimer, resultType, resultMsg, explosionRoomIndexHit,
       targetRoomIndex, usedChallengesT1, usedChallengesT2, timerStarted, timestamp: Date.now(),
+      showGenAnswer, guessesRevealed, guessT1, guessT2, targetEndTime, selectedOption
     };
 
     debouncedSyncToSupabase(liveData);
   }, [
     gameState, hp1, hp2, revealed1, revealed2, attackingTeam, turn, spiedTarget1, spiedTarget2,
-    team1Data, team2Data, team1Name, team2Name, battleStep, activeChallengeName,
+    team1Data, team2Data, team1Name, team2Name, battleStep, activeChallengeName, activeChallengeType,
     activeChallengeData, isChallengeRevealed, genTimer, resultType, resultMsg,
-    explosionRoomIndexHit, targetRoomIndex, usedChallengesT1, usedChallengesT2, timerStarted
+    explosionRoomIndexHit, targetRoomIndex, usedChallengesT1, usedChallengesT2, timerStarted,
+    showGenAnswer, guessesRevealed, guessT1, guessT2, targetEndTime, selectedOption
   ]);
 
   useEffect(() => {
@@ -250,12 +267,58 @@ export function useCastleWar() {
     const initGame = async () => {
       setIsLoading(true);
       try {
-        const newRoomCode = "C" + generateAlphanumericCode(4);
-        setRoomCode(newRoomCode);
-        roomCodeRef.current = newRoomCode;
-        setJoinUrl(`${window.location.origin}/games/castle-war/join?code=${newRoomCode}`);
-
-        await supabase.from("cw_rooms").upsert({ room_code: newRoomCode, live_sync: {} });
+        const savedRoom = sessionStorage.getItem("cw_referee_room");
+        if (savedRoom) {
+          setRoomCode(savedRoom);
+          roomCodeRef.current = savedRoom;
+          setJoinUrl(`${window.location.origin}/games/castle-war/join?code=${savedRoom}`);
+          const { data } = await supabase.from("cw_rooms").select("team1_setup, team2_setup, live_sync").eq("room_code", savedRoom).single();
+          if (data) {
+             if (data.team1_setup) { setTeam1Data(data.team1_setup); setTeam1Ready(true); }
+             if (data.team2_setup) { setTeam2Data(data.team2_setup); setTeam2Ready(true); }
+             
+             if (data.live_sync && data.live_sync.gameState) {
+                if (data.live_sync.gameState !== "lobby") {
+                  setGameState(data.live_sync.gameState);
+                  if (data.live_sync.hp1 !== undefined) setHp1(data.live_sync.hp1);
+                  if (data.live_sync.hp2 !== undefined) setHp2(data.live_sync.hp2);
+                  if (data.live_sync.revealed1 !== undefined) setRevealed1(data.live_sync.revealed1);
+                  if (data.live_sync.revealed2 !== undefined) setRevealed2(data.live_sync.revealed2);
+                  if (data.live_sync.attackingTeam !== undefined) setAttackingTeam(data.live_sync.attackingTeam);
+                  if (data.live_sync.turn !== undefined) setTurn(data.live_sync.turn);
+                  if (data.live_sync.spiedTarget1 !== undefined) setSpiedTarget1(data.live_sync.spiedTarget1);
+                  if (data.live_sync.spiedTarget2 !== undefined) setSpiedTarget2(data.live_sync.spiedTarget2);
+                  if (data.live_sync.battleStep !== undefined) setBattleStep(data.live_sync.battleStep);
+                  if (data.live_sync.activeChallengeName !== undefined) setActiveChallengeName(data.live_sync.activeChallengeName);
+                  if (data.live_sync.activeChallengeType !== undefined) setActiveChallengeType(data.live_sync.activeChallengeType);
+                  if (data.live_sync.activeChallengeData !== undefined) setActiveChallengeData(data.live_sync.activeChallengeData);
+                  if (data.live_sync.isChallengeRevealed !== undefined) setIsChallengeRevealed(data.live_sync.isChallengeRevealed);
+                  if (data.live_sync.genTimer !== undefined) setGenTimer(data.live_sync.genTimer);
+                  if (data.live_sync.resultType !== undefined) setResultType(data.live_sync.resultType);
+                  if (data.live_sync.resultMsg !== undefined) setResultMsg(data.live_sync.resultMsg);
+                  if (data.live_sync.usedChallengesT1 !== undefined) setUsedChallengesT1(data.live_sync.usedChallengesT1);
+                  if (data.live_sync.usedChallengesT2 !== undefined) setUsedChallengesT2(data.live_sync.usedChallengesT2);
+                  if (data.live_sync.timerStarted !== undefined) setTimerStarted(data.live_sync.timerStarted);
+                  if (data.live_sync.showGenAnswer !== undefined) setShowGenAnswer(data.live_sync.showGenAnswer);
+                  if (data.live_sync.guessesRevealed !== undefined) setGuessesRevealed(data.live_sync.guessesRevealed);
+                  if (data.live_sync.guessT1 !== undefined) setGuessT1(data.live_sync.guessT1);
+                  if (data.live_sync.guessT2 !== undefined) setGuessT2(data.live_sync.guessT2);
+                  if (data.live_sync.targetEndTime !== undefined) setTargetEndTime(data.live_sync.targetEndTime);
+                  if (data.live_sync.selectedOption !== undefined) setSelectedOption(data.live_sync.selectedOption);
+                  
+                  // Disable access checking if we restored an active game
+                  setIsAccessChecking(false);
+                }
+             }
+          }
+        } else {
+          const newRoomCode = "C" + generateAlphanumericCode(4);
+          setRoomCode(newRoomCode);
+          roomCodeRef.current = newRoomCode;
+          setJoinUrl(`${window.location.origin}/games/castle-war/join?code=${newRoomCode}`);
+          sessionStorage.setItem("cw_referee_room", newRoomCode);
+          await supabase.from("cw_rooms").upsert({ room_code: newRoomCode, live_sync: {} });
+        }
 
         const { data: questions } = await supabase.from("cw_questions").select("*");
         if (questions) {
@@ -325,6 +388,9 @@ export function useCastleWar() {
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isGenTimerRunning && genTimer > 0) {
+      if (!targetEndTime) {
+        setTargetEndTime(Date.now() + genTimer * 1000);
+      }
       timer = setInterval(() => {
         setGenTimer((prev) => {
           if (prev <= 6 && prev > 1 && soundEnabled && synthRef.current) synthRef.current.playMasterSound("tick");
@@ -334,9 +400,12 @@ export function useCastleWar() {
     } else if (genTimer === 0 && isGenTimerRunning) {
       if (soundEnabled && synthRef.current) synthRef.current.playMasterSound("buzzer");
       setIsGenTimerRunning(false);
+      setTargetEndTime(null);
+    } else {
+      setTargetEndTime(null);
     }
     return () => clearInterval(timer);
-  }, [isGenTimerRunning, genTimer, soundEnabled]);
+  }, [isGenTimerRunning, genTimer, soundEnabled, targetEndTime, setTargetEndTime]);
 
   const updateTeamNameLocally = async (team: 1 | 2, newName: string) => {
     if (team === 1) {
@@ -426,6 +495,7 @@ export function useCastleWar() {
     setIsGenTimerRunning(false);
     setAttackingTeam(turn);
     setTimerStarted(false);
+    setTargetEndTime(null);
     setActiveChallengeType(targetType);
     setActiveChallengeName(getChallengeTitle(targetType));
 
@@ -458,12 +528,14 @@ export function useCastleWar() {
     setGenTimer(15);
     setIsGenTimerRunning(false);
     setTimerStarted(false);
+    setTargetEndTime(null);
     nextTurn();
   };
 
   const pickNewChallenge = () => {
     setIsGenTimerRunning(false);
     setTimerStarted(false);
+    setTargetEndTime(null);
     if (activeChallengeType === "general" && cwGenDB.length > 0) {
       setActiveChallengeData(cwGenDB[Math.floor(Math.random() * cwGenDB.length)]);
       setGenTimer(15);
@@ -484,6 +556,7 @@ export function useCastleWar() {
 
   const challengeSuccess = (winnerTeam?: 1 | 2) => {
     setIsGenTimerRunning(false);
+    setTargetEndTime(null);
     if (winnerTeam) setAttackingTeam(winnerTeam);
     else setAttackingTeam(turn);
     setBattleStep("target");
@@ -491,6 +564,7 @@ export function useCastleWar() {
 
   const challengeFail = () => {
     setIsGenTimerRunning(false);
+    setTargetEndTime(null);
     setAttackingTeam(turn === 1 ? 2 : 1);
     setBattleStep("target");
   };
@@ -726,6 +800,6 @@ export function useCastleWar() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame
   };
 }

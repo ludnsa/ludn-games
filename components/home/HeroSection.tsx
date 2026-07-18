@@ -16,7 +16,7 @@ export const HeroSection = ({
         منصة ألعاب <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-blue-500 drop-shadow-sm">لدن</span>
       </h1>
       <p className="text-base sm:text-lg md:text-2xl font-bold max-w-2xl leading-relaxed text-slate-600 dark:text-slate-400 mb-10 md:mb-12">
-        شريكك التقني لتطوير مواقع وتطبيقات حديثة تلبي طموحاتك وتعزز نجاحك في العالم الرقمي.
+        عيش جو التحدي مع ألعاب لدن الجماعية ، خيارك الأول لجمعة العائلة وشباب الإستراحة وزملاءك في العمل.
       </p>
 
       <div className="flex flex-col sm:flex-row items-center gap-4 z-20 w-full justify-center max-w-2xl px-2 md:px-4">

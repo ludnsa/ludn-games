@@ -20,6 +20,7 @@ export default function CastleWarDisplay() {
   const [targetRoomIdx, setTargetRoomIdx] = useState<number | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [hideResultModal, setHideResultModal] = useState(false);
+  const [displayTimer, setDisplayTimer] = useState<number>(0);
 
   const lastTimestampRef = useRef<number | null>(null);
 
@@ -94,6 +95,23 @@ export default function CastleWarDisplay() {
     }
   }, [liveData?.battleStep, liveData?.targetRoomIndex]);
 
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    if (liveData?.targetEndTime) {
+      const updateTimer = () => {
+        const remaining = Math.max(0, Math.floor((liveData.targetEndTime - Date.now()) / 1000));
+        setDisplayTimer(remaining);
+      };
+      updateTimer(); // Initial call
+      intervalId = setInterval(updateTimer, 500);
+    } else {
+      setDisplayTimer(liveData?.genTimer || 0);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [liveData?.targetEndTime, liveData?.genTimer]);
+
   const getChallengeTitle = (type: string) => {
     switch (type) {
       case "30sec": return "ثلاثين ثانية";
@@ -121,13 +139,13 @@ export default function CastleWarDisplay() {
   }
 
   return (
-    <main className={`h-screen w-full relative bg-[#0f172a] ${cairo.className} overflow-hidden`} dir="rtl">
+    <main className={`min-h-[100dvh] md:h-screen w-full relative bg-[#0f172a] ${cairo.className} overflow-y-auto md:overflow-hidden`} dir="rtl">
 
 
       <AudienceBackground />
 
-      <div className="relative z-10 w-full h-full flex items-center justify-between px-8 md:px-16 gap-10">
-        <div className="flex-1 w-full flex flex-col justify-center items-center h-full z-20">
+      <div className="relative z-10 w-full min-h-screen md:h-full flex flex-col md:flex-row items-center justify-center md:justify-between px-4 md:px-16 gap-8 md:gap-10 pt-28 pb-12 md:py-0">
+        <div className="w-full md:flex-1 flex flex-col justify-center items-center z-20 order-1 md:order-none">
           <div className="flex flex-col items-center mb-4 w-full max-w-[320px]">
             <div className="bg-cyan-500 border-4 border-black text-white font-black text-3xl md:text-4xl py-3 px-6 rounded-[2rem] shadow-[8px_8px_0px_#000] text-center flex items-center justify-center gap-3 w-full">
               {liveData.hp1} <span className="text-xl text-cyan-900 font-bold hidden xl:block">جندي</span>
@@ -141,7 +159,7 @@ export default function CastleWarDisplay() {
           />
         </div>
 
-        <div className="flex-1 w-full flex flex-col justify-center items-center h-full z-20">
+        <div className="w-full md:flex-1 flex flex-col justify-center items-center z-20 order-3 md:order-none">
           <div className="flex flex-col items-center mb-4 w-full max-w-[320px]">
             <div className="bg-rose-500 border-4 border-black text-white font-black text-3xl md:text-4xl py-3 px-6 rounded-[2rem] shadow-[8px_8px_0px_#000] text-center flex items-center justify-center gap-3 w-full">
               {liveData.hp2} <span className="text-xl text-rose-900 font-bold hidden xl:block">جندي</span>
@@ -154,21 +172,9 @@ export default function CastleWarDisplay() {
             explosionIsTeam1Target={explosionIsTeam1Target}
           />
         </div>
-      </div>
 
-      <div className="absolute top-8 md:top-12 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto">
-        <div className="animate-floating-box px-8 py-3 rounded-3xl border-8 border-black flex items-center gap-4 shadow-[8px_8px_0px_#000] bg-white transition-colors duration-300">
-          <Swords size={32} className={liveData.attackingTeam === 1 ? "text-cyan-500" : "text-rose-500"} strokeWidth={2.5} />
-          <div className="flex flex-col items-center">
-            <span className="text-sm font-black text-slate-500 uppercase tracking-widest">دور الهجوم</span>
-            <span className={`text-xl md:text-2xl font-black ${liveData.attackingTeam === 1 ? "text-cyan-500" : "text-rose-500"}`}>
-              {liveData.attackingTeam === 1 ? liveData.team1Name : liveData.team2Name}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl lg:max-w-4xl pointer-events-none flex flex-col items-center justify-center max-h-[90vh]">
+      {/* Popups Area (Middle on mobile, absolute center on desktop) */}
+      <div className="relative md:absolute md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 z-50 w-full max-w-2xl lg:max-w-4xl md:pointer-events-none flex flex-col items-center justify-center max-h-[90vh] order-2 md:order-none my-4 md:my-0 scale-[0.85] sm:scale-95 md:scale-100">
         {liveData.battleStep === "roll" && (() => {
           const allAvailableTypes = ["guess", "30sec", "5sec", "general", "team"];
           const usedT1 = liveData.usedChallengesT1 || [];
@@ -203,35 +209,73 @@ export default function CastleWarDisplay() {
               {liveData.activeChallengeName}
             </h3>
 
-            {!liveData.timerStarted ? (
-              <div className="py-8 md:py-10 flex flex-col items-center justify-center animate-in zoom-in">
-                <Lock className="w-16 h-16 md:w-20 md:h-20 text-slate-300 mb-4 md:mb-6 animate-pulse" strokeWidth={2} />
-                <h2 className="text-2xl md:text-3xl font-black text-slate-500">التحدي جاهز</h2>
-                <p className="text-lg md:text-xl text-slate-400 mt-2 font-bold">بانتظار بدء المؤقت لعرض التفاصيل...</p>
-              </div>
-            ) : (
-              <div className="animate-in fade-in duration-500">
+            <div className="animate-in fade-in duration-500">
                 <p className="text-xl md:text-3xl font-black text-slate-900 leading-relaxed mb-4 md:mb-6">
                   {liveData.activeChallengeData.q || liveData.activeChallengeData}
                 </p>
 
                 {liveData.activeChallengeData.options && (
                   <div className="grid grid-cols-1 gap-2 md:gap-3 mb-4 md:mb-6">
-                    {liveData.activeChallengeData.options.map((opt: string, i: number) => (
-                      <div key={i} className="bg-slate-100 border-4 border-slate-900 rounded-xl md:rounded-2xl py-2 md:py-3 text-lg md:text-xl font-black text-slate-800 shadow-[4px_4px_0px_#000]">
-                        {opt}
-                      </div>
-                    ))}
+                    {liveData.activeChallengeData.options.map((opt: string, i: number) => {
+                      const isCorrect = liveData.showGenAnswer && opt === liveData.activeChallengeData.a;
+                      const isWrongSelected = liveData.showGenAnswer && liveData.selectedOption && opt === liveData.selectedOption && opt !== liveData.activeChallengeData.a;
+                      const isFaded = liveData.showGenAnswer && !isCorrect && !isWrongSelected;
+                      return (
+                        <div key={i} className={`border-4 rounded-xl md:rounded-2xl py-2 md:py-3 text-lg md:text-xl font-black shadow-[4px_4px_0px_#000] transition-colors ${
+                          isCorrect ? "bg-emerald-400 border-black text-slate-900 scale-[1.02]" : 
+                          isWrongSelected ? "bg-rose-500 border-black text-white" : 
+                          isFaded ? "bg-slate-100 border-slate-300 text-slate-400 opacity-50" : 
+                          "bg-slate-100 border-slate-900 text-slate-800"
+                        }`}>
+                          {opt}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
-                {liveData.genTimer > 0 && (
-                  <div className={`text-4xl md:text-6xl font-mono font-black py-3 md:py-4 rounded-[1.5rem] md:rounded-3xl border-8 shadow-inner transition-colors ${liveData.genTimer <= 5 ? "bg-rose-100 text-rose-600 border-rose-500 animate-pulse" : "bg-slate-900 border-black text-amber-400"}`}>
-                    {formatTime(liveData.genTimer)}
+                {!liveData.activeChallengeData.options && liveData.activeChallengeType === "general" && liveData.showGenAnswer && (
+                  <div className="bg-emerald-100 border-4 border-emerald-400 text-emerald-800 font-black text-2xl md:text-3xl py-4 px-6 rounded-2xl mb-6 shadow-inner animate-in zoom-in">
+                    {liveData.activeChallengeData.a}
+                  </div>
+                )}
+
+                {(!liveData.showGenAnswer && displayTimer > 0) && (
+                  <div className={`text-4xl md:text-6xl font-mono font-black py-3 md:py-4 rounded-[1.5rem] md:rounded-3xl border-8 shadow-inner transition-colors ${displayTimer <= 5 ? "bg-rose-100 text-rose-600 border-rose-500 animate-pulse" : "bg-slate-900 border-black text-amber-400"}`}>
+                    {formatTime(displayTimer)}
                   </div>
                 )}
               </div>
-            )}
+          </div>
+        )}
+
+        {liveData.battleStep === "challenge" && liveData.activeChallengeType === "guess" && (
+          <div className="bg-white border-8 border-black rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-8 text-center shadow-[16px_16px_0px_#000] animate-in zoom-in duration-300 pointer-events-auto w-full max-w-2xl mx-auto">
+            <h3 className="bg-slate-100 border-4 border-slate-200 text-slate-600 font-black mb-6 uppercase tracking-widest text-base md:text-lg py-2 px-6 rounded-2xl inline-block">
+              {liveData.activeChallengeName}
+            </h3>
+            <div className="flex gap-4 md:gap-8 justify-center mt-4">
+              <div className="flex-1 max-w-[200px]">
+                <div className="text-xl md:text-2xl font-black text-cyan-600 mb-4">{liveData.team1Name}</div>
+                <div className="bg-slate-100 border-4 border-black rounded-3xl h-24 md:h-32 flex items-center justify-center shadow-inner relative overflow-hidden">
+                   {liveData.guessesRevealed ? (
+                     <span className="text-4xl md:text-6xl font-black text-slate-900 animate-in zoom-in">{liveData.guessT1}</span>
+                   ) : (
+                     <Eye className="w-10 h-10 text-slate-300 animate-pulse" />
+                   )}
+                </div>
+              </div>
+              <div className="flex-1 max-w-[200px]">
+                <div className="text-xl md:text-2xl font-black text-rose-600 mb-4">{liveData.team2Name}</div>
+                <div className="bg-slate-100 border-4 border-black rounded-3xl h-24 md:h-32 flex items-center justify-center shadow-inner relative overflow-hidden">
+                   {liveData.guessesRevealed ? (
+                     <span className="text-4xl md:text-6xl font-black text-slate-900 animate-in zoom-in">{liveData.guessT2}</span>
+                   ) : (
+                     <Eye className="w-10 h-10 text-slate-300 animate-pulse" />
+                   )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -262,6 +306,21 @@ export default function CastleWarDisplay() {
             </h1>
           </div>
         )}
+      </div>
+
+      </div>
+      
+      {/* Floating Status Box */}
+      <div className="absolute top-4 md:top-8 lg:top-12 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto">
+        <div className="animate-floating-box px-6 md:px-8 py-2 md:py-3 rounded-3xl border-8 border-black flex items-center gap-3 md:gap-4 shadow-[8px_8px_0px_#000] bg-white transition-colors duration-300 scale-90 md:scale-100">
+          <Swords size={28} className={liveData.attackingTeam === 1 ? "text-cyan-500" : "text-rose-500"} strokeWidth={2.5} />
+          <div className="flex flex-col items-center">
+            <span className="text-xs md:text-sm font-black text-slate-500 uppercase tracking-widest">دور الهجوم</span>
+            <span className={`text-lg md:text-2xl font-black ${liveData.attackingTeam === 1 ? "text-cyan-500" : "text-rose-500"}`}>
+              {liveData.attackingTeam === 1 ? liveData.team1Name : liveData.team2Name}
+            </span>
+          </div>
+        </div>
       </div>
     </main>
   );
