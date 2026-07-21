@@ -7,10 +7,9 @@ export interface PackageData {
 }
 
 export const GAME_PACKAGES: PackageData[] = [
-  { id: 1, name: "لعبة واحدة", tokens: 1, price: 11.5 },
-  { id: 2, name: "ثلاث ألعاب", tokens: 3, price: 34.5 },
-  { id: 3, name: "ست ألعاب", tokens: 6, price: 65.0, popular: true },
-  { id: 4, name: "عشر ألعاب", tokens: 10, price: 115.0 },
+  { id: 1, name: "لعبة واحدة", tokens: 1, price: 10 },
+  { id: 2, name: "ثلاث ألعاب", tokens: 3, price: 30 },
+  { id: 3, name: "خمسة ألعاب", tokens: 5, price: 45, popular: true },
 ];
 
 export const getPackageById = (id: number): PackageData | undefined => {

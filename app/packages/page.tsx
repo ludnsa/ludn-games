@@ -92,13 +92,13 @@ export default function PackagesPage() {
       </header>
 
       {/* Packages Grid */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {GAME_PACKAGES.map((pkg) => (
           <div key={pkg.id} className={`relative bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border-4 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl flex flex-col ${pkg.popular ? "border-amber-400 dark:border-amber-500 shadow-[0_10px_40px_-10px_rgba(251,191,36,0.3)]" : "border-slate-200 dark:border-slate-800"}`}>
             
             {pkg.popular && (
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-400 text-slate-900 font-black px-4 py-1 rounded-full text-sm">
-                الأكثر طلباً
+                الأكثر مبيعاً
               </div>
             )}
 
