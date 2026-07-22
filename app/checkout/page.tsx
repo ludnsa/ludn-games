@@ -262,10 +262,15 @@ function CheckoutContentInner({ moyasarLoaded }: { moyasarLoaded: boolean }) {
           element: ".mysr-form",
           amount: amountInHalalas,
           currency: "SAR",
-          description: `Purchase ${pkg.name} - ${pkg.tokens} tokens`,
+          description: `شراء ${pkg.name} - ${pkg.tokens} رصيد`,
           publishable_api_key: publishableKey,
           callback_url: callbackUrl,
-          methods: ["creditcard"],
+          methods: ["creditcard", "applepay", "stcpay"],
+          apple_pay: {
+            country: "SA",
+            label: "منصة الألعاب",
+            validate_merchant_url: "https://api.moyasar.com/v1/applepay/initiate",
+          },
           on_initiating: async function () {
             return true;
           },
