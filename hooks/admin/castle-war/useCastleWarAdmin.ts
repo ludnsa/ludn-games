@@ -21,7 +21,7 @@ export function useCastleWarAdmin() {
   const [newCwTeam, setNewCwTeam] = useState<string>("");
   const [selectedCwTeam, setSelectedCwTeam] = useState<string[]>([]);
 
-  const [cwGenDB, setCwGenDB] = useState<{ q: string; a: string; options?: string[] }[]>([]);
+  const [cwGenDB, setCwGenDB] = useState<{ q: string; a: string; options?: string[]; dbId?: string }[]>([]);
   const [selectedCwGen, setSelectedCwGen] = useState<number[]>([]);
   const [newCwGenQuestion, setNewCwGenQuestion] = useState<string>("");
   const [genOpt1, setGenOpt1] = useState<string>("");
