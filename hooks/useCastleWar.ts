@@ -153,7 +153,7 @@ export function useCastleWar() {
     activeChallengeData, setActiveChallengeData, isChallengeRevealed, setIsChallengeRevealed,
     showGenAnswer, setShowGenAnswer, selectedOption, setSelectedOption, guessT1, setGuessT1,
     guessT2, setGuessT2, guessesRevealed, setGuessesRevealed, usedChallengesT1, setUsedChallengesT1,
-    usedChallengesT2, setUsedChallengesT2, genTimer, setGenTimer, isGenTimerRunning, setIsGenTimerRunning,
+    usedChallengesT2, setUsedChallengesT2, usedTeamQs, setUsedTeamQs, genTimer, setGenTimer, isGenTimerRunning, setIsGenTimerRunning,
     timerStarted, setTimerStarted, targetEndTime, setTargetEndTime
   } = challenges;
 
@@ -191,6 +191,51 @@ export function useCastleWar() {
     }
     setResultMsg(msg);
     setResultType(type);
+  };
+
+  const resetGame = async () => {
+    setGameState("lobby");
+    setTeam1Ready(false);
+    setTeam2Ready(false);
+    setTeam1Data(null);
+    setTeam2Data(null);
+    setHp1(TOTAL_SOLDIERS);
+    setHp2(TOTAL_SOLDIERS);
+    setRevealed1(Array(ROOMS_COUNT).fill(false));
+    setRevealed2(Array(ROOMS_COUNT).fill(false));
+    setTurn(1);
+    setAttackingTeam(1);
+    setBattleStep("roll");
+    setResultType("idle");
+    setResultMsg("");
+    setSpyUsed1(false);
+    setSpyUsed2(false);
+    setSpiedTarget1(null);
+    setSpiedTarget2(null);
+    setUsedChallengesT1([]);
+    setUsedChallengesT2([]);
+    setUsedTeamQs([]);
+    setActiveChallengeType("");
+    setActiveChallengeName("");
+    setActiveChallengeData(null);
+    setIsChallengeRevealed(false);
+    setShowGenAnswer(false);
+    setSelectedOption(null);
+    setGuessT1("");
+    setGuessT2("");
+    setGuessesRevealed(false);
+    setGenTimer(0);
+    setIsGenTimerRunning(false);
+    setTimerStarted(false);
+    setTargetEndTime(null);
+
+    if (roomCodeRef.current) {
+      await supabase.from("cw_rooms").update({
+        team1_setup: null,
+        team2_setup: null,
+        live_sync: null
+      }).eq("room_code", roomCodeRef.current);
+    }
   };
 
   const [isAccessChecking, setIsAccessChecking] = useState(true);
@@ -237,7 +282,7 @@ export function useCastleWar() {
     } catch (e) {
       console.error("Sync error:", e);
     }
-  }, 400);
+  }, 50);
 
   useEffect(() => {
     if (!roomCodeRef.current) return;
@@ -509,8 +554,10 @@ export function useCastleWar() {
       setActiveChallengeData(cwGenDB.length > 0 ? cwGenDB[Math.floor(Math.random() * cwGenDB.length)] : { q: "لم تتم إضافة أسئلة بعد", a: "-" });
       setGenTimer(15);
     } else if (targetType === "team") {
-      const tData = cwTeamDB.length > 0 ? cwTeamDB[Math.floor(Math.random() * cwTeamDB.length)] : { q: "لم تتم إضافة تحديات بعد" };
+      const available = cwTeamDB.filter(q => !usedTeamQs.includes(q));
+      const tData = available.length > 0 ? available[Math.floor(Math.random() * available.length)] : "نفذت أسئلة تحديات الفريق!";
       setActiveChallengeData(tData);
+      if (typeof tData === "string") setUsedTeamQs([...usedTeamQs, tData]);
       setGenTimer(typeof tData === "string" && tData.includes("ولا كلمة") ? 90 : 60);
     } else setActiveChallengeData(null);
 
@@ -548,8 +595,10 @@ export function useCastleWar() {
       setActiveChallengeData(cw5SecDB[Math.floor(Math.random() * cw5SecDB.length)]);
       setGenTimer(5);
     } else if (activeChallengeType === "team" && cwTeamDB.length > 0) {
-      const tData = cwTeamDB[Math.floor(Math.random() * cwTeamDB.length)];
+      const available = cwTeamDB.filter(q => !usedTeamQs.includes(q));
+      const tData = available.length > 0 ? available[Math.floor(Math.random() * available.length)] : "نفذت أسئلة تحديات الفريق!";
       setActiveChallengeData(tData);
+      if (typeof tData === "string") setUsedTeamQs([...usedTeamQs, tData]);
       setGenTimer(typeof tData === "string" && tData.includes("ولا كلمة") ? 90 : 60);
     }
   };
@@ -800,6 +849,6 @@ export function useCastleWar() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame
   };
 }

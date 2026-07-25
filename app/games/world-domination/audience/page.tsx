@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Cairo } from "next/font/google";
-import { Globe, Coins, Shield, Rocket, HelpCircle, Moon, Sun, Crosshair, Crown } from "lucide-react";
+import { Globe, Coins, Shield, Rocket, HelpCircle, Moon, Sun, Crosshair, Crown, Radiation } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 
 import AudienceCapitalAlert from "@/components/games/world-domination/audience/AudienceCapitalAlert";
@@ -186,12 +186,14 @@ export default function WorldDominationAudience() {
     capture: liveData.cards1?.capture ?? 3, protect: liveData.cards1?.protect ?? 5,
     airStrike: liveData.cards1?.airStrike ?? 3, capitalCapture: liveData.cards1?.capitalCapture ?? 2,
     spy: liveData.cards1?.spy ?? 0,
+    nuke: liveData.cards1?.nuke ?? 1,
   };
 
   const cards2 = {
     capture: liveData.cards2?.capture ?? 3, protect: liveData.cards2?.protect ?? 5,
     airStrike: liveData.cards2?.airStrike ?? 3, capitalCapture: liveData.cards2?.capitalCapture ?? 2,
     spy: liveData.cards2?.spy ?? 0,
+    nuke: liveData.cards2?.nuke ?? 1,
   };
 
   const isDraw = score1 === score2;
@@ -242,44 +244,49 @@ export default function WorldDominationAudience() {
               <Coins className="w-6 h-6 lg:w-10 lg:h-10 text-yellow-500 dark:text-yellow-400 shrink-0" />
             </div>
 
-            <div className="flex flex-col gap-2 mt-4 w-full">
+            <div className="grid grid-cols-2 gap-2 mt-4 w-full">
               <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <TankIcon size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">احتلال 3</span>
+                  <span className="font-bold text-xs lg:text-sm">احتلال</span>
                 </div>
                 <span className="font-black text-sm lg:text-base">{cards1.capture}</span>
               </div>
               <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 transition-colors">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <Shield size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">حماية 5</span>
+                  <span className="font-bold text-xs lg:text-sm">حماية</span>
                 </div>
                 <span className="font-black text-sm lg:text-base">{cards1.protect}</span>
               </div>
               <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 px-3 py-2 rounded-xl border border-orange-300 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 transition-colors">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <Rocket size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">قصف 3</span>
+                  <span className="font-bold text-xs lg:text-sm">قصف</span>
                 </div>
                 <span className="font-black text-sm lg:text-base">{cards1.airStrike}</span>
               </div>
               <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 transition-colors">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <Crown size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">غزو العاصمة 2</span>
+                  <span className="font-bold text-[10px] lg:text-sm">غزو العاصمة</span>
                 </div>
                 <span className="font-black text-sm lg:text-base">{cards1.capitalCapture}</span>
               </div>
-              {cards1.spy > 0 && (
-                <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 rounded-xl border border-indigo-300 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <Crosshair size={16} className="lg:w-[18px] lg:h-[18px]" />
-                    <span className="font-bold text-xs lg:text-sm">تجسس</span>
-                  </div>
-                  <span className="font-black text-sm lg:text-base">{cards1.spy}</span>
+              <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 rounded-xl border border-indigo-300 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 transition-colors">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <Crosshair size={16} className="lg:w-[18px] lg:h-[18px]" />
+                  <span className="font-bold text-xs lg:text-sm">تجسس</span>
                 </div>
-              )}
+                <span className="font-black text-sm lg:text-base">{cards1.spy}</span>
+              </div>
+              <div className="flex items-center justify-between bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-xl border border-red-300 dark:border-red-800/50 text-red-700 dark:text-red-400 transition-colors">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <Radiation size={16} className="lg:w-[18px] lg:h-[18px]" />
+                  <span className="font-bold text-xs lg:text-sm">نووي</span>
+                </div>
+                <span className="font-black text-sm lg:text-base">{cards1.nuke}</span>
+              </div>
             </div>
           </div>
 
@@ -333,44 +340,49 @@ export default function WorldDominationAudience() {
               <Coins className="w-6 h-6 lg:w-10 lg:h-10 text-yellow-500 dark:text-yellow-400 shrink-0" />
             </div>
 
-            <div className="flex flex-col gap-2 mt-4 w-full">
-              <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 px-3 py-2 rounded-xl border border-orange-300 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 transition-colors">
-                <div className="flex items-center gap-2">
-                  <Rocket size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">قصف 3</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards2.airStrike}</span>
-              </div>
-              <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 transition-colors">
-                <div className="flex items-center gap-2">
-                  <Shield size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">حماية 5</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards2.protect}</span>
-              </div>
+            <div className="grid grid-cols-2 gap-2 mt-4 w-full">
               <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <TankIcon size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">احتلال 3</span>
+                  <span className="font-bold text-xs lg:text-sm">احتلال</span>
                 </div>
                 <span className="font-black text-sm lg:text-base">{cards2.capture}</span>
               </div>
+              <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 transition-colors">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <Shield size={16} className="lg:w-[18px] lg:h-[18px]" />
+                  <span className="font-bold text-xs lg:text-sm">حماية</span>
+                </div>
+                <span className="font-black text-sm lg:text-base">{cards2.protect}</span>
+              </div>
+              <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 px-3 py-2 rounded-xl border border-orange-300 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 transition-colors">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <Rocket size={16} className="lg:w-[18px] lg:h-[18px]" />
+                  <span className="font-bold text-xs lg:text-sm">قصف</span>
+                </div>
+                <span className="font-black text-sm lg:text-base">{cards2.airStrike}</span>
+              </div>
               <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 transition-colors">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 lg:gap-2">
                   <Crown size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">غزو العاصمة 2</span>
+                  <span className="font-bold text-[10px] lg:text-sm">غزو العاصمة</span>
                 </div>
                 <span className="font-black text-sm lg:text-base">{cards2.capitalCapture}</span>
               </div>
-              {cards2.spy > 0 && (
-                <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 rounded-xl border border-indigo-300 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <Crosshair size={16} className="lg:w-[18px] lg:h-[18px]" />
-                    <span className="font-bold text-xs lg:text-sm">تجسس</span>
-                  </div>
-                  <span className="font-black text-sm lg:text-base">{cards2.spy}</span>
+              <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 rounded-xl border border-indigo-300 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 transition-colors">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <Crosshair size={16} className="lg:w-[18px] lg:h-[18px]" />
+                  <span className="font-bold text-xs lg:text-sm">تجسس</span>
                 </div>
-              )}
+                <span className="font-black text-sm lg:text-base">{cards2.spy}</span>
+              </div>
+              <div className="flex items-center justify-between bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-xl border border-red-300 dark:border-red-800/50 text-red-700 dark:text-red-400 transition-colors">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <Radiation size={16} className="lg:w-[18px] lg:h-[18px]" />
+                  <span className="font-bold text-xs lg:text-sm">نووي</span>
+                </div>
+                <span className="font-black text-sm lg:text-base">{cards2.nuke}</span>
+              </div>
             </div>
           </div>
 

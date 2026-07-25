@@ -35,9 +35,10 @@ export default function RiskAndDecisionStates({ ctx }: { ctx: any }) {
                       if (!canDouble) { triggerAlert("الرصيد لا يكفي لتفعيل الدبل (تحتاج لمبلغ إضافي يعادل مزايدتك)."); return; }
                       handlePreRiskDecision(true);
                     }} 
-                    className={`flex-1 py-4 md:py-5 font-black text-base md:text-xl rounded-xl border-b-4 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1 ${canDouble ? "bg-yellow-500 hover:bg-yellow-400 text-slate-900 border-yellow-700" : "bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 border-slate-400 dark:border-slate-900 cursor-not-allowed"}`}
+                    disabled={!canDouble}
+                    className={`flex-1 py-4 md:py-5 font-black text-base md:text-xl rounded-xl border-b-4 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1 ${canDouble ? "bg-yellow-500 hover:bg-yellow-400 text-slate-900 border-yellow-700" : "bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 border-slate-400 dark:border-slate-900 cursor-not-allowed opacity-50"}`}
                   >
-                     <span>تفعيل الدبل ⚡</span>
+                     <span>{canDouble ? "تفعيل الدبل ⚡" : "الرصيد لا يكفي للدبل 🔒"}</span>
                      <span className="text-[10px] md:text-sm font-bold opacity-80">(خصم إضافي {getWinnerBid()})</span>
                   </button>
                 );
@@ -46,23 +47,6 @@ export default function RiskAndDecisionStates({ ctx }: { ctx: any }) {
         </div>
       )}
 
-      {/* قرار اللعب بالخيارات */}
-      {gameState === "optionsDecision" && (
-        <div className="bg-white dark:bg-slate-900 p-6 md:p-12 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 border-slate-400 text-center w-full max-w-3xl animate-in zoom-in">
-           <Eye className="w-16 h-16 md:w-20 md:h-20 text-slate-500 mx-auto mb-4 md:mb-6" />
-           <h2 className="text-xl md:text-3xl font-black mb-3 md:mb-4 text-slate-800 dark:text-white">كيف ترغب باللعب مع الخيارات؟</h2>
-           <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mt-8">
-              <button onClick={() => { setPlayMode("options_normal"); setGameState("options"); }} className="flex-1 py-4 md:py-6 bg-cyan-600 hover:bg-cyan-500 text-white font-black text-base md:text-xl rounded-xl border-b-4 border-cyan-800 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-2">
-                 <span>لعب طبيعي 🎯</span>
-                 <span className="text-xs md:text-sm opacity-80 bg-cyan-800/50 px-3 py-1 rounded-lg">مكافأة: {isDoubleRisk ? 10 : 5} نقاط</span>
-              </button>
-              <button onClick={() => { setPlayMode("options_ambush"); setGameState("options"); }} className="flex-1 py-4 md:py-6 bg-rose-500 hover:bg-rose-400 text-white font-black text-base md:text-xl rounded-xl border-b-4 border-rose-700 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-2">
-                 <span>كمين وتخريب ⚔️</span>
-                 <span className="text-[10px] md:text-sm font-bold opacity-90 bg-rose-800/50 px-3 py-1 rounded-lg">(استرداد رصيدك + خصم مزايدة الخصم بدون نقاط)</span>
-              </button>
-           </div>
-        </div>
-      )}
 
       {/* شراء السؤال المرتد */}
       {gameState === "buyOffer" && (

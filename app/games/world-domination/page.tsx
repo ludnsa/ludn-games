@@ -40,7 +40,7 @@ export default function WorldDominationGame() {
     handleChangeQuestion, handleRefereeChangeQuestion, adjustScore, handleManualFree,
     handleSpyAction, handleConfirmAnswers, handleCapture, handleMiss,
     countriesLeft, team1Owned, team2Owned, handleForceEndGame,
-    useCaptureCard, useAirStrike, useProtectCard, isAccessChecking
+    useCaptureCard, useAirStrike, useProtectCard, handleNukeAction, isAccessChecking
   } = useWorldDomination();
 
   if (isAccessChecking) {
@@ -153,6 +153,7 @@ export default function WorldDominationGame() {
             cards2={cards2}
             setQuickProtectTeam={setQuickProtectTeam}
             handleSpyAction={handleSpyAction}
+            handleNukeAction={handleNukeAction}
             setSelectedCountry={setSelectedCountry}
             setTeam1Choice={setTeam1Choice}
             setTeam2Choice={setTeam2Choice}

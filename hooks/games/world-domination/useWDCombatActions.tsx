@@ -21,9 +21,10 @@ export function useWDCombatActions(ctx: any) {
 
   const handleForceEndGame = () => {
     ctx.showConfirm(
-      "هل أنت متأكد من رغبتك في إنهاء اللعبة وإعلان الفائز الآن؟",
+      "هل أنت متأكد من رغبتك في إنهاء اللعبة وتصفيرها بالكامل؟ سيتم مسح جميع البيانات.",
       () => {
-        ctx.setGameState("gameOver");
+        localStorage.removeItem("wd_live_sync");
+        window.location.reload();
       }
     );
   };
@@ -184,11 +185,16 @@ export function useWDCombatActions(ctx: any) {
 
     if (isOpponentCapital) {
       capitalStolen = true;
-      stealAmount = Math.floor((winner === 1 ? finalScore2 : finalScore1) / 3);
+      const defenderScore = winner === 1 ? finalScore2 : finalScore1;
+      stealAmount = Math.floor(defenderScore / 3);
+      const defenseLoss = Math.floor(defenderScore / 4);
+
       if (winner === 1) {
         finalScore1 += stealAmount;
+        finalScore2 = Math.max(0, finalScore2 - defenseLoss);
       } else {
         finalScore2 += stealAmount;
+        finalScore1 = Math.max(0, finalScore1 - defenseLoss);
       }
     } else {
       if (winner === 1) finalScore1 += ctx.selectedCountry.value;

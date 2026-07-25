@@ -37,6 +37,9 @@ export function useAuctionReferee() {
   const [t2Points, setT2Points] = useState(0);
   const [t1Ambush, setT1Ambush] = useState(3);
   const [t2Ambush, setT2Ambush] = useState(3);
+  const [t1SellCards, setT1SellCards] = useState(3);
+  const [t2SellCards, setT2SellCards] = useState(3);
+  const [isSuddenDeath, setIsSuddenDeath] = useState(false);
   
   const [questions, setQuestions] = useState<any[]>([]);
   const [allQuestions, setAllQuestions] = useState<any[]>([]);
@@ -109,6 +112,9 @@ export function useAuctionReferee() {
           setT2Points(data.t2_points);
           setT1Ambush(data.t1_ambush);
           setT2Ambush(data.t2_ambush);
+          setT1SellCards(data.t1_sell_cards ?? 3);
+          setT2SellCards(data.t2_sell_cards ?? 3);
+          setIsSuddenDeath(data.is_sudden_death || false);
           setQuestions(data.questions || []);
           setCurrentIndex(data.current_index || 0);
           setTurn(data.turn || 1);
@@ -183,22 +189,36 @@ export function useAuctionReferee() {
 
   useEffect(() => {
     if (!roomCode || gameState === "setup") return;
-    const syncData = async () => {
-      await supabase.from("auction_rooms").update({
+    const syncCoreData = async () => {
+      const { error } = await supabase.from("auction_rooms").update({
         game_state: gameState,
         t1_balance: t1Balance, t2_balance: t2Balance,
         t1_points: t1Points, t2_points: t2Points,
         t1_ambush: t1Ambush, t2_ambush: t2Ambush,
-        questions: questions,
+        t1_sell_cards: t1SellCards, t2_sell_cards: t2SellCards,
+        is_sudden_death: isSuddenDeath,
         current_index: currentIndex,
         turn: turn, winner: winner, buyer: buyer,
         is_double_risk: isDoubleRisk, play_mode: playMode,
-        timer: timer, is_timer_running: isTimerRunning,
         is_question_visible: isQuestionVisible
       }).eq("room_code", roomCode);
+      
+      if (error) {
+        console.error("syncCoreData DB Error:", error);
+      }
     };
-    syncData();
-  }, [gameState, t1Balance, t2Balance, t1Points, t2Points, currentIndex, winner, buyer, playMode, isDoubleRisk, turn, timer, isTimerRunning, isQuestionVisible, roomCode, questions]);
+    syncCoreData();
+  }, [gameState, t1Balance, t2Balance, t1Points, t2Points, currentIndex, winner, buyer, playMode, isDoubleRisk, turn, isQuestionVisible, roomCode, t1SellCards, t2SellCards, isSuddenDeath, t1Ambush, t2Ambush]);
+
+  useEffect(() => {
+    if (!roomCode || gameState === "setup") return;
+    const syncTimer = async () => {
+      await supabase.from("auction_rooms").update({
+        timer: timer, is_timer_running: isTimerRunning
+      }).eq("room_code", roomCode);
+    };
+    syncTimer();
+  }, [timer, isTimerRunning, roomCode, gameState]);
 
   useEffect(() => {
     if (!roomCode) return;
@@ -206,8 +226,8 @@ export function useAuctionReferee() {
     const fetchBidsFallback = async () => {
       const { data } = await supabase.from("auction_rooms").select("t1_bid, t2_bid").eq("room_code", roomCode).neq("t1_name", Date.now().toString()).single();
       if (data) {
-        if (data.t1_bid !== null && data.t1_bid !== undefined) setT1Bid(data.t1_bid);
-        if (data.t2_bid !== null && data.t2_bid !== undefined) setT2Bid(data.t2_bid);
+        if (data.t1_bid !== undefined) setT1Bid(data.t1_bid === null ? "" : data.t1_bid);
+        if (data.t2_bid !== undefined) setT2Bid(data.t2_bid === null ? "" : data.t2_bid);
       }
     };
 
@@ -221,8 +241,8 @@ export function useAuctionReferee() {
     const channel = supabase.channel('referee_sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auction_rooms', filter: `room_code=eq.${roomCode}` }, (payload) => {
         const newData = payload.new as any;
-        if (newData.t1_bid !== null && newData.t1_bid !== undefined) setT1Bid(newData.t1_bid);
-        if (newData.t2_bid !== null && newData.t2_bid !== undefined) setT2Bid(newData.t2_bid);
+        if (newData.t1_bid !== undefined) setT1Bid(newData.t1_bid === null ? "" : newData.t1_bid);
+        if (newData.t2_bid !== undefined) setT2Bid(newData.t2_bid === null ? "" : newData.t2_bid);
       })
       .subscribe();
       
@@ -256,43 +276,25 @@ export function useAuctionReferee() {
 
   const resetGame = async () => {
     if (!roomCode) return;
+    const resetStr = Date.now().toString();
+    
+    // تحديث الغرفة لطرد الفرق وإشعارهم بأن الجلسة القديمة انتهت
     await supabase.from("auction_rooms").update({
-      game_state: "setup",
-      t1_balance: 50000,
-      t2_balance: 50000,
-      t1_points: 0,
-      t2_points: 0,
-      t1_ambush: 3,
-      t2_ambush: 3,
-      t1_bid: null,
-      t2_bid: null,
+      game_state: "gameOver",
+      t1_name: resetStr,
+      t2_name: resetStr,
       t1_device_id: null,
-      t2_device_id: null,
-      selected_option: null,
-      questions: [],
-      current_index: 0
+      t2_device_id: null
     }).eq("room_code", roomCode);
     
-    setGameState("setup");
-    setT1Balance(50000);
-    setT2Balance(50000);
-    setT1Points(0);
-    setT2Points(0);
-    setT1Ambush(3);
-    setT2Ambush(3);
-    setT1Bid("");
-    setT2Bid("");
-    setQuestions([]);
-    setAllQuestions([]);
-    setCurrentIndex(0);
-    setWinner(null);
-    setBuyer(null);
-    setPlayMode(null);
-    setIsDoubleRisk(false);
-    setSelectedOption(null);
-    // إزالة علامة اللعبة النشطة عند إعادة تصفير اللعبة
+    // إزالة بيانات الجلسة الحالية
     sessionStorage.removeItem("auction_active_session");
-    triggerAlert("تم تصفير اللعبة بنجاح! يمكن للفرق الدخول مجدداً بنفس الرمز.");
+    sessionStorage.removeItem("auction_referee_room_code");
+    
+    // إعادة تحميل الصفحة لتوليد كود وباركود جديد
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
   };
 
   const startGame = async () => {
@@ -321,26 +323,51 @@ export function useAuctionReferee() {
 
     const actualQCount = Math.min(qCount, realQuestions.length);
     const shuffled = shuffleArray(realQuestions);
-    const selectedQs = shuffled.slice(0, actualQCount);
+    
+    const selectedQs: any[] = [];
+    let remainingPool = [...shuffled];
+    
+    for (let i = 0; i < actualQCount; i++) {
+      if (remainingPool.length === 0) break;
+      let candidateIndex = 0;
+      
+      if (selectedQs.length > 0) {
+        const lastCategory = selectedQs[selectedQs.length - 1].category;
+        const validIndex = remainingPool.findIndex(q => q.category !== lastCategory);
+        if (validIndex !== -1) {
+          candidateIndex = validIndex;
+        }
+      }
+      
+      selectedQs.push(remainingPool[candidateIndex]);
+      remainingPool.splice(candidateIndex, 1);
+    }
     
     setAllQuestions(shuffled);
     setQuestions(selectedQs);
-    setT1Balance(50000);
-    setT2Balance(50000);
+    setT1Balance(startBalance);
+    setT2Balance(startBalance);
     setT1Points(0);
     setT2Points(0);
     setT1Ambush(3);
     setT2Ambush(3);
     
-    await supabase.from("auction_rooms").update({
+    const { error: updateError } = await supabase.from("auction_rooms").update({
       game_state: "bidding",
-      t1_balance: 50000, t2_balance: 50000,
+      t1_balance: startBalance, t2_balance: startBalance,
       t1_points: 0, t2_points: 0,
       t1_ambush: 3, t2_ambush: 3,
+      t1_sell_cards: 3, t2_sell_cards: 3,
+      is_sudden_death: false,
       questions: selectedQs, current_index: 0, turn: 1,
       timer: 25, is_timer_running: false, is_question_visible: false,
       selected_option: null
     }).eq("room_code", roomCode);
+
+    if (updateError) {
+      triggerAlert("خطأ في تحديث قاعدة البيانات: " + updateError.message);
+      return;
+    }
 
     // Consume the token or free trial
     await consumeGameSession("auction", userId, access.reason);
@@ -348,6 +375,11 @@ export function useAuctionReferee() {
     // حفظ علامة لعبة نشطة لتجاوز فحص الرصيد عند التحديث
     sessionStorage.setItem("auction_active_session", "true");
 
+    setQuestions(selectedQs);
+    setCurrentIndex(0);
+    setTurn(1);
+    setT1Balance(startBalance);
+    setT2Balance(startBalance);
     setSelectedOption(null);
     setGameState("bidding");
   };
@@ -392,6 +424,11 @@ export function useAuctionReferee() {
     if (winId === 1) setT1Balance(p => Math.max(0, p - winningBid));
     else setT2Balance(p => Math.max(0, p - winningBid));
 
+    // تحديث قاعدة البيانات بالمزايدات لو الحكم دخلها يدوي عشان شاشة اللاعبين تتحدث
+    supabase.from("auction_rooms").update({ 
+      t1_bid: b1, t2_bid: b2 
+    }).eq("room_code", roomCode);
+
     setGameState("preRisk");
   };
 
@@ -415,30 +452,33 @@ export function useAuctionReferee() {
     setGameState("questionReveal");
   };
 
-  const handleBuyQuestion = (accept: boolean) => {
+  const handleBuyQuestion = (accept: boolean = true) => {
+    // accept is no longer relevant as it's forced, but we keep the signature or just ignore it.
     const loser = winner === 1 ? 2 : 1;
-    const loserBid = loser === 1 ? Number(t1Bid) : Number(t2Bid);
-    const offerPrice = loserBid * 2; 
-
-    if (accept) {
-      const loserBalance = loser === 1 ? t1Balance : t2Balance;
-      if (loserBalance < offerPrice) { 
-        triggerAlert("عملية ملغاة! رصيد المشتري لا يكفي لإتمام صفقة الشراء."); 
-        return; 
-      }
-      if (loser === 1) {
-        setT1Balance(p => p - offerPrice);
-        setT2Balance(p => p + offerPrice);
-      } else {
-        setT2Balance(p => p - offerPrice);
-        setT1Balance(p => p + offerPrice);
-      }
-      setBuyer(loser);
-      setPlayMode("with_options");
-      setGameState("options"); 
-    } else {
-      setGameState("questionReveal");
+    const sellCards = winner === 1 ? t1SellCards : t2SellCards;
+    
+    if (sellCards <= 0) {
+      triggerAlert("لا تملك بطاقات بيع متبقية!");
+      return;
     }
+
+    const offerPrice = 5000;
+
+    // Deduct sell card from winner
+    if (winner === 1) setT1SellCards(p => Math.max(0, p - 1));
+    else setT2SellCards(p => Math.max(0, p - 1));
+
+    // Force deduct 5000 from loser
+    if (loser === 1) setT1Balance(p => Math.max(0, p - offerPrice));
+    else setT2Balance(p => Math.max(0, p - offerPrice));
+
+    // Pay the winner 5000
+    if (winner === 1) setT1Balance(p => p + offerPrice);
+    else setT2Balance(p => p + offerPrice);
+
+    setBuyer(loser);
+    setPlayMode("with_options");
+    setGameState("options"); 
   };
 
   const handleAnswer = (isCorrect: boolean) => {
@@ -464,34 +504,35 @@ export function useAuctionReferee() {
     const riskMultiplier = isDoubleRisk ? 2 : 1;
 
     if (choice === "points") {
-      const basePts = playMode === "no_options" ? 10 : 5;
+      let basePts = playMode === "no_options" ? 10 : 5;
+      if (isSuddenDeath) {
+        basePts = playMode === "no_options" ? 30 : 20;
+      }
       const pts = basePts * riskMultiplier;
       if (winner === 1) setT1Points(p => p + pts);
       else setT2Points(p => p + pts);
     } else if (choice === "ambush") {
+      if (isSuddenDeath) return; // Cannot ambush in sudden death
+      
       const refund = wBid * riskMultiplier;
       
-      if (lBid > 5000) {
-        triggerAlert("مزايدة الخصم أكثر من 5000 لا يمكنك الخصم عليهم");
-        if (winner === 1) {
-          setT1Balance(p => p + refund);
-          setT1Ambush(p => Math.max(0, p - 1));
-        } else {
-          setT2Balance(p => p + refund);
-          setT2Ambush(p => Math.max(0, p - 1));
-        }
+      if (winner === 1) {
+        setT1Balance(p => p + refund);
+        setT2Balance(p => Math.max(0, p - lBid));
+        setT1Ambush(p => Math.max(0, p - 1));
       } else {
-        if (winner === 1) {
-          setT1Balance(p => p + refund);
-          setT2Balance(p => Math.max(0, p - lBid));
-          setT1Ambush(p => Math.max(0, p - 1));
-        } else {
-          setT2Balance(p => p + refund);
-          setT1Balance(p => Math.max(0, p - lBid));
-          setT2Ambush(p => Math.max(0, p - 1));
-        }
+        setT2Balance(p => p + refund);
+        setT1Balance(p => Math.max(0, p - lBid));
+        setT2Ambush(p => Math.max(0, p - 1));
       }
     }
+    
+    if (isSuddenDeath) {
+      setTimeout(() => {
+        setGameState("gameOver");
+      }, 3000);
+    }
+    
     setGameState("result");
   };
 
@@ -510,7 +551,15 @@ export function useAuctionReferee() {
       const availableQs = pool.filter(q => !currentQIds.includes(q.id));
       
       if (availableQs.length > 0) {
-        const randomQ = availableQs[Math.floor(Math.random() * availableQs.length)];
+        const prevCategory = currentIndex > 0 ? questions[currentIndex - 1].category : null;
+        const nextCategory = currentIndex < questions.length - 1 ? questions[currentIndex + 1].category : null;
+        
+        let filteredQs = availableQs.filter(q => q.category !== prevCategory && q.category !== nextCategory);
+        if (filteredQs.length === 0) {
+          filteredQs = availableQs; // Fallback إذا ما فيه خيارات متاحة
+        }
+        
+        const randomQ = filteredQs[Math.floor(Math.random() * filteredQs.length)];
         const newQs = [...questions];
         newQs[currentIndex] = randomQ;
         setQuestions(newQs);
@@ -522,11 +571,47 @@ export function useAuctionReferee() {
   };
 
   const nextQuestion = async () => {
-    if (currentIndex + 1 >= questions.length || (t1Balance <= 0 && t2Balance <= 0)) {
-      // إزالة علامة اللعبة النشطة عند انتهاء اللعبة
+    if (currentIndex + 1 >= questions.length || (t1Balance <= 0 && t2Balance <= 0) || isSuddenDeath) {
       sessionStorage.removeItem("auction_active_session");
       setGameState("gameOver");
+    } else if ((t1Balance <= 0 && t2Balance > 0) || (t2Balance <= 0 && t1Balance > 0)) {
+      // Sudden Death handling
+      setIsSuddenDeath(true);
+      const winId = t1Balance > 0 ? 1 : 2;
+      setWinner(winId);
+      
+      const balanceToBid = winId === 1 ? t1Balance : t2Balance;
+      if (winId === 1) {
+        setT1Bid(balanceToBid);
+        setT2Bid(0);
+        setT1Balance(0); // Bet it all
+      } else {
+        setT2Bid(balanceToBid);
+        setT1Bid(0);
+        setT2Balance(0); // Bet it all
+      }
+      
+      await supabase.from("auction_rooms").update({ 
+        t1_bid: winId === 1 ? balanceToBid : 0, 
+        t2_bid: winId === 2 ? balanceToBid : 0, 
+        selected_option: null,
+        t1_balance: winId === 1 ? 0 : t1Balance,
+        t2_balance: winId === 2 ? 0 : t2Balance,
+        is_sudden_death: true
+      }).eq("room_code", roomCode);
+      
+      setCurrentIndex(p => p + 1);
+      setBuyer(null);
+      setPlayMode(null);
+      setIsDoubleRisk(false);
+      setIsQuestionVisible(false);
+      setTimer(25);
+      setSelectedOption(null);
+      setGameState("questionReveal"); // Skip bidding directly to reveal
+      triggerAlert("الفرصة الأخيرة! سؤال أخير وفرصة للعودة.");
     } else {
+      await supabase.from("auction_rooms").update({ t1_bid: null, t2_bid: null, selected_option: null }).eq("room_code", roomCode);
+      
       setCurrentIndex(p => p + 1);
       setTurn(turn === 1 ? 2 : 1);
       setWinner(null);
@@ -539,7 +624,6 @@ export function useAuctionReferee() {
       setT2Bid("");
       setSelectedOption(null);
       
-      await supabase.from("auction_rooms").update({ t1_bid: null, t2_bid: null, selected_option: null }).eq("room_code", roomCode);
       setGameState("bidding");
     }
   };
@@ -551,8 +635,9 @@ export function useAuctionReferee() {
 
   return {
     mounted, gameState, setGameState, t1Name, setT1Name, t2Name, setT2Name, qCount, setQCount, roomCode,
+    startBalance, setStartBalance,
     showQRModal, setShowQRModal, isDark, setIsDark, isDropdownOpen, setIsDropdownOpen, dropdownRef,
-    t1Balance, t2Balance, t1Points, t2Points, t1Ambush, t2Ambush, questions, currentIndex, turn,
+    t1Balance, t2Balance, t1Points, t2Points, t1Ambush, t2Ambush, t1SellCards, t2SellCards, isSuddenDeath, questions, currentIndex, turn,
     t1Bid, setT1Bid, t2Bid, setT2Bid, winner, isDoubleRisk, playMode, setPlayMode, selectedOption, setSelectedOption,
     timer, isTimerRunning, setIsTimerRunning, isQuestionVisible, setIsQuestionVisible, alertConfig,
     triggerAlert, closeAlert, triggerConfirm, copyLink, startGame, calculateMinBid, handleBidsSubmit, handlePreRiskDecision,

@@ -16,12 +16,22 @@ export default function TeamActionStates({ ctx }: { ctx: any }) {
     );
   }
 
-  if (["preRisk", "optionsDecision", "rewardChoice", "result"].includes(state)) {
+  if (["preRisk"].includes(state)) {
     return (
       <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl border-4 border-slate-200 dark:border-slate-800 text-center w-full animate-in zoom-in flex flex-col items-center justify-center min-h-[30vh]">
          <ShieldAlert className="w-16 h-16 text-slate-400 mb-4 animate-bounce" />
          <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">إجراءات تحكيمية جارية</h2>
          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">الرجاء الانتباه للحكم والشاشة الرئيسية للاستماع للقرارات والمفاوضات.</p>
+      </div>
+    );
+  }
+
+  if (["rewardChoice", "result"].includes(state)) {
+    return (
+      <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl border-4 border-emerald-500/50 text-center w-full animate-in zoom-in flex flex-col items-center justify-center min-h-[30vh]">
+         <Trophy className="w-16 h-16 text-emerald-500 mb-4 animate-bounce" />
+         <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">انتهى السؤال!</h2>
+         <p className="text-sm font-bold text-slate-500 dark:text-slate-400">تتم الآن مراجعة واعتماد النتيجة والمكافآت من قِبل الحكم.<br/>تأكد من الشاشة الرئيسية لمعرفة التفاصيل.</p>
       </div>
     );
   }

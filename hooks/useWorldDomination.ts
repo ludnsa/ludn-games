@@ -136,8 +136,8 @@ export function useWorldDomination() {
           setShowResult(parsed.showResult);
           setIsAttacking(parsed.isAttacking);
           setIsQuestionRevealed(parsed.isQuestionRevealed);
-          setCards1(parsed.cards1 || { capture: 3, protect: 5, airStrike: 3, capitalCapture: 2, spy: 2 });
-          setCards2(parsed.cards2 || { capture: 3, protect: 5, airStrike: 3, capitalCapture: 2, spy: 2 });
+          setCards1({ nuke: 1, ...(parsed.cards1 || { capture: 3, protect: 5, airStrike: 3, capitalCapture: 2, spy: 2 }) });
+          setCards2({ nuke: 1, ...(parsed.cards2 || { capture: 3, protect: 5, airStrike: 3, capitalCapture: 2, spy: 2 }) });
           setProtectedCountries(parsed.protectedCountries || {});
           setChallengesUsed1(parsed.challengesUsed1 || 0);
           setChallengesUsed2(parsed.challengesUsed2 || 0);

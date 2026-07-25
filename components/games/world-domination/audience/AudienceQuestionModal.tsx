@@ -121,9 +121,12 @@ export default function AudienceQuestionModal({
                               تم استحلال الدولة لـ <span className="text-slate-900 dark:text-white font-black">{winner === 1 ? team1Name : team2Name}</span>
                             </p>
                             {selectedCountry.id === capitals.team1 || selectedCountry.id === capitals.team2 ? (
-                              <div className="inline-flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-500/30">
-                                <p className="text-base lg:text-2xl font-black text-amber-600 dark:text-amber-400">مكافأة العاصمة: ثلث نقاط الخصم</p>
-                                <Coins className="text-yellow-500 dark:text-yellow-400 w-6 h-6 shrink-0" />
+                              <div className="inline-flex flex-col items-center gap-1 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-500/30">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-base lg:text-2xl font-black text-amber-600 dark:text-amber-400">مكافأة العاصمة: ثلث نقاط الخصم</p>
+                                  <Coins className="text-yellow-500 dark:text-yellow-400 w-6 h-6 shrink-0" />
+                                </div>
+                                <p className="text-sm lg:text-xl font-bold text-rose-500 mt-1">وخصم ربع نقاط الخصم 📉</p>
                               </div>
                             ) : (
                               <div className="inline-flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-500/30">

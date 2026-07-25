@@ -23,7 +23,7 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
                  <Target className="w-10 h-10 md:w-14 md:h-14 text-cyan-500 group-hover:scale-110 transition-transform" />
                  <span className="font-black text-xl md:text-2xl text-cyan-700 dark:text-cyan-400">النقاط العادية</span>
                  <span className="text-xs md:text-sm font-bold bg-cyan-100 dark:bg-cyan-950 px-3 py-1 rounded-full text-cyan-800 dark:text-cyan-300">
-                   إضافة {playMode === "no_options" ? (isDoubleRisk ? 20 : 10) : (isDoubleRisk ? 10 : 5)} نقاط لرصيدك
+                   إضافة {ctx.isSuddenDeath ? (playMode === "no_options" ? 30 : 20) : playMode === "no_options" ? (isDoubleRisk ? 20 : 10) : (isDoubleRisk ? 10 : 5)} نقطة لرصيدك
                  </span>
               </button>
               {(() => {
@@ -42,25 +42,26 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
                   );
                 }
                 
-                if (loserBid > 5000) {
+                if (ctx.isSuddenDeath) {
                   return (
                     <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-800 border-b-4 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 shadow-md opacity-70 cursor-not-allowed">
                        <ShieldAlert className="w-10 h-10 md:w-14 md:h-14 text-slate-400" />
                        <span className="font-black text-xl md:text-2xl text-slate-500">الكمين معطل</span>
                        <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-slate-200 dark:bg-slate-700 p-2 rounded-xl text-rose-500 font-black">
-                         لا يمكنك استخدامه لأن<br/>مزايدة الخصم أعلى من 5000 ({loserBid} 💰)
+                         لا يمكنك تفعيل الكمين في الفرصة الأخيرة
                        </span>
                     </div>
                   );
                 }
                 
                 return (
-                  <button onClick={() => handleRewardChoice("ambush")} className="p-6 md:p-8 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-800/40 border-b-4 border-amber-400 dark:border-amber-700 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 transition-all active:border-b-0 active:translate-y-[4px] group shadow-md">
-                     <ShieldAlert className="w-10 h-10 md:w-14 md:h-14 text-amber-500 group-hover:scale-110 transition-transform" />
-                     <span className="font-black text-xl md:text-2xl text-amber-700 dark:text-amber-400">كمين (باقي {ambushesLeft})</span>
-                     <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-amber-100 dark:bg-amber-950 p-2 rounded-xl text-amber-800 dark:text-amber-300">
-                       استرداد اللي دفعته ({isDoubleRisk ? getWinnerBid() * 2 : getWinnerBid()} 💰)<br/>
-                       وخصم مزايدة الخصم كاملة ({loserBid} 💰)
+                  <button onClick={() => handleRewardChoice("ambush")} className="p-6 md:p-8 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-800/40 border-b-4 border-purple-400 dark:border-purple-700 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 transition-all active:border-b-0 active:translate-y-[4px] group shadow-md">
+                     <ShieldAlert className="w-10 h-10 md:w-14 md:h-14 text-purple-500 group-hover:scale-110 transition-transform" />
+                     <span className="font-black text-xl md:text-2xl text-purple-700 dark:text-purple-400">كمين وتخريب ⚔️</span>
+                     <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-purple-100 dark:bg-purple-950 p-2 rounded-xl text-purple-800 dark:text-purple-300">
+                       استرد مبلغ مزايدتك ({getWinnerBid()})<br/>
+                       واخصم ({loserBid}) من الخصم!<br/>
+                       <span className="text-purple-600 font-black">متبقي: {ambushesLeft} كمائن</span>
                      </span>
                   </button>
                 );

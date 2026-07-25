@@ -20,8 +20,8 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
            <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <ShieldAlert className={`w-6 h-6 ${isDoubleRisk ? "text-yellow-500 animate-pulse" : "text-slate-400"}`} />
-                <span className={`font-black text-sm md:text-lg ${isDoubleRisk ? "text-yellow-500" : "text-slate-500"}`}>
-                  {isDoubleRisk ? "وضع الدبل مفعل ⚡" : "مخاطرة عادية"}
+                <span className={`font-black text-sm md:text-lg ${ctx.isSuddenDeath ? "text-red-500 animate-pulse" : isDoubleRisk ? "text-yellow-500" : "text-slate-500"}`}>
+                  {ctx.isSuddenDeath ? "سؤال الفرصة الأخيرة 💀" : isDoubleRisk ? "وضع الدبل مفعل ⚡" : "مخاطرة عادية"}
                 </span>
               </div>
               <div className={`text-4xl md:text-5xl font-black font-mono flex items-center gap-2 ${timer <= 5 ? "text-rose-500 animate-pulse" : "text-yellow-500"}`}>
@@ -52,22 +52,24 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mt-4 md:mt-6 animate-in slide-in-from-bottom-4">
                 <button onClick={() => { setPlayMode("no_options"); setGameState("options"); }} className="p-3 md:p-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-xl border-b-4 border-cyan-800 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
                    <span className="text-sm md:text-lg">إجابة بدون خيارات</span>
-                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-cyan-800/40 px-2 py-1 rounded-lg">مكافأة أو كمين</span>
+                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-cyan-800/40 px-2 py-1 rounded-lg">مكافأة: {ctx.isSuddenDeath ? 30 : 10} نقطة</span>
                 </button>
                 <button onClick={() => { setPlayMode("with_options"); setGameState("options"); }} className="p-3 md:p-4 bg-slate-700 hover:bg-slate-600 text-white font-black rounded-xl border-b-4 border-slate-900 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
                    <span className="text-sm md:text-lg">إجابة مع الخيارات</span>
-                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-slate-900/40 px-2 py-1 rounded-lg">مكافأة أو كمين</span>
+                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-slate-900/40 px-2 py-1 rounded-lg">مكافأة: {ctx.isSuddenDeath ? 20 : 5} نقاط</span>
                 </button>
-                {!isDoubleRisk ? (
-                  <button onClick={() => { setGameState("buyOffer"); setIsTimerRunning(false); }} className="p-3 md:p-4 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl border-b-4 border-purple-800 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
-                     <span className="text-sm md:text-lg">بيع السؤال للخصم</span>
-                     <span className="text-[10px] md:text-xs font-bold opacity-90 bg-purple-800/40 px-2 py-1 rounded-lg">بدبل مزايدتهم</span>
-                  </button>
-                ) : (
-                  <div className="p-3 md:p-4 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-black rounded-xl border-b-4 border-slate-300 dark:border-slate-900 flex flex-col items-center justify-center gap-1 cursor-not-allowed">
-                     <span className="text-sm md:text-lg">بيع السؤال (مغلق)</span>
-                     <span className="text-[10px] md:text-xs font-bold opacity-90">غير متاح مع الدبل</span>
-                  </div>
+                {!ctx.isSuddenDeath && (
+                  !isDoubleRisk ? (
+                    <button onClick={() => triggerConfirm("تأكيد إجبار الخصم على شراء السؤال بـ 5000؟ ستفقد بطاقة بيع واحدة.", () => ctx.handleBuyQuestion())} className="p-3 md:p-4 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl border-b-4 border-purple-800 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
+                       <span className="text-sm md:text-lg">إجبار الخصم عالشراء</span>
+                       <span className="text-[10px] md:text-xs font-bold opacity-90 bg-purple-800/40 px-2 py-1 rounded-lg">يخصم 5000 | بطاقات: {ctx.winner === 1 ? ctx.t1SellCards : ctx.t2SellCards}</span>
+                    </button>
+                  ) : (
+                    <div className="p-3 md:p-4 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-black rounded-xl border-b-4 border-slate-300 dark:border-slate-900 flex flex-col items-center justify-center gap-1 cursor-not-allowed">
+                       <span className="text-sm md:text-lg">بيع السؤال (مغلق)</span>
+                       <span className="text-[10px] md:text-xs font-bold opacity-90">غير متاح مع الدبل</span>
+                    </div>
+                  )
                 )}
              </div>
            )}

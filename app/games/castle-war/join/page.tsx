@@ -44,9 +44,11 @@ export default function CastleWarJoinPage() {
 
       <SolidGamingBackground />
 
-      <button type="button" onClick={toggleTheme} className="absolute top-6 left-6 z-[60] p-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-500 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-700 active:translate-y-1 transition-all shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4">
-        {isDarkMode ? <Sun size={20} strokeWidth={2.5} /> : <Moon size={20} strokeWidth={2.5} />}
-      </button>
+      {step !== "setup" && (
+        <button type="button" onClick={toggleTheme} className="absolute top-6 left-6 z-[60] p-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-500 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-700 active:translate-y-1 transition-all shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4">
+          {isDarkMode ? <Sun size={20} strokeWidth={2.5} /> : <Moon size={20} strokeWidth={2.5} />}
+        </button>
+      )}
 
       <div className="relative z-10 w-full max-w-md flex-1 flex flex-col h-full py-4">
         
@@ -98,18 +100,21 @@ export default function CastleWarJoinPage() {
 
         {step === "setup" && selectedTeam && (
           <div className="flex-1 flex flex-col animate-in slide-in-from-bottom-10 duration-500 w-full h-full bg-white dark:bg-slate-800 rounded-3xl border-4 border-slate-900 dark:border-black shadow-[8px_8px_0px_#0f172a] dark:shadow-[8px_8px_0px_#000] overflow-hidden">
-            <div className={`bg-slate-50 dark:bg-slate-900 border-b-4 border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between shrink-0 transition-colors`}>
-              <div>
-                <h2 className={`text-xl font-black ${theme.text}`}>قيادة جيش {selectedTeam === 1 ? team1Name : team2Name}</h2>
-                <p className="text-slate-500 dark:text-slate-400 font-bold text-xs mt-1">حدد النافذة لتوزيع جيشك</p>
-              </div>
-              <div className="flex gap-2">
+            <div className={`bg-slate-50 dark:bg-slate-900 border-b-4 border-slate-200 dark:border-slate-700 p-4 flex flex-col gap-3 shrink-0 transition-colors`}>
+              <div className="flex gap-2 w-full justify-start">
+                <button type="button" onClick={toggleTheme} className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 border-b-4 text-slate-500 dark:text-amber-400 px-3 py-2 rounded-xl flex items-center justify-center active:translate-y-0.5 active:border-b-2 transition-all shadow-sm">
+                  {isDarkMode ? <Sun size={16} strokeWidth={2.5} /> : <Moon size={16} strokeWidth={2.5} />}
+                </button>
                 <button onClick={handleReset} className="bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-800 border-2 border-rose-300 dark:border-rose-600 border-b-4 text-rose-700 dark:text-rose-400 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 active:translate-y-0.5 active:border-b-2 transition-all shadow-sm">
                   <RefreshCw size={16} strokeWidth={2.5} /> تصفير
                 </button>
-                <button onClick={handleAutoDistribute} className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 border-b-4 text-slate-700 dark:text-slate-300 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 active:translate-y-0.5 active:border-b-2 transition-all shadow-sm">
+                <button onClick={handleAutoDistribute} className="flex-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 border-b-4 text-slate-700 dark:text-slate-300 px-3 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 active:translate-y-0.5 active:border-b-2 transition-all shadow-sm">
                   <Shuffle size={16} strokeWidth={2.5} /> عشوائي
                 </button>
+              </div>
+              <div className="text-right">
+                <h2 className={`text-xl font-black ${theme.text}`}>قيادة جيش {selectedTeam === 1 ? team1Name : team2Name}</h2>
+                <p className="text-slate-500 dark:text-slate-400 font-bold text-xs mt-1">حدد النافذة لتوزيع جيشك</p>
               </div>
             </div>
 

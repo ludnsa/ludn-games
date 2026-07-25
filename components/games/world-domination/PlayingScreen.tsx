@@ -11,6 +11,7 @@ import {
   Crosshair,
   ArrowLeftRight,
   Swords,
+  Radiation,
 } from "lucide-react";
 import {
   ComposableMap,
@@ -65,6 +66,7 @@ interface PlayingScreenProps {
   cards2: any;
   setQuickProtectTeam: (val: 1 | 2 | null) => void;
   handleSpyAction: (teamId: 1 | 2) => void;
+  handleNukeAction: (teamId: 1 | 2) => void;
   setSelectedCountry: (val: any) => void;
   setTeam1Choice: (val: string | null) => void;
   setTeam2Choice: (val: string | null) => void;
@@ -94,6 +96,7 @@ export default function PlayingScreen({
   cards2,
   setQuickProtectTeam,
   handleSpyAction,
+  handleNukeAction,
   setSelectedCountry,
   setTeam1Choice,
   setTeam2Choice,
@@ -111,7 +114,7 @@ export default function PlayingScreen({
   handleCountryClick,
 }: PlayingScreenProps) {
   return (
-    <div className="flex flex-col gap-4 lg:gap-6 flex-1 h-full min-h-0">
+    <div className="flex flex-col gap-4 lg:gap-6 flex-1 h-full min-h-0 relative">
       {/* الفرق - أعلى الشاشة */}
       <div className="order-1 grid grid-cols-2 gap-4 lg:gap-8 shrink-0 z-50 w-full lg:w-4/5 mx-auto">
         {/* صندوق الفريق الأول */}
@@ -186,6 +189,17 @@ export default function PlayingScreen({
               className="flex-1 py-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-300 dark:border-indigo-700"
             >
               <Crosshair size={12} className="lg:w-[14px] lg:h-[14px]" /> تجسس
+            </button>
+            <button
+              onClick={() => handleNukeAction(1)}
+              disabled={(cards1.nuke ?? 1) === 0}
+              className={`flex-1 py-1.5 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 border ${
+                (cards1.nuke ?? 1) === 0
+                  ? "bg-slate-200 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700 cursor-not-allowed"
+                  : "bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/50 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700"
+              }`}
+            >
+              <Radiation size={12} className="lg:w-[14px] lg:h-[14px]" /> نووي
             </button>
           </div>
         </div>
@@ -262,6 +276,17 @@ export default function PlayingScreen({
               className="flex-1 py-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-300 dark:border-indigo-700"
             >
               <Crosshair size={12} className="lg:w-[14px] lg:h-[14px]" /> تجسس
+            </button>
+            <button
+              onClick={() => handleNukeAction(2)}
+              disabled={(cards2.nuke ?? 1) === 0}
+              className={`flex-1 py-1.5 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 border ${
+                (cards2.nuke ?? 1) === 0
+                  ? "bg-slate-200 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700 cursor-not-allowed"
+                  : "bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/50 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700"
+              }`}
+            >
+              <Radiation size={12} className="lg:w-[14px] lg:h-[14px]" /> نووي
             </button>
           </div>
         </div>

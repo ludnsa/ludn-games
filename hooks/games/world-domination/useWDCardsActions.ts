@@ -1,4 +1,48 @@
 export function useWDCardsActions(ctx: any) {
+  const handleNukeAction = (teamId: 1 | 2) => {
+    const currentCards = teamId === 1 ? ctx.cards1 : ctx.cards2;
+    if ((currentCards.nuke ?? 1) <= 0) {
+      ctx.showAlert("لقد استخدمتم البطاقة النووية مسبقاً! (تستخدم لمرة واحدة فقط)");
+      return;
+    }
+
+    const attackerScore = teamId === 1 ? ctx.score1 : ctx.score2;
+    const defenderScore = teamId === 1 ? ctx.score2 : ctx.score1;
+
+    if (attackerScore >= defenderScore) {
+      ctx.showAlert("نقاطكم أعلى من الخصم ولا يمكنكم استخدام النووي");
+      return;
+    }
+
+    if (attackerScore <= 5000 || attackerScore >= 10000) {
+      ctx.showAlert("يجب أن تكون نقاطكم أكبر من 5000 وأقل من 10000 لاستخدام النووي!");
+      return;
+    }
+
+    if (defenderScore < attackerScore * 2) {
+      ctx.showAlert("نقاط الخصم يجب أن تكون ضعف نقاطكم أو أكثر لتتمكنوا من استخدام النووي!");
+      return;
+    }
+
+    ctx.showConfirm(
+      `سيتم إطلاق النووي على الخصم وخصم 25% من نقاطه العامة! هل أنت متأكد؟`,
+      () => {
+        if (teamId === 1) ctx.setCards1((p: any) => ({ ...p, nuke: (p.nuke ?? 1) - 1 }));
+        else ctx.setCards2((p: any) => ({ ...p, nuke: (p.nuke ?? 1) - 1 }));
+
+        const deduction = Math.floor(defenderScore * 0.25);
+        
+        if (teamId === 1) {
+          ctx.setScore2((s: number) => Math.max(0, s - deduction));
+        } else {
+          ctx.setScore1((s: number) => Math.max(0, s - deduction));
+        }
+
+        ctx.showAlert(`☢️ تم إطلاق النووي بنجاح! تم خصم ${deduction} نقطة من الخصم.`);
+      }
+    );
+  };
+
   const handleSpyAction = (teamId: 1 | 2) => {
     const currentCards = teamId === 1 ? ctx.cards1 : ctx.cards2;
     if (currentCards.spy <= 0) {
@@ -88,7 +132,7 @@ export function useWDCardsActions(ctx: any) {
 
         ctx.setCountries(updatedCountries);
         ctx.setIsAttacking(true);
-        ctx.setIsQuestionRevealed(false);
+        ctx.setIsQuestionRevealed(true);
 
         let activeQ = ctx.selectedCountry.activeQuestion;
         if (!ctx.selectedCountry.isChallenge) {
@@ -144,6 +188,11 @@ export function useWDCardsActions(ctx: any) {
           });
 
           ctx.setSelectedCountry(null);
+          ctx.setIsQuestionRevealed(false);
+          ctx.setIsAttacking(false);
+          ctx.setTeam1Choice(null);
+          ctx.setTeam2Choice(null);
+          ctx.setShowResult(false);
         }
       );
     } else {
@@ -173,6 +222,11 @@ export function useWDCardsActions(ctx: any) {
 
           ctx.setCountries(updatedCountries);
           ctx.setSelectedCountry(null);
+          ctx.setIsQuestionRevealed(false);
+          ctx.setIsAttacking(false);
+          ctx.setTeam1Choice(null);
+          ctx.setTeam2Choice(null);
+          ctx.setShowResult(false);
         }
       );
     }
@@ -206,5 +260,5 @@ export function useWDCardsActions(ctx: any) {
     if (!ctx.showResult) ctx.setSelectedCountry(null);
   };
 
-  return { handleSpyAction, useCaptureCard, useAirStrike, useProtectCard };
+  return { handleNukeAction, handleSpyAction, useCaptureCard, useAirStrike, useProtectCard };
 }

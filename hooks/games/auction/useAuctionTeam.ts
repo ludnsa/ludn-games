@@ -8,18 +8,18 @@ export function useAuctionTeam() {
   const supabase = getSupabaseBrowser();
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState<boolean>(true);
-  
+
   const [roomCode, setRoomCode] = useState("");
   const [teamId, setTeamId] = useState<1 | 2 | null>(null);
   const [isJoined, setIsJoined] = useState(false);
   const [liveData, setLiveData] = useState<any>(null);
   const [myBid, setMyBid] = useState<number | "">("");
-  
-  const [roomInfo, setRoomInfo] = useState<{t1_name: string, t2_name: string, t1_device_id?: string | null, t2_device_id?: string | null} | null>(null);
+
+  const [roomInfo, setRoomInfo] = useState<{ t1_name: string, t2_name: string, t1_device_id?: string | null, t2_device_id?: string | null } | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
 
   const [alertConfig, setAlertConfig] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
-  
+
   const triggerAlert = (msg: string) => setAlertConfig({ show: true, message: msg });
   const closeAlert = () => setAlertConfig({ show: false, message: "" });
 
@@ -68,24 +68,24 @@ export function useAuctionTeam() {
 
       const nameChannel = supabase.channel('names_sync')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auction_rooms', filter: `room_code=eq.${roomCode}` }, (payload) => {
-           setRoomInfo({ 
-             t1_name: payload.new.t1_name, t2_name: payload.new.t2_name,
-             t1_device_id: payload.new.t1_device_id, t2_device_id: payload.new.t2_device_id
-           });
-           
-           let dId = sessionStorage.getItem("auction_device_id");
-           if (dId) {
-             if (payload.new.t1_device_id === dId) {
-               setTeamId(1);
-               setIsJoined(true);
-             } else if (payload.new.t2_device_id === dId) {
-               setTeamId(2);
-               setIsJoined(true);
-             } else if (payload.new.t1_device_id !== dId && payload.new.t2_device_id !== dId) {
-               setIsJoined(false);
-               setTeamId(null);
-             }
-           }
+          setRoomInfo({
+            t1_name: payload.new.t1_name, t2_name: payload.new.t2_name,
+            t1_device_id: payload.new.t1_device_id, t2_device_id: payload.new.t2_device_id
+          });
+
+          let dId = sessionStorage.getItem("auction_device_id");
+          if (dId) {
+            if (payload.new.t1_device_id === dId) {
+              setTeamId(1);
+              setIsJoined(true);
+            } else if (payload.new.t2_device_id === dId) {
+              setTeamId(2);
+              setIsJoined(true);
+            } else if (payload.new.t1_device_id !== dId && payload.new.t2_device_id !== dId) {
+              setIsJoined(false);
+              setTeamId(null);
+            }
+          }
         }).subscribe();
 
       return () => { supabase.removeChannel(nameChannel); };
@@ -102,7 +102,7 @@ export function useAuctionTeam() {
       if (data) {
         setLiveData((prev: any) => {
           if (data.game_state === "bidding" && prev?.game_state !== "bidding") {
-             setMyBid("");
+            setMyBid("");
           }
           return data;
         });
@@ -121,21 +121,22 @@ export function useAuctionTeam() {
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    const channel = supabase.channel('team_sync')
+    const channel = supabase.channel(`team_sync_${roomCode}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auction_rooms', filter: `room_code=eq.${roomCode}` }, (payload) => {
         setLiveData((prev: any) => {
           const newData = { ...prev, ...payload.new };
           if (payload.new.game_state === "bidding" && prev?.game_state !== "bidding") {
-             setMyBid("");
+            setMyBid("");
           }
+
           return newData;
         });
       })
       .subscribe();
 
-    return () => { 
+    return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      supabase.removeChannel(channel); 
+      supabase.removeChannel(channel);
     };
   }, [isJoined, roomCode]);
 
@@ -145,10 +146,15 @@ export function useAuctionTeam() {
     const colName = teamId === 1 ? "t1_device_id" : "t2_device_id";
 
     // 1. Check if we already own the team (e.g. refreshed the page)
-    const { data: currentRoom } = await supabase.from("auction_rooms").select(colName).eq("room_code", roomCode).neq("t1_name", Date.now().toString()).single();
-    
+    const { data: currentRoom } = await supabase.from("auction_rooms").select(`${colName}, game_state`).eq("room_code", roomCode).neq("t1_name", Date.now().toString()).single();
+
     if (!currentRoom) {
       triggerAlert("رمز الغرفة غير صحيح أو اللعبة غير موجودة.");
+      return;
+    }
+
+    if (currentRoom.game_state === "gameOver") {
+      triggerAlert("هذه الجلسة قديمة وانتهت! الرجاء مسح الباركود الجديد من شاشة الحكم.");
       return;
     }
 
@@ -182,24 +188,24 @@ export function useAuctionTeam() {
   const handleSendBid = async () => {
     if (myBid === "" || Number(myBid) <= 0) { triggerAlert("الرجاء إدخال مبلغ مزايدة صحيح."); return; }
     if (Number(myBid) % 100 !== 0) { triggerAlert("يجب أن تكون المزايدة من مضاعفات 100."); return; }
-    
+
     const oppBalance = teamId === 1 ? liveData.t2_balance : liveData.t1_balance;
     const myBalance = teamId === 1 ? liveData.t1_balance : liveData.t2_balance;
     const remainingQs = liveData.questions.length - liveData.current_index;
-    
+
     let minBid = 1000;
     if (oppBalance <= 0 && remainingQs > 0) {
       const calculated = Math.floor(myBalance / remainingQs);
       minBid = Math.max(100, Math.floor(calculated / 100) * 100);
     }
-    
-    if (Number(myBid) < minBid) { 
-      triggerAlert(`عفواً، أقل مبلغ مسموح للمزايدة هو ${minBid} 💰`); 
-      return; 
+
+    if (Number(myBid) < minBid) {
+      triggerAlert(`عفواً، أقل مبلغ مسموح للمزايدة هو ${minBid} 💰`);
+      return;
     }
-    
+
     if (Number(myBid) > myBalance) { triggerAlert("لا يمكنك المزايدة بأكثر من رصيدك الحالي."); return; }
-    
+
     const colName = teamId === 1 ? "t1_bid" : "t2_bid";
     const deviceIdCol = teamId === 1 ? "t1_device_id" : "t2_device_id";
 
@@ -224,12 +230,13 @@ export function useAuctionTeam() {
   const myBalance = liveData ? ((teamId === 1 ? liveData.t1_balance : liveData.t2_balance) || 0) : 0;
   const myPoints = liveData ? ((teamId === 1 ? liveData.t1_points : liveData.t2_points) || 0) : 0;
   const myAmbush = liveData ? ((teamId === 1 ? liveData.t1_ambush : liveData.t2_ambush) ?? 3) : 3;
+  const mySellCards = liveData ? ((teamId === 1 ? liveData.t1_sell_cards : liveData.t2_sell_cards) ?? 3) : 3;
   const activeQuestion = liveData && liveData.questions && liveData.current_index !== undefined ? liveData.questions[liveData.current_index] : null;
 
   return {
     mounted, isDark, setIsDark, roomCode, setRoomCode, teamId, setTeamId, isJoined,
     liveData, myBid, setMyBid, roomInfo, alertConfig, deviceId,
     triggerAlert, closeAlert, handleJoin, handleLeave, handleSendBid,
-    myName, myBalance, myPoints, myAmbush, activeQuestion
+    myName, myBalance, myPoints, myAmbush, mySellCards, activeQuestion
   };
 }

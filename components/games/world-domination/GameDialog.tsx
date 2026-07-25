@@ -26,9 +26,9 @@ export default function GameDialog({ dialog, closeDialog }: GameDialogProps) {
             <HelpCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           )}
         </div>
-        <p className="text-slate-800 dark:text-slate-200 font-black text-lg mb-6 leading-relaxed whitespace-pre-line">
+        <div className="text-slate-800 dark:text-slate-200 font-black text-lg mb-6 leading-relaxed whitespace-pre-line">
           {dialog.message}
-        </p>
+        </div>
         <div className="flex gap-3 justify-center">
           {dialog.type === "confirm" && (
             <button

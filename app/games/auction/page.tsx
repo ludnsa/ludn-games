@@ -45,6 +45,7 @@ export default function AuctionRefereeScreen() {
           gameState={ctx.gameState} currentIndex={ctx.currentIndex} questions={ctx.questions} 
           t1Name={ctx.t1Name} t2Name={ctx.t2Name} t1Balance={ctx.t1Balance} t2Balance={ctx.t2Balance} 
           t1Points={ctx.t1Points} t2Points={ctx.t2Points} t1Ambush={ctx.t1Ambush} t2Ambush={ctx.t2Ambush} 
+          t1SellCards={ctx.t1SellCards} t2SellCards={ctx.t2SellCards}
           resetTeamDevice={ctx.resetTeamDevice}
         />
       </div>

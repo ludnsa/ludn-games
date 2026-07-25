@@ -45,7 +45,7 @@ export default function AuctionTeamScreen() {
             <TeamHeader handleLeave={ctx.handleLeave} roomCode={ctx.roomCode} />
             <TeamScoreboard 
               teamId={ctx.teamId} myName={ctx.myName} 
-              myBalance={ctx.myBalance} myPoints={ctx.myPoints} myAmbush={ctx.myAmbush} 
+              myBalance={ctx.myBalance} myPoints={ctx.myPoints} myAmbush={ctx.myAmbush} mySellCards={ctx.mySellCards}
             />
           </div>
 

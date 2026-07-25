@@ -1,10 +1,10 @@
 "use client";
 import React from "react";
-import { ShieldAlert, RefreshCw } from "lucide-react";
+import { ShieldAlert, RefreshCw, BadgeDollarSign } from "lucide-react";
 
 export default function RefereeScoreboard({
   gameState, currentIndex, questions, t1Name, t2Name,
-  t1Balance, t2Balance, t1Points, t2Points, t1Ambush, t2Ambush,
+  t1Balance, t2Balance, t1Points, t2Points, t1Ambush, t2Ambush, t1SellCards, t2SellCards,
   resetTeamDevice
 }: any) {
   if (gameState === "setup") return null;
@@ -29,8 +29,13 @@ export default function RefereeScoreboard({
                 <span className="text-slate-300 dark:text-slate-700 mx-1 md:mx-2">|</span> 
                 <span className="text-cyan-600 dark:text-cyan-400">{t1Points}</span> 🏆
               </p>
-              <div className="flex justify-center gap-1 mt-1.5">
-                {Array.from({ length: 3 }).map((_, i) => (<ShieldAlert key={i} size={12} className={i < t1Ambush ? "text-amber-500" : "text-slate-300 dark:text-slate-700 opacity-30"} />))}
+              <div className="flex justify-center gap-2 mt-1.5 border-t border-slate-100 dark:border-slate-800 pt-1">
+                <div className="flex gap-0.5" title="بطاقات الكمين">
+                  {Array.from({ length: 3 }).map((_, i) => (<ShieldAlert key={i} size={12} className={i < t1Ambush ? "text-purple-500" : "text-slate-300 dark:text-slate-700 opacity-30"} />))}
+                </div>
+                <div className="flex gap-0.5 border-r border-slate-200 dark:border-slate-700 pr-2" title="بطاقات بيع السؤال">
+                  {Array.from({ length: 3 }).map((_, i) => (<BadgeDollarSign key={i} size={12} className={i < (t1SellCards ?? 3) ? "text-emerald-500" : "text-slate-300 dark:text-slate-700 opacity-30"} />))}
+                </div>
               </div>
            </div>
            <div className="text-center p-2 md:p-3 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-200 dark:border-rose-800/50 shadow-inner flex flex-col justify-center relative group">
@@ -43,8 +48,13 @@ export default function RefereeScoreboard({
                 <span className="text-slate-300 dark:text-slate-700 mx-1 md:mx-2">|</span> 
                 <span className="text-rose-600 dark:text-rose-400">{t2Points}</span> 🏆
               </p>
-              <div className="flex justify-center gap-1 mt-1.5">
-                {Array.from({ length: 3 }).map((_, i) => (<ShieldAlert key={i} size={12} className={i < t2Ambush ? "text-amber-500" : "text-slate-300 dark:text-slate-700 opacity-30"} />))}
+              <div className="flex justify-center gap-2 mt-1.5 border-t border-slate-100 dark:border-slate-800 pt-1">
+                <div className="flex gap-0.5" title="بطاقات الكمين">
+                  {Array.from({ length: 3 }).map((_, i) => (<ShieldAlert key={i} size={12} className={i < t2Ambush ? "text-purple-500" : "text-slate-300 dark:text-slate-700 opacity-30"} />))}
+                </div>
+                <div className="flex gap-0.5 border-r border-slate-200 dark:border-slate-700 pr-2" title="بطاقات بيع السؤال">
+                  {Array.from({ length: 3 }).map((_, i) => (<BadgeDollarSign key={i} size={12} className={i < (t2SellCards ?? 3) ? "text-emerald-500" : "text-slate-300 dark:text-slate-700 opacity-30"} />))}
+                </div>
               </div>
            </div>
          </div>

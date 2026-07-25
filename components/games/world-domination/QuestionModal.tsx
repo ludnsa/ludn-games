@@ -322,6 +322,8 @@ export default function QuestionModal({
                                 selectedCountry.id === capitals.team2 ? (
                                   <p className="text-sm lg:text-xl font-black text-amber-500 mt-2 mb-3">
                                     مكافأة العاصمة: ثلث نقاط الخصم 💰
+                                    <br />
+                                    <span className="text-xs lg:text-lg text-rose-500">وخصم ربع نقاط الخصم 📉</span>
                                   </p>
                                 ) : (
                                   <p className="text-sm lg:text-xl font-black text-amber-500 mt-2 mb-3">

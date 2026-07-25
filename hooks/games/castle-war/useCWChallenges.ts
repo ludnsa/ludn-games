@@ -18,6 +18,7 @@ export function useCWChallenges() {
   const [guessesRevealed, setGuessesRevealed] = useState(false);
   const [usedChallengesT1, setUsedChallengesT1] = useState<ChallengeType[]>([]);
   const [usedChallengesT2, setUsedChallengesT2] = useState<ChallengeType[]>([]);
+  const [usedTeamQs, setUsedTeamQs] = useState<string[]>([]);
 
   const [genTimer, setGenTimer] = useState<number>(15);
   const [isGenTimerRunning, setIsGenTimerRunning] = useState(false);
@@ -39,6 +40,7 @@ export function useCWChallenges() {
     guessesRevealed, setGuessesRevealed,
     usedChallengesT1, setUsedChallengesT1,
     usedChallengesT2, setUsedChallengesT2,
+    usedTeamQs, setUsedTeamQs,
     genTimer, setGenTimer,
     isGenTimerRunning, setIsGenTimerRunning,
     timerStarted, setTimerStarted,

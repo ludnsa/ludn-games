@@ -7,6 +7,7 @@ export function useWDCards() {
     airStrike: 3,
     capitalCapture: 2,
     spy: 2,
+    nuke: 1,
   });
   const [cards2, setCards2] = useState({
     capture: 3,
@@ -14,6 +15,7 @@ export function useWDCards() {
     airStrike: 3,
     capitalCapture: 2,
     spy: 2,
+    nuke: 1,
   });
   const [protectedCountries, setProtectedCountries] = useState<Record<string, 1 | 2>>({});
   const [spiedCountryId, setSpiedCountryId] = useState<string | null>(null);

@@ -7,7 +7,7 @@ import { Cairo } from "next/font/google";
 import {
   Shield, Crown, Bomb, CheckCircle2, Crosshair, Swords, Zap, Volume2,
   VolumeX, Flame, Eye, Lock, Skull, Clock, RefreshCw, Search, Ban, Copy,
-  MonitorPlay, ArrowRight, Sun, Moon, Home, Info,
+  MonitorPlay, ArrowRight, Sun, Moon, Home, Info, QrCode
 } from "lucide-react";
 
 import SolidGamingBackground from "@/components/games/castle-war/SolidGamingBackground";
@@ -31,11 +31,14 @@ export default function CastleBattleMainScreen() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame
   } = useCastleWar();
 
   const cardClass = "bg-white dark:bg-slate-800 border-4 border-slate-900 dark:border-black rounded-3xl shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] transition-colors duration-300";
   const [showEndGameModal, setShowEndGameModal] = React.useState(false);
+  const [showResetModal, setShowResetModal] = React.useState(false);
+  const [showQRModal, setShowQRModal] = React.useState(false);
+  const [showInstructionsModal, setShowInstructionsModal] = React.useState(false);
 
   if (isAccessChecking) {
     return <AccessLoadingScreen />;
@@ -58,61 +61,69 @@ export default function CastleBattleMainScreen() {
 
   return (
     <main
-      className={`min-h-[100dvh] relative flex flex-col pt-32 md:pt-40 pb-8 px-2 md:px-4 ${cairo.className} overflow-x-hidden ${screenShake ? "animate-screen-shake" : ""} transition-colors duration-500 bg-slate-50 dark:bg-[#0f172a]`}
+      className={`min-h-[100dvh] relative flex flex-col pt-8 md:pt-12 pb-8 px-2 md:px-4 ${cairo.className} overflow-x-hidden ${screenShake ? "animate-screen-shake" : ""} transition-colors duration-500 bg-slate-50 dark:bg-[#0f172a]`}
       dir="rtl"
     >
 
 
       <SolidGamingBackground />
 
-      <div className="fixed top-4 left-0 right-0 z-[60] w-full max-w-7xl mx-auto px-4">
-        <div className="bg-white/95 dark:bg-slate-800/95 rounded-2xl border-b-4 border-slate-200 dark:border-slate-950 p-2 md:p-3 shadow-xl flex justify-between items-center transition-colors duration-300">
-          <Link href="/" className="transition-transform hover:scale-105 active:scale-95 shrink-0 pl-2">
-            <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 w-auto max-w-[140px] md:max-w-[200px] object-contain" />
-          </Link>
-          <nav className="hidden md:flex items-center gap-1.5 md:gap-3">
-            <Link href="/" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-              <Home size={16} className="text-slate-500 dark:text-slate-400" /> <span>الرئيسية</span>
-            </Link>
-            <Link href="/#about-section" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-              <Info size={16} className="text-purple-500" /> <span>عن المنصة</span>
-            </Link>
-          </nav>
-          <div className="flex gap-2 pr-2">
-            <button
-              onClick={() => {
-                const html = document.documentElement;
-                if (html.classList.contains("dark")) {
-                  html.classList.remove("dark");
-                  localStorage.setItem("theme_preference", "light");
-                } else {
-                  html.classList.add("dark");
-                  localStorage.setItem("theme_preference", "dark");
-                }
-              }}
-              className="w-10 h-10 md:w-11 h-11 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 text-slate-600 dark:text-amber-400 rounded-xl flex items-center justify-center transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:translate-y-0.5 active:border-b-0"
-            >
-              <Sun size={20} className="hidden dark:block animate-spin-slow" />
-              <Moon size={20} className="block dark:hidden animate-wiggle" />
-            </button>
-          </div>
+      {showQRModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 border-4 border-rose-500 p-8 rounded-3xl max-w-sm w-full text-center shadow-[8px_8px_0px_#be123c] animate-in zoom-in-95">
+              <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-6">امسح الباركود للدخول</h2>
+              <div className="bg-white p-4 rounded-2xl mx-auto w-fit mb-6 border-4 border-slate-900 shadow-inner">
+                {roomCode && <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}`} alt="QR" className="w-48 h-48" />}
+              </div>
+              <p className="text-3xl font-black tracking-[0.3em] text-rose-600 dark:text-rose-500 mb-8 uppercase">{roomCode}</p>
+              <button onClick={() => setShowQRModal(false)} className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-black rounded-xl border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-[4px] transition-all">
+                 إغلاق
+              </button>
+           </div>
         </div>
-      </div>
+      )}
 
-      <div className="relative z-20 w-full max-w-7xl mx-auto flex justify-between items-center mb-6 px-2 md:px-0">
-        <div className="flex gap-2 items-center">
-          <Link href="/" className="py-2 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-2 font-black text-sm">
+      <div className="relative z-20 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-6 px-2 md:px-0 gap-4 mt-4">
+        <div className="flex flex-wrap gap-2 items-center justify-center w-full md:w-auto">
+          <Link href="/" className="py-2 px-3 md:px-4 bg-amber-400 hover:bg-amber-300 text-slate-900 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
+            <ArrowRight size={18} strokeWidth={3} className="text-slate-900" /> <span className="hidden sm:inline">الرجوع</span>
+          </Link>
+          <Link href="/" className="py-2 px-3 md:px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
             <Home size={18} strokeWidth={3} /> <span className="hidden sm:inline">الرئيسية</span>
           </Link>
+          <button onClick={() => setShowInstructionsModal(true)} className="py-2 px-3 md:px-4 bg-sky-100 dark:bg-sky-900/40 hover:bg-sky-200 dark:hover:bg-sky-800 text-sky-600 dark:text-sky-400 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
+            <Info size={18} strokeWidth={3} /> <span className="hidden sm:inline">التعليمات</span>
+          </button>
+          <button onClick={() => window.open(`/games/castle-war/display?code=${roomCode}`, "_blank")} className="py-2 px-3 md:px-4 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400 rounded-xl border-2 border-slate-900 dark:border-black border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] flex items-center justify-center gap-1.5 font-black text-xs md:text-sm">
+            <MonitorPlay size={16} /> <span className="hidden sm:inline">شاشة الجمهور 📺</span>
+          </button>
+
+          <button onClick={() => setShowResetModal(true)} className="py-2 px-3 md:px-4 bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-900/30 text-rose-500 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
+            <RefreshCw size={18} strokeWidth={3} /> <span className="hidden sm:inline">تصفير اللعبة</span>
+          </button>
           {gameState === "playing" && (
-            <button onClick={() => setShowEndGameModal(true)} className="py-2 px-4 bg-rose-500 hover:bg-rose-400 text-white border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-2 font-black text-sm">
+            <button onClick={() => setShowEndGameModal(true)} className="py-2 px-3 md:px-4 bg-rose-500 hover:bg-rose-400 text-white border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
               <Ban size={18} strokeWidth={3} /> <span className="hidden sm:inline">إنهاء اللعبة</span>
             </button>
           )}
         </div>
+        
         <div className="flex gap-2">
-          <button onClick={() => window.open(`/games/castle-war/display?code=${roomCode}`, "_blank")} className="py-2 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400 rounded-xl border-2 border-slate-900 dark:border-black border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-sm flex items-center justify-center gap-1.5 font-black text-xs md:text-sm">
-            <MonitorPlay size={16} /> <span className="hidden sm:inline">شاشة الجمهور 📺</span>
+          <button
+            onClick={() => {
+              const html = document.documentElement;
+              if (html.classList.contains("dark")) {
+                html.classList.remove("dark");
+                localStorage.setItem("theme_preference", "light");
+              } else {
+                html.classList.add("dark");
+                localStorage.setItem("theme_preference", "dark");
+              }
+            }}
+            className="w-9 h-9 md:w-10 md:h-10 bg-slate-100 dark:bg-slate-800 border-2 border-slate-900 dark:border-black text-slate-600 dark:text-amber-400 rounded-xl flex items-center justify-center transition-all hover:bg-slate-200 dark:hover:bg-slate-700 border-b-4 active:translate-y-0.5 active:border-b-2 shadow-sm"
+          >
+            <Sun size={18} className="hidden dark:block animate-spin-slow" />
+            <Moon size={18} className="block dark:hidden animate-wiggle" />
           </button>
           <button onClick={() => setSoundEnabled(!soundEnabled)} className="py-2 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl border-2 border-slate-900 dark:border-black border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-sm flex items-center justify-center gap-1.5 font-black text-xs md:text-sm">
             {soundEnabled ? <><Volume2 size={16} /> <span className="hidden sm:inline">الصوت شغال</span></> : <><VolumeX size={16} /> <span className="hidden sm:inline">مكتوم</span></>}
@@ -157,23 +168,7 @@ export default function CastleBattleMainScreen() {
                   أدخل الكود في جوالك لتوزيع جنودك بسرية تامة.
                 </p>
 
-                <div className="flex flex-col items-center justify-center gap-4 mb-6">
-                  <div className="bg-white p-2 rounded-2xl shadow-[4px_4px_0px_#cbd5e1] border-4 border-slate-900 dark:border-black">
-                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(joinUrl)}`} alt="QR Code" className="w-32 h-32 md:w-40 md:h-40" />
-                  </div>
-                  <div className="flex flex-col items-center w-full">
-                    <span className="text-slate-500 dark:text-slate-400 font-black tracking-widest uppercase mb-2 text-sm bg-slate-100 dark:bg-slate-900 px-4 py-1 rounded-xl border-2 border-slate-200 dark:border-slate-700">كود الغرفة</span>
-                    <div className="bg-white dark:bg-slate-800 border-4 border-slate-900 dark:border-black px-8 py-3 rounded-2xl text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-[0.3em] shadow-inner font-mono">
-                      {roomCode}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="flex justify-center mb-6">
-                  <button onClick={copyToClipboard} className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-black text-sm transition-all border-4 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] border-b-8 active:border-b-4 active:translate-y-1 ${linkCopied ? "bg-emerald-400 border-emerald-600 text-slate-900" : "bg-white dark:bg-slate-700 border-slate-900 dark:border-black text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-600"}`}>
-                    {linkCopied ? <CheckCircle2 size={18} strokeWidth={3} /> : <Copy size={18} strokeWidth={3} />} {linkCopied ? "تم نسخ الرابط!" : "نسخ الرابط"}
-                  </button>
-                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mb-6">
                   <div className={`p-4 rounded-2xl border-4 transition-all flex flex-col items-center shadow-sm ${team1Ready ? "bg-emerald-100 dark:bg-emerald-900/40 border-emerald-500 dark:border-emerald-600" : "bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700"}`}>
@@ -188,6 +183,20 @@ export default function CastleBattleMainScreen() {
 
                 <button onClick={startBattle} disabled={!(team1Ready && team2Ready)} className={`w-full py-5 rounded-2xl text-2xl font-black flex items-center justify-center gap-3 transition-all border-4 border-slate-900 dark:border-black ${team1Ready && team2Ready ? "bg-rose-500 hover:bg-rose-400 border-b-8 active:border-b-4 active:translate-y-1 text-white shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] animate-pulse" : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed border-b-4"}`}>
                   بدء الحرب! <Flame size={24} className="fill-current" />
+                </button>
+              </div>
+            )}
+
+            {gameState === "lobby" && (
+              <div className="flex flex-wrap justify-center gap-3 mt-2 w-full animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="bg-white dark:bg-slate-800 border-2 border-slate-900 dark:border-black px-4 py-2 rounded-xl text-sm font-black text-slate-900 dark:text-white tracking-widest shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] font-mono flex items-center gap-2">
+                   <span className="text-slate-500 text-xs">كود الغرفة:</span> {roomCode}
+                </div>
+                <button onClick={copyToClipboard} className={`py-2 px-4 rounded-xl font-black text-sm transition-all border-2 border-slate-900 dark:border-black border-b-4 active:border-b-2 active:translate-y-0.5 flex items-center gap-2 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] ${linkCopied ? "bg-emerald-400 text-slate-900" : "bg-indigo-500 hover:bg-indigo-400 text-white"}`}>
+                  {linkCopied ? <CheckCircle2 size={18} strokeWidth={3} /> : <Copy size={18} strokeWidth={3} />} <span>{linkCopied ? "تم النسخ" : "نسخ الرابط"}</span>
+                </button>
+                <button onClick={() => setShowQRModal(true)} className="py-2 px-4 rounded-xl font-black text-sm transition-all border-2 border-slate-900 dark:border-black border-b-4 active:border-b-2 active:translate-y-0.5 flex items-center gap-2 shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white">
+                  <QrCode size={18} strokeWidth={3} /> <span>عرض الباركود</span>
                 </button>
               </div>
             )}
@@ -506,6 +515,76 @@ export default function CastleBattleMainScreen() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {showResetModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-800 border-8 border-slate-900 dark:border-black rounded-[3rem] p-8 max-w-md w-full shadow-[16px_16px_0px_#0f172a] dark:shadow-[16px_16px_0px_#000] text-center animate-in zoom-in-95 duration-300">
+            <div className="mx-auto w-24 h-24 bg-rose-100 dark:bg-rose-900/40 border-4 border-rose-500 rounded-full flex items-center justify-center mb-6 shadow-inner">
+              <RefreshCw className="w-12 h-12 text-rose-600 dark:text-rose-400 animate-spin-slow" strokeWidth={3} />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-4 leading-tight">تصفير اللعبة؟</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-bold mb-8 text-lg">
+              هل أنت متأكد من تصفير اللعبة والبدء من جديد؟ سيتم مسح جميع بيانات الفرق والجنود ولن تتمكن من التراجع.
+            </p>
+            <div className="flex gap-4">
+              <button onClick={() => setShowResetModal(false)} className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-black rounded-2xl border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-1 transition-all">
+                إلغاء
+              </button>
+              <button onClick={() => { setShowResetModal(false); resetGame(); }} className="flex-1 py-4 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-2xl border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-1 transition-all shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000]">
+                نعم، صفّر اللعبة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInstructionsModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 border-4 border-sky-500 p-6 md:p-8 rounded-3xl max-w-2xl w-full text-right shadow-[8px_8px_0px_#0ea5e9] animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scroll">
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <Info className="w-8 h-8 text-sky-500" strokeWidth={3} />
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white">كيف نلعب حرب القلاع؟ 🏰</h2>
+              </div>
+              
+              <div className="space-y-4 text-slate-700 dark:text-slate-300 font-bold text-sm md:text-base leading-relaxed">
+                <div className="bg-sky-50 dark:bg-sky-900/20 p-4 rounded-2xl border-2 border-sky-100 dark:border-sky-800">
+                  <h3 className="text-sky-600 dark:text-sky-400 font-black text-lg mb-2">⚔️ التجهيز:</h3>
+                  <ul className="list-disc list-inside space-y-2">
+                    <li>كل فريق يستلم قلعة فيها 15 نافذة وعنده <span className="text-rose-500 font-black">120 جندي</span>.</li>
+                    <li>يوزع الفريق جنوده على النوافذ بسرية تامة من جوالهم.</li>
+                    <li><span className="text-amber-500 font-black">الأهم:</span> لازم تختار نافذة تخبي فيها <strong>"القائد 👑"</strong> ونافذة ثانية تحط فيها <strong>"الفخ 🪤"</strong> وغرفة القائد والفخ ما تحط فيها جنود وتقدر توزع الجنود من زر توزيع عشوائي.</li>
+                  </ul>
+                </div>
+
+                <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-2xl border-2 border-rose-100 dark:border-rose-800">
+                  <h3 className="text-rose-600 dark:text-rose-400 font-black text-lg mb-2">🔥 وقت المعركة:</h3>
+                  <ul className="list-disc list-inside space-y-2">
+                    <li>تطلع لكم تحديات وأسئلة، الفريق اللي يفوز بالتحدي يصير له الدور في الهجوم! تختار نافذة من قلعة الخصم وتقصفها وإذا جاوبت خطأ الخصم بيختار غرفة من قلعتك ويقصفها 💣.</li>
+                    <li><strong>طيحة الفخ 🪤:</strong> لو ضربت الفخ.. أكلتها! الخصم بيقرر إما يصفي <span className="text-rose-500 font-black">20 جندي</span> من جيشك، أو يأسرهم ويضمهم لجيشه.</li>
+                    <li><strong>إصابة عادية:</strong> إذا ضربت نافذة فيها جنود، تخسف فيهم وينقص عدد الجنود المندسين بالغرفة.</li>
+                    <li><strong>صيدة القائد 👑:</strong> لو طحت على القائد، هذي ضربة قاضية! الخصم يودع 30 جندي يطيرون من جيشه!</li>
+                  </ul>
+                </div>
+
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border-2 border-indigo-100 dark:border-indigo-800">
+                  <h3 className="text-indigo-600 dark:text-indigo-400 font-black text-lg mb-2">👁️ الجاسوس الذيب:</h3>
+                  <ul className="list-disc list-inside space-y-2">
+                    <li>كل فريق يقدر يستخدم الجاسوس مرة وحدة طول اللعبة.</li>
+                    <li>الجاسوس يروح يجيب لك أكثر نافذة مليانة جنود ويقصفها لك جاهزة مجهزة.</li>
+                  </ul>
+                </div>
+
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border-2 border-emerald-100 dark:border-emerald-800 text-center">
+                  <h3 className="text-emerald-600 dark:text-emerald-400 font-black text-xl mb-1">🏆 الفايز:</h3>
+                  <p>اللي يطير جنود الخصم ويصفر عدادهم أول هو اللي يرفع الراية! 🏴‍☠️</p>
+                </div>
+              </div>
+
+              <button onClick={() => setShowInstructionsModal(false)} className="mt-6 w-full py-4 bg-sky-500 hover:bg-sky-400 text-white font-black text-xl rounded-2xl border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-[4px] transition-all shadow-[4px_4px_0px_#0f172a]">
+                 فهمت اللعبة، قدام! 🚀
+              </button>
+           </div>
         </div>
       )}
     </main>
