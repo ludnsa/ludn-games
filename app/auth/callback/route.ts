@@ -52,15 +52,8 @@ export async function GET(request: Request) {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
-        // قراءة الصلاحية (Role) من جدول profiles في قاعدة البيانات
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        // الفرز يشتغل بناءً على القيمة المخزنة بالجدول
-        if (profile?.role === 'Admin') {
+        // الفرز يشتغل بناءً على القيمة المخزنة بـ app_metadata.role حسب طلب المستخدم
+        if (user.app_metadata?.role === 'admin') {
           return NextResponse.redirect(`${origin}/admin`)
         } else {
           return NextResponse.redirect(`${origin}/`)

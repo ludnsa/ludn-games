@@ -84,22 +84,20 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    // التحقق من صلاحية المدير
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.role !== 'Admin') {
+    // التحقق من صلاحية المدير من app_metadata.role
+    if (user.app_metadata?.role !== 'admin') {
       // إذا لم يكن مديراً، يتم طرده لصفحة اللاعب
       return NextResponse.redirect(new URL("/player", request.url));
     }
   }
 
-  // إذا هو مسجل دخول وحاول يرجع لصفحة الدخول، وجهه للوحة التحكم
+  // إذا هو مسجل دخول وحاول يرجع لصفحة الدخول، وجهه بناءً على صلاحياته
   if (request.nextUrl.pathname.startsWith("/login") && user) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    if (user.app_metadata?.role === 'admin') {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    } else {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
   }
 
   // الحماية الجديدة: إذا حاول يدخل الألعاب أو الحساب الشخصي وهو مو مسجل، اطرده لصفحة اللاعب

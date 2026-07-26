@@ -42,7 +42,11 @@ export default function LoginPage() {
         setMessage(`خطأ: ${error.message}`);
       } else if (data.session) {
         setMessage("تم تسجيل الدخول بنجاح! جاري تحويلك...");
-        window.location.href = "/admin";
+        if (data.session.user?.app_metadata?.role === "admin") {
+          window.location.href = "/admin";
+        } else {
+          window.location.href = "/";
+        }
       }
     } catch (err) {
       setMessage("حدث خطأ غير متوقع أثناء تسجيل الدخول.");
