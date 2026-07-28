@@ -8,8 +8,8 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 const cairo = Cairo({ subsets: ['arabic'], weight: ['400', '700', '900'] })
 
 export const metadata = {
-  title: 'منصة لدن التقنية',
-  description: 'عيش جو التحدي مع ألعاب لدن الجماعية',
+  title: 'منصة ألعاب لدن',
+  description: 'منصة ألعاب لدن هي منصة ترفيهية تقنية تقدم تجربة فريدة في الألعاب الجماعية والتحديات التفاعلية.',
 }
 
 export default function RootLayout({
