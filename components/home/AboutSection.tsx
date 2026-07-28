@@ -24,10 +24,10 @@ export const AboutSection = ({ setIsJoinModalOpen }: { setIsJoinModalOpen: (val:
           <div className="absolute -bottom-1 right-0 left-0 h-2 bg-black dark:bg-emerald-500 rounded-full"></div>
         </div>
         <div className="space-y-4 md:space-y-5 text-lg md:text-2xl font-bold leading-relaxed max-w-2xl text-slate-700 dark:text-slate-300 mx-auto md:mx-0">
-          <p>منصة ألعاب تفاعلية تجمع العائلة والأصدقاء في لحظات مليئة بالحماس والضحك.</p>
+          <p>منصة ألعاب لدن هي منصة ألعاب تفاعلية تجمع العائلة والأصدقاء في لحظات مليئة بالحماس والضحك.</p>
           <p className="border-r-4 border-emerald-400 pr-4 md:pr-5 py-2 text-base md:text-xl text-slate-600 dark:text-slate-400">
             تم تصميمها وتطويرها بواسطة <br />
-            <span className="font-black text-blue-600 dark:text-blue-400">مؤسسة لدن التقنية لحلول الأعمال.</span>
+            <span className="font-black text-blue-600 dark:text-blue-400">فريق عمل منصة ألعاب لدن.</span>
           </p>
         </div>
         <button onClick={() => setIsJoinModalOpen(true)} className="mt-6 md:mt-8 flex items-center justify-center gap-3 px-8 py-4 md:py-5 bg-emerald-500 border-b-4 border-emerald-700 hover:bg-emerald-400 text-white rounded-2xl font-black text-lg md:text-2xl transition-all active:scale-95 active:border-b-0 active:translate-y-1 w-full md:w-auto mx-auto md:mx-0">

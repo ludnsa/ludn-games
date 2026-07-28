@@ -27,6 +27,7 @@ export const Footer = ({ scrollToSection }: { scrollToSection: (e: React.MouseEv
             <li><a href="#games-section" onClick={(e) => scrollToSection(e, "games-section")} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-emerald-500" /> الألعاب</a></li>
             <li><a href="#contact-section" onClick={(e) => scrollToSection(e, "contact-section")} className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-amber-500" /> تواصل معنا</a></li>
             <li><Link href="/terms" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-indigo-500" /> الشروط والأحكام</Link></li>
+            <li><Link href="/privacy" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-rose-500" /> سياسة الخصوصية</Link></li>
             <li><Link href="/guides" className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-cyan-500" /> كيف تلعب؟ (دليل الألعاب)</Link></li>
           </ul>
         </div>
@@ -40,7 +41,7 @@ export const Footer = ({ scrollToSection }: { scrollToSection: (e: React.MouseEv
         </div>
       </div>
       <div className="w-full pt-8 border-t-4 border-slate-200 dark:border-slate-700 text-center px-4">
-        <p className="text-xs md:text-sm font-bold text-slate-400 dark:text-slate-500">2026 لدن التقنية - جميع الحقوق محفوظة ©</p>
+        <p className="text-xs md:text-sm font-bold text-slate-400 dark:text-slate-500">2026 منصة ألعاب لدن - جميع الحقوق محفوظة ©</p>
       </div>
     </footer>
   );
