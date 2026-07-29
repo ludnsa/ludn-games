@@ -25,6 +25,10 @@ export function useAdminDashboard() {
     questions: 0,
   });
 
+  const [quizStats, setQuizStats] = useState({
+    categories: 0, questions: 0, q200: 0, q400: 0, q600: 0,
+  });
+
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleLogout = async () => {
@@ -121,9 +125,26 @@ export function useAdminDashboard() {
       }
     };
 
+    const fetchQuizStats = async () => {
+      try {
+        const { count: categories } = await supabase.from("quiz_categories").select("*", { count: 'exact', head: true });
+        const { data } = await supabase.from("quiz_questions").select("points");
+        let q200 = 0, q400 = 0, q600 = 0;
+        data?.forEach((q: { points: number }) => {
+          if (q.points === 200) q200++;
+          if (q.points === 400) q400++;
+          if (q.points === 600) q600++;
+        });
+        setQuizStats({ categories: categories || 0, questions: data?.length || 0, q200, q400, q600 });
+      } catch (error) {
+        console.error("Error fetching Quiz stats", error);
+      }
+    };
+
     fetchWDStats();
     fetchCWStats();
     fetchAWStats();
+    fetchQuizStats();
   }, [isAuthChecking, supabase]);
 
   const handleExportBackup = () => {
@@ -271,7 +292,7 @@ export function useAdminDashboard() {
   };
 
   return {
-    isAuthChecking, wdStats, cwStats, awStats,
+    isAuthChecking, wdStats, cwStats, awStats, quizStats,
     handleLogout, handleExportBackup, handleImportBackup, handleMigrateFromOldTables
   };
 }

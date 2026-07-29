@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import { Globe, Swords, Gavel, MapPin, HelpCircle, Target, Clock, Timer, Activity, ChevronDown, ChevronUp } from "lucide-react";
+import { Globe, Swords, Gavel, LayoutGrid, MapPin, HelpCircle, Target, Clock, Timer, Activity, Layers, ChevronDown, ChevronUp } from "lucide-react";
+import { QUIZ_GAME } from "@/constants/quiz-grid";
 
 const StatItem = ({ icon, title, count, colorTheme }: any) => {
   const themes: Record<string, string> = {
@@ -8,6 +9,7 @@ const StatItem = ({ icon, title, count, colorTheme }: any) => {
     blue: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
     amber: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400",
     emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+    violet: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400",
   };
 
   return (
@@ -23,8 +25,9 @@ const StatItem = ({ icon, title, count, colorTheme }: any) => {
   );
 };
 
-export default function AdminStatsSection({ wdStats, cwStats, awStats }: any) {
+export default function AdminStatsSection({ wdStats, cwStats, awStats, quizStats }: any) {
   const [showWdDetails, setShowWdDetails] = useState(false);
+  const quiz = quizStats || { categories: 0, questions: 0, q200: 0, q400: 0, q600: 0 };
 
   return (
     <div className="w-full mb-8">
@@ -44,14 +47,14 @@ export default function AdminStatsSection({ wdStats, cwStats, awStats }: any) {
         
         <div className="relative z-10 flex gap-4 w-full md:w-auto">
           <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 flex-1 md:w-32 text-center">
-            <div className="text-3xl font-black mb-1">{wdStats.questions + cwStats.q30 + cwStats.q5 + cwStats.team + cwStats.general + awStats.questions}</div>
+            <div className="text-3xl font-black mb-1">{wdStats.questions + cwStats.q30 + cwStats.q5 + cwStats.team + cwStats.general + awStats.questions + quiz.questions}</div>
             <div className="text-[10px] font-bold text-indigo-100">إجمالي الأسئلة</div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
-        
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
+
         {/* السيطرة على العالم */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 shadow-sm flex flex-col transition-all hover:border-blue-300 dark:hover:border-blue-800">
           <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -140,6 +143,26 @@ export default function AdminStatsSection({ wdStats, cwStats, awStats }: any) {
              <div className="w-32 h-32 opacity-10 dark:opacity-20 pointer-events-none">
                <Gavel className="w-full h-full text-amber-500" />
              </div>
+          </div>
+        </div>
+
+        {/* تحدي الفئات */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 shadow-sm flex flex-col transition-all hover:border-violet-300 dark:hover:border-violet-800">
+          <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="p-3 bg-gradient-to-br from-violet-400 to-violet-600 text-white rounded-2xl shadow-lg shadow-violet-500/30">
+              <LayoutGrid size={28} />
+            </div>
+            <div>
+              <h4 className="text-xl font-black text-slate-900 dark:text-white">{QUIZ_GAME.title}</h4>
+              <p className="text-xs font-bold text-slate-500">الفئات والأسئلة حسب النقاط</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <StatItem icon={<Layers size={18} />} title="عدد الفئات" count={quiz.categories} colorTheme="violet" />
+            <StatItem icon={<HelpCircle size={18} />} title="أسئلة 200 نقطة" count={quiz.q200} colorTheme="violet" />
+            <StatItem icon={<HelpCircle size={18} />} title="أسئلة 400 نقطة" count={quiz.q400} colorTheme="violet" />
+            <StatItem icon={<HelpCircle size={18} />} title="أسئلة 600 نقطة" count={quiz.q600} colorTheme="violet" />
           </div>
         </div>
 

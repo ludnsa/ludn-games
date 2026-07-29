@@ -1,0 +1,13 @@
+external_ref,category_slug,question_text,answer_text,points,question_image,answer_image
+SAMPLE-GEN-01,sample-general,(عيّنة) ما هي عاصمة المملكة العربية السعودية؟,الرياض,200,,
+SAMPLE-GEN-02,sample-general,(عيّنة) كم عدد أيام الأسبوع؟,سبعة أيام,200,,
+SAMPLE-GEN-03,sample-general,(عيّنة) في أي قارة تقع دولة مصر؟,قارة أفريقيا,400,,
+SAMPLE-GEN-04,sample-general,(عيّنة) ما هو أطول نهر في العالم؟,نهر النيل,400,,
+SAMPLE-GEN-05,sample-general,(عيّنة) في أي عام تأسست المملكة العربية السعودية بشكلها الحالي؟,عام 1932 ميلادي,600,,
+SAMPLE-GEN-06,sample-general,(عيّنة) ما هي أصغر دولة في العالم من حيث المساحة؟,دولة الفاتيكان,600,,
+SAMPLE-SCI-01,sample-science,(عيّنة) ما هو الغاز الذي نتنفسه ونحتاجه للحياة؟,الأكسجين,200,,
+SAMPLE-SCI-02,sample-science,(عيّنة) كم عدد كواكب المجموعة الشمسية؟,ثمانية كواكب,200,,
+SAMPLE-SCI-03,sample-science,(عيّنة) ما هو أقرب كوكب إلى الشمس؟,كوكب عطارد,400,,
+SAMPLE-SCI-04,sample-science,(عيّنة) ما هي وحدة قياس شدة التيار الكهربائي؟,الأمبير,400,,
+SAMPLE-SCI-05,sample-science,(عيّنة) ما اسم العالم صاحب نظرية النسبية؟,ألبرت أينشتاين,600,,
+SAMPLE-SCI-06,sample-science,(عيّنة) ما هو العنصر الكيميائي الذي رمزه Fe؟,الحديد,600,,

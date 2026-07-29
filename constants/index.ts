@@ -1,3 +1,5 @@
+import { QUIZ_GAME } from "./quiz-grid";
+
 // إعدادات وبيانات الألعاب الأساسية في المنصة
 export const GAMES_LIST = [
     {
@@ -17,6 +19,12 @@ export const GAMES_LIST = [
       title: "حرب المزايدات",
       path: "/games/auction",
       color: "amber",
+    },
+    {
+      id: QUIZ_GAME.id,
+      title: QUIZ_GAME.title,
+      path: QUIZ_GAME.path,
+      color: QUIZ_GAME.color,
     }
   ];
   

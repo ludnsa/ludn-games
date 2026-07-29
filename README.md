@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Game docs
+
+- [تحدي الفئات (quiz-grid)](docs/quiz-grid.md) — running the migration, importing content, CSV format, adding a category.
+
 ## Getting Started
 
 First, run the development server:

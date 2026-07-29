@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
-import { Swords, Globe, Gavel, Play } from "lucide-react";
+import { Swords, Globe, Gavel, LayoutGrid, Play } from "lucide-react";
+import { QUIZ_GAME } from "@/constants/quiz-grid";
 
 const GAMES = [
   {
@@ -27,6 +28,14 @@ const GAMES = [
     path: "/games/auction",
     color: "from-amber-500 to-yellow-600",
   },
+  {
+    id: QUIZ_GAME.id,
+    title: QUIZ_GAME.title,
+    description: QUIZ_GAME.description,
+    icon: <LayoutGrid className="w-8 h-8 text-violet-500" />,
+    path: QUIZ_GAME.path,
+    color: "from-violet-500 to-purple-600",
+  },
 ];
 
 const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
@@ -34,6 +43,7 @@ const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
     if (id === "castle-war") return "bg-rose-500 border-rose-700 hover:bg-rose-400";
     if (id === "world-domination") return "bg-blue-500 border-blue-700 hover:bg-blue-400";
     if (id === "auction") return "bg-amber-500 border-amber-700 hover:bg-amber-400 text-slate-900";
+    if (id === QUIZ_GAME.id) return "bg-violet-500 border-violet-700 hover:bg-violet-400";
     return "bg-blue-500 border-blue-700 hover:bg-blue-400";
   };
 
@@ -52,6 +62,11 @@ const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
       return {
         card: "border-amber-200 dark:border-amber-900/60 shadow-xl shadow-amber-100 dark:shadow-amber-900/20 hover:shadow-amber-200 dark:hover:shadow-amber-900/40",
         icon: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20",
+      };
+    if (id === QUIZ_GAME.id)
+      return {
+        card: "border-violet-200 dark:border-violet-900/60 shadow-xl shadow-violet-100 dark:shadow-violet-900/20 hover:shadow-violet-200 dark:hover:shadow-violet-900/40",
+        icon: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20",
       };
     return {
       card: "border-slate-200 dark:border-slate-900/60 shadow-xl shadow-slate-100 dark:shadow-slate-900/20 hover:shadow-slate-200 dark:hover:shadow-slate-900/40",

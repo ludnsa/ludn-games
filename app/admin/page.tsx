@@ -24,7 +24,7 @@ export default function AdminDashboardMain() {
   }, []);
 
   const {
-    isAuthChecking, wdStats, cwStats, awStats,
+    isAuthChecking, wdStats, cwStats, awStats, quizStats,
     handleLogout, handleExportBackup, handleImportBackup, handleMigrateFromOldTables
   } = useAdminDashboard();
 
@@ -81,7 +81,7 @@ export default function AdminDashboardMain() {
           <AdminSidebar />
           
           <section className="flex-1 flex flex-col gap-6">
-            <AdminStatsSection wdStats={wdStats} cwStats={cwStats} awStats={awStats} />
+            <AdminStatsSection wdStats={wdStats} cwStats={cwStats} awStats={awStats} quizStats={quizStats} />
             
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] p-6 shadow-sm">
               <h2 className="text-xl font-black text-slate-900 dark:text-white mb-6">النسخ الاحتياطي وإدارة البيانات</h2>

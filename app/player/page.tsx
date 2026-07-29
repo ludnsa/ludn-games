@@ -16,8 +16,10 @@ import {
   ChevronDown,
   User,
   Zap,
-  ShieldCheck
+  ShieldCheck,
+  LayoutGrid
 } from "lucide-react";
+import { QUIZ_GAME } from "@/constants/quiz-grid";
 
 const tajawal = Tajawal({
   subsets: ["arabic"],
@@ -531,6 +533,7 @@ export default function PlayerLoginPage() {
               <li><Link href="/games/castle-war" className="hover:text-rose-500 transition-colors flex items-center gap-2"><Swords size={18} className="text-rose-500" /> حرب القلاع</Link></li>
               <li><Link href="/games/world-domination" className="hover:text-blue-500 transition-colors flex items-center gap-2"><Globe size={18} className="text-blue-500" /> السيطرة على العالم</Link></li>
               <li><Link href="/games/auction" className="hover:text-amber-500 transition-colors flex items-center gap-2"><Gavel size={18} className="text-amber-500" /> حرب المزايدات</Link></li>
+              <li><Link href={QUIZ_GAME.path} className="hover:text-violet-500 transition-colors flex items-center gap-2"><LayoutGrid size={18} className="text-violet-500" /> {QUIZ_GAME.title}</Link></li>
             </ul>
           </div>
         </div>

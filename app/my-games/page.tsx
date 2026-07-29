@@ -4,10 +4,11 @@ import React, { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { fetchUserGamesAction, fetchUserProfileAction } from "@/app/actions/gameAccess";
 import {
-  Gamepad2, Swords, Globe, Gavel, ArrowRight, Home, Info,
+  Gamepad2, Swords, Globe, Gavel, LayoutGrid, ArrowRight, Home, Info,
   MessageCircle, ChevronDown, User, Sun, Moon, LogOut, Zap
 } from "lucide-react";
 import Link from "next/link";
+import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { useRouter } from "next/navigation";
 import { Tajawal } from "next/font/google";
 
@@ -109,7 +110,8 @@ export default function MyGamesPage() {
   const gamesList = [
     { id: 'castle-war', title: 'حرب القلاع', icon: <Swords size={28} />, bg: 'bg-rose-100 dark:bg-rose-900/40 text-rose-500' },
     { id: 'world-domination', title: 'السيطرة على العالم', icon: <Globe size={28} />, bg: 'bg-blue-100 dark:bg-blue-900/40 text-blue-500' },
-    { id: 'auction', title: 'حرب المزايدات', icon: <Gavel size={28} />, bg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-500' }
+    { id: 'auction', title: 'حرب المزايدات', icon: <Gavel size={28} />, bg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-500' },
+    { id: QUIZ_GAME.id, title: QUIZ_GAME.title, icon: <LayoutGrid size={28} />, bg: 'bg-violet-100 dark:bg-violet-900/40 text-violet-500' }
   ];
 
   return (
