@@ -701,20 +701,6 @@ export async function activateQuizLifeline(input: {
   return { success: true };
 }
 
-/** إخفاء حالة "جاري الاتصال" بعد انتهاء المكالمة. */
-export async function clearQuizCallState(roomCode: string): Promise<ActionResult> {
-  const ctx = await requireHost(roomCode);
-  if (!ctx.ok) return fail(ctx.error);
-
-  const { error } = await ctx.admin
-    .from("quiz_rooms")
-    .update({ call_friend_active: false })
-    .eq("room_code", ctx.roomCode);
-
-  if (error) return fail("تعذّر تحديث الحالة.");
-  return { success: true };
-}
-
 // ---------------------------------------------------------------------
 // إنهاء الجلسة
 // ---------------------------------------------------------------------

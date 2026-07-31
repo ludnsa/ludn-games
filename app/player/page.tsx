@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Tajawal } from "next/font/google";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { 
@@ -16,7 +15,6 @@ import {
   ChevronDown,
   User,
   Zap,
-  ShieldCheck,
   LayoutGrid
 } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
@@ -81,7 +79,6 @@ const SolidGamingBackground = () => {
 };
 
 export default function PlayerLoginPage() {
-  const router = useRouter();
   const [isDark, setIsDark] = useState(true);
   
   // حالات الإدخال المشتركة
@@ -95,12 +92,6 @@ export default function PlayerLoginPage() {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [notification, setNotification] = useState({ isOpen: false, message: "", type: "success" });
-
-  // حالات التحقق بـ OTP
-  const [showOtpScreen, setShowOtpScreen] = useState(false);
-  const [otpCode, setOtpCode] = useState(["" , "", "", "", "", ""]);
-  const [otpLoading, setOtpLoading] = useState(false);
-  const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains("dark"));
@@ -176,10 +167,8 @@ export default function PlayerLoginPage() {
       } catch (error: any) {
         console.error("Email auth error:", error);
         if (error.message && error.message.toLowerCase().includes("email not confirmed")) {
-          // إذا الحساب موجود بس مو موثق، نرسل له الكود من جديد ونفتح شاشة الـ OTP
-          await supabase.auth.resend({ type: "signup", email: authEmail });
-          setShowOtpScreen(true);
-          setNotification({ isOpen: true, message: "هذا الحساب غير موثق. أرسلنا لك رمز تفعيل جديد لبريدك.", type: "success" });
+          // حسابات قديمة أُنشئت قبل تعطيل تأكيد البريد
+          setNotification({ isOpen: true, message: "هذا الحساب غير موثق. تواصل مع الدعم لتفعيله.", type: "error" });
         } else {
           setNotification({ isOpen: true, message: "تأكد من صحة البيانات أو إن الحساب غير موجود مسبقاً.", type: "error" });
         }
@@ -216,8 +205,13 @@ export default function PlayerLoginPage() {
           throw error;
         }
 
-        // عرض شاشة إدخال رمز التحقق OTP
-        setShowOtpScreen(true);
+        if (!data.session) {
+          // يحدث فقط إذا كان تأكيد البريد لا يزال مفعلاً في لوحة تحكم Supabase
+          throw new Error("تعذّر إنشاء الجلسة. حاول تسجيل الدخول يدوياً.");
+        }
+
+        // نستخدم window.location.href بدلاً من router.push لضمان أن Middleware يقرأ الكوكيز الجديدة
+        window.location.href = "/";
 
       } catch (error: any) {
         console.error("Email auth error:", error);
@@ -225,70 +219,6 @@ export default function PlayerLoginPage() {
       } finally {
         setAuthLoading(false);
       }
-    }
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-    if (value.length > 1) value = value.slice(-1);
-    if (!/^\d*$/.test(value)) return;
-    const newOtp = [...otpCode];
-    newOtp[index] = value;
-    setOtpCode(newOtp);
-    if (value && index < 5) {
-      otpInputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !otpCode[index] && index > 0) {
-      otpInputsRef.current[index - 1]?.focus();
-    }
-  };
-
-  const handleOtpSubmit = async () => {
-    const code = otpCode.join("");
-    if (code.length !== 6) {
-      setNotification({ isOpen: true, message: "الرجاء إدخال الرمز المكون من 6 أرقام.", type: "error" });
-      return;
-    }
-    setOtpLoading(true);
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: authEmail,
-        token: code,
-        type: "signup",
-      });
-      if (error) {
-        setNotification({ isOpen: true, message: "الرمز غير صحيح أو منتهي الصلاحية. حاول مرة أخرى.", type: "error" });
-      } else if (data.session) {
-        setNotification({ isOpen: true, message: "تم تفعيل حسابك بنجاح! جاري توجيهك...", type: "success" });
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 1500);
-      }
-    } catch (err) {
-      setNotification({ isOpen: true, message: "حدث خطأ غير متوقع. حاول مرة أخرى.", type: "error" });
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    setOtpLoading(true);
-    try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: authEmail,
-      });
-      if (error) {
-        setNotification({ isOpen: true, message: "تعذّر إعادة الإرسال. حاول بعد قليل.", type: "error" });
-      } else {
-        setNotification({ isOpen: true, message: "تم إعادة إرسال رمز التحقق إلى بريدك الإلكتروني.", type: "success" });
-      }
-    } catch (err) {
-      setNotification({ isOpen: true, message: "حدث خطأ غير متوقع.", type: "error" });
-    } finally {
-      setOtpLoading(false);
     }
   };
 
@@ -328,63 +258,6 @@ export default function PlayerLoginPage() {
       <div className="flex-1 flex items-center justify-center p-4 relative z-10 w-full my-8">
         <div className="w-full max-w-md bg-white dark:bg-slate-800 border-4 border-blue-500 rounded-[2rem] p-6 md:p-8 shadow-2xl animate-in zoom-in-95">
 
-          {showOtpScreen ? (
-            <>
-              {/* شاشة إدخال رمز التحقق OTP */}
-              <div className="w-16 h-16 md:w-20 md:h-20 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-3xl mx-auto flex items-center justify-center mb-6 border-b-4 border-emerald-200 dark:border-emerald-800">
-                <ShieldCheck size={36} strokeWidth={2.5} />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-black text-center text-slate-900 dark:text-white mb-2">
-                تأكيد البريد الإلكتروني
-              </h2>
-              <p className="text-center text-slate-500 dark:text-slate-400 font-bold mb-2 text-sm md:text-base">
-                أرسلنا رمز تحقق مكون من 6 أرقام إلى
-              </p>
-              <p className="text-center text-blue-600 dark:text-blue-400 font-black mb-6 text-sm md:text-base" dir="ltr">
-                {authEmail}
-              </p>
-
-              <div className="flex justify-center gap-2 md:gap-3 mb-6" dir="ltr">
-                {otpCode.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => { otpInputsRef.current[i] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(i, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                    className="w-12 h-14 md:w-14 md:h-16 text-center text-2xl font-black bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 transition-all"
-                  />
-                ))}
-              </div>
-
-              <button
-                onClick={handleOtpSubmit}
-                disabled={otpLoading}
-                className="w-full py-4 bg-emerald-600 border-b-4 border-emerald-800 hover:bg-emerald-500 text-white font-black text-lg rounded-2xl transition-all active:translate-y-1 active:border-b-0 disabled:opacity-50 mb-3"
-              >
-                {otpLoading ? "جاري التحقق..." : "تأكيد الرمز"}
-              </button>
-
-              <button
-                onClick={handleResendOtp}
-                disabled={otpLoading}
-                className="w-full py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm rounded-2xl transition-all hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-              >
-                إعادة إرسال الرمز
-              </button>
-
-              <button
-                onClick={() => { setShowOtpScreen(false); setOtpCode(["", "", "", "", "", ""]); }}
-                className="w-full py-2 mt-2 text-slate-500 dark:text-slate-400 font-bold text-sm transition-all hover:text-blue-600 dark:hover:text-blue-400"
-              >
-                ← العودة لصفحة التسجيل
-              </button>
-            </>
-          ) : (
-            <>
           <div className="w-16 h-16 md:w-20 md:h-20 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-3xl mx-auto flex items-center justify-center mb-6 border-b-4 border-blue-200 dark:border-blue-800">
             <User size={36} strokeWidth={2.5} />
           </div>
@@ -506,8 +379,6 @@ export default function PlayerLoginPage() {
               المتابعة باستخدام Apple
             </button>
           </div>
-            </>
-          )}
         </div>
       </div>
 

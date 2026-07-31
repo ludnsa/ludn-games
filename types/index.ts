@@ -1,21 +1,3 @@
-// أنواع بيانات الحسابات (Profiles)
-export interface UserProfile {
-  id?: string;
-  full_name: string;
-  phone_number?: string;
-  email?: string;
-  available_tokens?: number;
-}
-
-// أنواع بيانات مكتبة الألعاب للمستخدم
-export interface UserGame {
-  id?: string;
-  user_id: string;
-  game_id: string;
-  is_purchased: boolean;
-  games_played: number;
-}
-
 export interface WDQuestion {
   q: string;
   options: string[];
@@ -54,7 +36,6 @@ export interface CWQuestion {
 export type QuizPoints = 200 | 400 | 600;
 export type QuizTeam = 1 | 2;
 export type QuizGameState = "setup" | "board" | "question" | "answer" | "gameOver";
-export type QuizLifeline = "call" | "pit" | "rest";
 
 export interface QuizCategory {
   id: string;

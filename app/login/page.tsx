@@ -2,17 +2,14 @@
 import { useState, useEffect } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { Cairo } from "next/font/google";
-import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Lock, Mail, ShieldCheck, KeyRound } from "lucide-react";
+import { Moon, Sun, Mail, ShieldCheck, KeyRound } from "lucide-react";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
 export default function LoginPage() {
-  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"password" | "otp">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,34 +47,6 @@ export default function LoginPage() {
       }
     } catch (err) {
       setMessage("حدث خطأ غير متوقع أثناء تسجيل الدخول.");
-    }
-    setLoading(false);
-  };
-
-  const handleOtpLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!email) {
-      setMessage("الرجاء كتابة البريد الإلكتروني أولاً");
-      return;
-    }
-    setLoading(true);
-    setMessage("");
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/admin`,
-        },
-      });
-      if (error) {
-        setMessage(`خطأ: ${error.message}`);
-      } else {
-        setMessage(
-          "تم إرسال رابط الدخول السحري إلى إيميلك! افتح بريدك واضغط على كلمة (Sign in) وبيدخلك للوحة التحكم مباشرة.",
-        );
-      }
-    } catch (err) {
-      setMessage("حدث خطأ غير متوقع أثناء إرسال الرابط.");
     }
     setLoading(false);
   };
@@ -154,32 +123,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl mb-8">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("password");
-              setMessage("");
-            }}
-            className={`flex-1 py-3 text-sm font-black rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === "password" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Lock size={16} />
-            كلمة المرور
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("otp");
-              setMessage("");
-            }}
-            className={`flex-1 py-3 text-sm font-black rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === "otp" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Mail size={16} />
-            الرابط السحري
-          </button>
-        </div>
-
-        <form onSubmit={activeTab === "password" ? handlePasswordLogin : handleOtpLogin} className="space-y-5">
+        <form onSubmit={handlePasswordLogin} className="space-y-5">
           <div className="space-y-1.5">
             <label className="block text-sm font-black text-slate-700 dark:text-slate-300">
               البريد الإلكتروني
@@ -196,33 +140,31 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {activeTab === "password" && (
-            <div className="space-y-1.5">
-              <label className="block text-sm font-black text-slate-700 dark:text-slate-300">
-                كلمة المرور
-              </label>
-              <div className="relative">
-                <KeyRound className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full pl-4 pr-12 py-4 border-2 border-transparent bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-900 dark:text-white text-left font-sans focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 transition-all focus:bg-white dark:focus:bg-slate-900 shadow-sm"
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={handleResetPassword}
-                  disabled={loading}
-                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
-                >
-                  نسيت كلمة المرور؟
-                </button>
-              </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-black text-slate-700 dark:text-slate-300">
+              كلمة المرور
+            </label>
+            <div className="relative">
+              <KeyRound className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <input
+                type="password"
+                placeholder="••••••••"
+                className="w-full pl-4 pr-12 py-4 border-2 border-transparent bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-900 dark:text-white text-left font-sans focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 transition-all focus:bg-white dark:focus:bg-slate-900 shadow-sm"
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
             </div>
-          )}
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={loading}
+                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
+              >
+                نسيت كلمة المرور؟
+              </button>
+            </div>
+          </div>
 
           <button
             type="submit"
@@ -232,7 +174,7 @@ export default function LoginPage() {
             {loading ? (
                <span className="animate-pulse">جاري التنفيذ...</span>
             ) : (
-              activeTab === "password" ? "تسجيل الدخول" : "إرسال رابط الدخول"
+              "تسجيل الدخول"
             )}
           </button>
         </form>

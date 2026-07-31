@@ -305,37 +305,6 @@ export async function uploadQuizMedia(formData: FormData): Promise<AdminResult<{
   return { success: true, data: { path } };
 }
 
-export async function getQuizMediaUrls(
-  paths: string[]
-): Promise<AdminResult<Record<string, string>>> {
-  const ctx = await requireAdmin();
-  if (!ctx.ok) return fail(ctx.error);
-
-  const wanted = paths.filter(Boolean);
-  if (wanted.length === 0) return { success: true, data: {} };
-
-  const { data, error } = await ctx.admin.storage
-    .from(QUIZ_CONFIG.MEDIA_BUCKET)
-    .createSignedUrls(wanted, 60 * 30);
-
-  if (error || !data) return fail("تعذّر إنشاء روابط الصور.");
-
-  const map: Record<string, string> = {};
-  data.forEach((u) => {
-    if (u.path && u.signedUrl) map[u.path] = u.signedUrl;
-  });
-  return { success: true, data: map };
-}
-
-export async function deleteQuizMedia(path: string): Promise<AdminResult> {
-  const ctx = await requireAdmin();
-  if (!ctx.ok) return fail(ctx.error);
-
-  const { error } = await ctx.admin.storage.from(QUIZ_CONFIG.MEDIA_BUCKET).remove([path]);
-  if (error) return fail("تعذّر حذف الصورة.");
-  return { success: true };
-}
-
 // ---------------------------------------------------------------------
 // الرفع الجماعي — نفس قواعد سكربت الاستيراد
 // ---------------------------------------------------------------------
