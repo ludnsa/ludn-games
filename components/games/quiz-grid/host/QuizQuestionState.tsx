@@ -2,15 +2,19 @@
 "use client";
 import React, { useState } from "react";
 import { PhoneCall, Armchair, Eye, Shovel, ImageOff, X } from "lucide-react";
-import { QUIZ_CONFIG, QUIZ_LIFELINE_LABELS } from "@/constants/quiz-grid";
+import { QUIZ_CONFIG, QUIZ_LIFELINE_LABELS, quizTimerDangerAt } from "@/constants/quiz-grid";
 import type { useQuizHost } from "@/hooks/games/quiz-grid/useQuizHost";
 
 type Ctx = ReturnType<typeof useQuizHost>;
 
-/** مؤقت دائري كبير — يتحول للأحمر وينبض في آخر 10 ثوانٍ. */
-function Timer({ seconds }: { seconds: number }) {
-  const isDanger = seconds <= QUIZ_CONFIG.TIMER_DANGER_SECONDS;
-  const progress = Math.min(1, seconds / QUIZ_CONFIG.TIMER_SECONDS);
+/**
+ * مؤقت دائري كبير — يتحول للأحمر وينبض قرب النهاية.
+ * عتبة الخطر نسبية لمدة السؤال المختارة (بحد أقصى 10 ثوانٍ) حتى لا يظل
+ * أحمر لمعظم مدته عند اختيار مدة قصيرة.
+ */
+function Timer({ seconds, totalSeconds }: { seconds: number; totalSeconds: number }) {
+  const isDanger = seconds <= quizTimerDangerAt(totalSeconds);
+  const progress = Math.min(1, seconds / totalSeconds);
 
   return (
     <div
@@ -43,14 +47,14 @@ function Timer({ seconds }: { seconds: number }) {
 
 export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
   const {
-    room, activeCell, remaining, reveal, isBusy,
+    room, activeQuestion, remaining, reveal, isBusy,
     activateLifeline, isLifelineUsed, opposingPlayers,
     restPickerOpen, setRestPickerOpen, restTargetName,
   } = ctx;
 
   const [imageFailed, setImageFailed] = useState(false);
 
-  if (!room || !activeCell) return null;
+  if (!room || !activeQuestion) return null;
 
   const callUsed = isLifelineUsed(room.turn, "call");
   const restUsed = isLifelineUsed(room.turn, "rest");
@@ -60,10 +64,10 @@ export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
     <section className="w-full max-w-5xl mx-auto flex flex-col gap-5 animate-in fade-in duration-300">
       <div className="flex flex-wrap items-center justify-center gap-3">
         <span className="px-4 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-black text-base md:text-xl">
-          {activeCell.category_name_ar}
+          {activeQuestion.category_name_ar}
         </span>
         <span className="px-4 py-2 rounded-xl bg-slate-800 dark:bg-white text-white dark:text-slate-900 font-black text-base md:text-xl">
-          {activeCell.points} نقطة
+          {activeQuestion.points} نقطة
         </span>
         {pitArmed && (
           <span className="px-4 py-2 rounded-xl bg-orange-500 text-white font-black text-base md:text-xl flex items-center gap-2">
@@ -85,23 +89,23 @@ export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
       )}
 
       <div className="flex flex-col md:flex-row items-center gap-5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-sm">
-        <Timer seconds={remaining} />
+        <Timer seconds={remaining} totalSeconds={room.timer_seconds} />
 
         <div className="flex-1 w-full flex flex-col items-center gap-5">
           <p className="text-2xl md:text-4xl lg:text-5xl font-black text-center text-slate-900 dark:text-white leading-snug">
-            {activeCell.question_text}
+            {activeQuestion.question_text}
           </p>
 
-          {activeCell.question_image_url && !imageFailed && (
+          {activeQuestion.question_image_url && !imageFailed && (
             <img
-              src={activeCell.question_image_url}
-              alt={activeCell.question_image_alt || "صورة السؤال"}
+              src={activeQuestion.question_image_url}
+              alt={activeQuestion.question_image_alt || "صورة السؤال"}
               onError={() => setImageFailed(true)}
               className="max-h-[38vh] w-auto max-w-full rounded-2xl object-contain shadow-md"
             />
           )}
 
-          {activeCell.question_image_url && imageFailed && (
+          {activeQuestion.question_image_url && imageFailed && (
             <div className="flex items-center gap-2 text-sm font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-xl px-4 py-3">
               <ImageOff size={18} /> تعذّر تحميل صورة السؤال — اعتمد على النص.
             </div>

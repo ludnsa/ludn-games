@@ -12,6 +12,18 @@ const TIER_STYLES: Record<number, string> = {
   600: "bg-rose-500 border-rose-700 hover:bg-rose-400",
 };
 
+/**
+ * Tailwind لا يستطيع بناء صنف grid-cols-N من متغيّر وقت التشغيل، لذا نحتاج
+ * خريطة صريحة بكل القيم الممكنة (عدد الفئات بين 2 و6).
+ */
+const GRID_COLS_BY_COUNT: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+  5: "grid-cols-5",
+  6: "grid-cols-6",
+};
+
 export default function QuizBoardState({ ctx }: { ctx: Ctx }) {
   const { board, columns, room, pickCell, isBusy, activateLifeline, isLifelineUsed } = ctx;
   if (!room) return null;
@@ -55,7 +67,7 @@ export default function QuizBoardState({ ctx }: { ctx: Ctx }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-6 gap-1.5 md:gap-3">
+      <div className={`grid ${GRID_COLS_BY_COUNT[columns.length] || "grid-cols-6"} gap-1.5 md:gap-3`}>
         {columns.map((name, columnIndex) => (
           <div key={columnIndex} className="flex flex-col gap-1.5 md:gap-3">
             <div className="h-16 md:h-20 flex items-center justify-center text-center bg-violet-600 text-white rounded-xl md:rounded-2xl px-1 md:px-2 border-b-4 border-violet-800">

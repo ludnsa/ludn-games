@@ -8,10 +8,10 @@ import type { useQuizHost } from "@/hooks/games/quiz-grid/useQuizHost";
 type Ctx = ReturnType<typeof useQuizHost>;
 
 export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
-  const { room, activeCell, award, isBusy } = ctx;
+  const { room, activeQuestion, answerContent, award, isBusy } = ctx;
   const [imageFailed, setImageFailed] = useState(false);
 
-  if (!room || !activeCell) return null;
+  if (!room || !activeQuestion || !answerContent) return null;
 
   const pitTeam = room.pit_active_team;
   const pitTeamName = pitTeam === 1 ? room.t1_name : pitTeam === 2 ? room.t2_name : null;
@@ -20,15 +20,15 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
     <section className="w-full max-w-5xl mx-auto flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-wrap items-center justify-center gap-3">
         <span className="px-4 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-black text-base md:text-xl">
-          {activeCell.category_name_ar}
+          {activeQuestion.category_name_ar}
         </span>
         <span className="px-4 py-2 rounded-xl bg-slate-800 dark:bg-white text-white dark:text-slate-900 font-black text-base md:text-xl">
-          {activeCell.points} نقطة
+          {activeQuestion.points} نقطة
         </span>
       </div>
 
       <p className="text-center text-lg md:text-2xl font-bold text-slate-500 dark:text-slate-400 leading-snug">
-        {activeCell.question_text}
+        {activeQuestion.question_text}
       </p>
 
       <div className="flex flex-col items-center gap-5 bg-emerald-50 dark:bg-emerald-950/30 border-4 border-emerald-500 rounded-3xl p-6 md:p-10 shadow-lg">
@@ -36,19 +36,19 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
           الإجابة الصحيحة
         </span>
         <p className="text-3xl md:text-5xl lg:text-6xl font-black text-center text-emerald-800 dark:text-emerald-300 leading-snug">
-          {activeCell.answer_text}
+          {answerContent.answer_text}
         </p>
 
-        {activeCell.answer_image_url && !imageFailed && (
+        {answerContent.answer_image_url && !imageFailed && (
           <img
-            src={activeCell.answer_image_url}
-            alt={activeCell.answer_image_alt || "صورة الإجابة"}
+            src={answerContent.answer_image_url}
+            alt={answerContent.answer_image_alt || "صورة الإجابة"}
             onError={() => setImageFailed(true)}
             className="max-h-[35vh] w-auto max-w-full rounded-2xl object-contain shadow-md"
           />
         )}
 
-        {activeCell.answer_image_url && imageFailed && (
+        {answerContent.answer_image_url && imageFailed && (
           <div className="flex items-center gap-2 text-sm font-bold text-slate-400 bg-white dark:bg-slate-800 rounded-xl px-4 py-3">
             <ImageOff size={18} /> تعذّر تحميل صورة الإجابة.
           </div>
@@ -58,8 +58,8 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
       {pitTeamName && (
         <div className="flex items-center justify-center gap-3 bg-orange-500 text-white font-black text-base md:text-xl rounded-2xl py-3 px-6">
           <Shovel size={24} />
-          {QUIZ_LIFELINE_LABELS.pit} لصالح {pitTeamName}: إن كانت إجابتهم صحيحة يكسبون {activeCell.points} ويخسر
-          الخصم {activeCell.points}.
+          {QUIZ_LIFELINE_LABELS.pit} لصالح {pitTeamName}: إن كانت إجابتهم صحيحة يكسبون {activeQuestion.points} ويخسر
+          الخصم {activeQuestion.points}.
         </div>
       )}
 

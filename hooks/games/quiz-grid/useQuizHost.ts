@@ -7,20 +7,24 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { QUIZ_CONFIG, QUIZ_GAME } from "@/constants/quiz-grid";
 import {
+  activateQuizLifeline,
   createQuizRoom,
   endQuizSession,
   getQuizActiveCell,
+  getQuizAnswerMedia,
   getQuizCategories,
+  getQuizPreparedBoard,
   getQuizSession,
+  prepareQuizSession,
   resolveQuizQuestion,
   revealQuizAnswer,
   selectQuizCell,
   startQuizSession,
-  activateQuizLifeline,
-  type QuizActiveCellView,
+  type QuizAnswerContent,
   type QuizCategoryOption,
+  type QuizPreparedBoard,
 } from "@/actions/quiz-grid";
-import type { QuizBoardCell, QuizRoom, QuizSessionPlayer, QuizTeam } from "@/types";
+import type { QuizBoardCell, QuizPoints, QuizPreparedCell, QuizRoom, QuizSessionPlayer, QuizTeam } from "@/types";
 
 const ROOM_STORAGE_KEY = "quiz_referee_room_code";
 const ACTIVE_SESSION_KEY = "quiz_active_session";
@@ -30,6 +34,26 @@ function secondsUntil(deadline: string | null): number {
   if (!deadline) return 0;
   const diff = Math.ceil((new Date(deadline).getTime() - Date.now()) / 1000);
   return Math.max(0, diff);
+}
+
+/** يحمّل صورة في ذاكرة تخزين المتصفح المؤقتة. فشل صورة واحدة لا يوقف الباقي. */
+function preloadImage(url: string): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+    img.src = url;
+  });
+}
+
+/** السؤال المعروض حالياً على شاشة الحكم — بلا أي حقل متعلق بالإجابة. */
+export interface QuizActiveQuestion {
+  id: string;
+  category_name_ar: string;
+  points: QuizPoints;
+  question_text: string;
+  question_image_url: string | null;
+  question_image_alt: string | null;
 }
 
 export function useQuizHost() {
@@ -47,13 +71,25 @@ export function useQuizHost() {
   const [cells, setCells] = useState<QuizBoardCell[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [players, setPlayers] = useState<QuizSessionPlayer[]>([]);
-  const [activeCell, setActiveCell] = useState<QuizActiveCellView | null>(null);
 
-  // شاشة الإعداد
+  // السؤال الحالي: يُبنى محلياً من preparedCells فور اختيار الخلية — بلا أي شبكة
+  const [activeQuestion, setActiveQuestion] = useState<QuizActiveQuestion | null>(null);
+  const [answerContent, setAnswerContent] = useState<QuizAnswerContent | null>(null);
+
+  // شاشة الإعداد — على مرحلتين: الفئات ثم الفرق والوقت
+  const [setupStep, setSetupStep] = useState<1 | 2>(1);
   const [categories, setCategories] = useState<QuizCategoryOption[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [t1Name, setT1Name] = useState("الفريق الأول");
   const [t2Name, setT2Name] = useState("الفريق الثاني");
+  const [timerSeconds, setTimerSeconds] = useState<number>(QUIZ_CONFIG.TIMER_DEFAULT);
+
+  // اللوحة المُجهَّزة مسبقاً: نص وصورة كل سؤال، جاهزة قبل أن تبدأ اللعبة فعلياً
+  const [preparedCells, setPreparedCells] = useState<Map<string, QuizPreparedCell>>(new Map());
+  const preparedForRef = useRef<string | null>(null);
+  const [isPreparing, setIsPreparing] = useState(false);
+  const [preloadDone, setPreloadDone] = useState(0);
+  const [preloadTotal, setPreloadTotal] = useState(0);
 
   const [showQRModal, setShowQRModal] = useState(false);
   const [restPickerOpen, setRestPickerOpen] = useState(false);
@@ -64,7 +100,7 @@ export function useQuizHost() {
     onConfirm?: () => void;
   }>({ show: false, message: "" });
 
-  const [remaining, setRemaining] = useState<number>(QUIZ_CONFIG.TIMER_SECONDS);
+  const [remaining, setRemaining] = useState<number>(QUIZ_CONFIG.TIMER_DEFAULT);
 
   const roomCodeRef = useRef("");
   roomCodeRef.current = roomCode;
@@ -97,12 +133,54 @@ export function useQuizHost() {
     setPlayers(res.data.players);
   }, []);
 
-  const refreshActiveCell = useCallback(async (code?: string) => {
-    const target = code || roomCodeRef.current;
-    if (!target) return;
+  /** يحوّل لقطة اللوحة المُجهَّزة إلى خريطة بحث سريعة، ويحمّل صور الأسئلة في الخلفية. */
+  const applyPreparedBoard = useCallback((board: QuizPreparedBoard, fingerprint: string | null) => {
+    preparedForRef.current = fingerprint;
+    setPreparedCells(new Map(board.cells.map((c) => [c.id, c])));
 
-    const res = await getQuizActiveCell(target);
-    setActiveCell(res.success ? res.data : null);
+    const urls = Array.from(
+      new Set(board.cells.map((c) => c.question_image_url).filter((u): u is string => Boolean(u)))
+    );
+    setPreloadDone(0);
+    setPreloadTotal(urls.length);
+
+    if (urls.length === 0) return;
+    let done = 0;
+    urls.forEach((url) => {
+      preloadImage(url).then(() => {
+        done += 1;
+        setPreloadDone(done);
+      });
+    });
+  }, []);
+
+  /** يستعيد السؤال المعروض حالياً (وإجابته إن كُشفت) من السيرفر — مسار الاستئناف فقط. */
+  const hydrateActiveQuestion = useCallback(async (code: string) => {
+    const res = await getQuizActiveCell(code);
+    if (!res.success || !res.data) {
+      setActiveQuestion(null);
+      setAnswerContent(null);
+      return;
+    }
+
+    setActiveQuestion({
+      id: res.data.id,
+      category_name_ar: res.data.category_name_ar,
+      points: res.data.points,
+      question_text: res.data.question_text,
+      question_image_url: res.data.question_image_url,
+      question_image_alt: res.data.question_image_alt,
+    });
+
+    if (res.data.answer_text !== null) {
+      setAnswerContent({
+        answer_text: res.data.answer_text,
+        answer_image_url: res.data.answer_image_url,
+        answer_image_alt: res.data.answer_image_alt,
+      });
+    } else {
+      setAnswerContent(null);
+    }
   }, []);
 
   // -------------------------------------------------------------------
@@ -144,7 +222,27 @@ export function useQuizHost() {
           setPlayers(res.data.players);
           setT1Name(res.data.room.t1_name);
           setT2Name(res.data.room.t2_name);
-          await refreshActiveCell(saved);
+          setTimerSeconds(res.data.room.timer_seconds);
+
+          // إعادة بناء ذاكرة الأسئلة المُجهَّزة — إن وُجدت لقطة سابقة لهذه الغرفة
+          const boardRes = await getQuizPreparedBoard(saved);
+          if (boardRes.success && boardRes.data.cells.length > 0) {
+            const orderedCategoryIds: string[] = [];
+            [...boardRes.data.cells]
+              .sort((a, b) => a.column_index - b.column_index)
+              .forEach((c) => {
+                if (!orderedCategoryIds.includes(c.category_id)) orderedCategoryIds.push(c.category_id);
+              });
+            setSelectedCategories(orderedCategoryIds);
+            applyPreparedBoard(boardRes.data, orderedCategoryIds.join(","));
+
+            if (res.data.room.game_state === "setup") setSetupStep(2);
+          }
+
+          if (res.data.room.game_state === "question" || res.data.room.game_state === "answer") {
+            await hydrateActiveQuestion(saved);
+          }
+
           setIsBooting(false);
           return;
         }
@@ -203,10 +301,7 @@ export function useQuizHost() {
       .subscribe();
 
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        refreshSession(roomCode);
-        refreshActiveCell(roomCode);
-      }
+      if (document.visibilityState === "visible") refreshSession(roomCode);
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
@@ -217,21 +312,8 @@ export function useQuizHost() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode]);
 
-  // محتوى السؤال يُجلب من السيرفر كلما تغيّرت الخلية النشطة أو مرحلة اللعب
+  // اللوحة تُعاد قراءتها عند العودة لحالة "board" حتى تظهر الخلايا المستهلكة والنقاط
   const gameState = room?.game_state;
-  const activeCellId = room?.active_cell_id;
-
-  useEffect(() => {
-    if (!roomCode) return;
-    if (!activeCellId) {
-      setActiveCell(null);
-      return;
-    }
-    refreshActiveCell(roomCode);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomCode, activeCellId, gameState]);
-
-  // اللوحة تُعاد قراءتها عند العودة لحالة "board" حتى تظهر الخلايا المستهلكة
   useEffect(() => {
     if (!roomCode) return;
     if (gameState === "board" || gameState === "gameOver") refreshSession(roomCode);
@@ -244,31 +326,30 @@ export function useQuizHost() {
 
   const deadline = room?.question_deadline_at ?? null;
   const isTimerRunning = room?.is_timer_running ?? false;
+  const roomTimerSeconds = room?.timer_seconds ?? QUIZ_CONFIG.TIMER_DEFAULT;
 
   useEffect(() => {
-    setRemaining(deadline ? secondsUntil(deadline) : QUIZ_CONFIG.TIMER_SECONDS);
+    setRemaining(deadline ? secondsUntil(deadline) : roomTimerSeconds);
     if (!deadline || !isTimerRunning) return;
 
     const id = setInterval(() => setRemaining(secondsUntil(deadline)), 250);
     return () => clearInterval(id);
-  }, [deadline, isTimerRunning]);
+  }, [deadline, isTimerRunning, roomTimerSeconds]);
 
   // -------------------------------------------------------------------
   // مشتقات اللوحة
   // -------------------------------------------------------------------
 
   const board = useMemo(() => {
-    const grid: QuizBoardCell[][] = Array.from(
-      { length: QUIZ_CONFIG.CATEGORIES_PER_SESSION },
-      () => []
-    );
+    const grid: QuizBoardCell[][] = Array.from({ length: columns.length }, () => []);
     cells.forEach((c) => {
       if (grid[c.column_index]) grid[c.column_index][c.row_index] = c;
     });
     return grid;
-  }, [cells]);
+  }, [cells, columns.length]);
 
   const remainingCells = useMemo(() => cells.filter((c) => c.status === "available").length, [cells]);
+  const totalCells = cells.length;
   const playableCategories = useMemo(() => categories.filter((c) => c.isPlayable), [categories]);
 
   const opposingPlayers = useMemo(() => {
@@ -294,9 +375,12 @@ export function useQuizHost() {
   // الأفعال
   // -------------------------------------------------------------------
 
-  /** يغلّف كل نداء سيرفر: يمنع النقر المزدوج ويعرض الخطأ للحكم. */
+  /** يغلّف كل نداء سيرفر: يمنع النقر المزدوج، يعرض الخطأ، ويمرّر البيانات عند النجاح. */
   const run = useCallback(
-    async (fn: () => Promise<{ success: boolean; error?: string }>, onDone?: () => void) => {
+    async <T,>(
+      fn: () => Promise<{ success: boolean; error?: string; data?: T }>,
+      onDone?: (data?: T) => void
+    ) => {
       if (isBusy) return;
       setIsBusy(true);
       try {
@@ -305,7 +389,7 @@ export function useQuizHost() {
           triggerAlert(res.error || "حدث خطأ غير متوقع.");
           return;
         }
-        onDone?.();
+        onDone?.(res.data);
       } finally {
         setIsBusy(false);
       }
@@ -316,32 +400,104 @@ export function useQuizHost() {
   const toggleCategory = (id: string) => {
     setSelectedCategories((prev) => {
       if (prev.includes(id)) return prev.filter((c) => c !== id);
-      if (prev.length >= QUIZ_CONFIG.CATEGORIES_PER_SESSION) return prev;
+      if (prev.length >= QUIZ_CONFIG.MAX_CATEGORIES) return prev;
       return [...prev, id];
     });
   };
 
-  const startGame = () =>
-    run(
+  /**
+   * ينتقل لخطوة الفرق والوقت. إن كان الاختيار الحالي مطابقاً لآخر لقطة
+   * جُهِّزت يُعاد استخدامها فوراً؛ غير ذلك يسحب أسئلة جديدة (يحصل هذا
+   * أثناء الانتظار على هذه الشاشة، لا أثناء اللعب).
+   */
+  const goToStep2 = useCallback(async () => {
+    if (selectedCategories.length < QUIZ_CONFIG.MIN_CATEGORIES) return;
+    const fingerprint = selectedCategories.join(",");
+
+    if (preparedForRef.current === fingerprint && preparedCells.size > 0) {
+      setSetupStep(2);
+      // الصور غالباً محفوظة في ذاكرة المتصفح مسبقاً؛ التحقق سريع ولا يعطّل شيئاً
+      applyPreparedBoard({ cells: Array.from(preparedCells.values()), columns: [] }, fingerprint);
+      return;
+    }
+
+    setIsPreparing(true);
+    const res = await prepareQuizSession({ roomCode, categoryIds: selectedCategories });
+    setIsPreparing(false);
+
+    if (!res.success) {
+      triggerAlert(res.error);
+      return;
+    }
+
+    setSetupStep(2);
+    applyPreparedBoard(res.data, fingerprint);
+  }, [selectedCategories, roomCode, preparedCells, applyPreparedBoard, triggerAlert]);
+
+  const goBackToStep1 = () => setSetupStep(1);
+
+  const startGame = () => {
+    if (isPreparing) return;
+    return run(
       () =>
         startQuizSession({
           roomCode,
-          categoryIds: selectedCategories,
           t1Name: t1Name.trim() || "الفريق الأول",
           t2Name: t2Name.trim() || "الفريق الثاني",
+          timerSeconds,
         }),
       () => {
         sessionStorage.setItem(ACTIVE_SESSION_KEY, "true");
         refreshSession();
       }
     );
+  };
 
-  const pickCell = (cellId: string) => run(() => selectQuizCell({ roomCode, cellId }));
+  const pickCell = (cellId: string) =>
+    run(
+      () => selectQuizCell({ roomCode, cellId }),
+      () => {
+        setAnswerContent(null);
 
-  const reveal = () => run(() => revealQuizAnswer(roomCode));
+        const prepared = preparedCells.get(cellId);
+        if (prepared) {
+          setActiveQuestion({
+            id: prepared.id,
+            category_name_ar: prepared.category_name_ar,
+            points: prepared.points,
+            question_text: prepared.question_text,
+            question_image_url: prepared.question_image_url,
+            question_image_alt: prepared.question_image_alt,
+          });
+        } else {
+          // احتياط نادر: خلية غير موجودة في الذاكرة المحلية (مثلاً حكم انضم من جهاز آخر)
+          hydrateActiveQuestion(roomCode);
+        }
+
+        // إحماء صورة الإجابة في الخلفية أثناء عدّ الوقت — النص يبقى على السيرفر حتى الكشف
+        getQuizAnswerMedia(roomCode).then((res) => {
+          if (res.success && res.data.answer_image_url) preloadImage(res.data.answer_image_url);
+        });
+      }
+    );
+
+  const reveal = () =>
+    run<QuizAnswerContent>(
+      () => revealQuizAnswer(roomCode),
+      (data) => {
+        if (data) setAnswerContent(data);
+      }
+    );
 
   const award = (team: QuizTeam | null) =>
-    run(() => resolveQuizQuestion({ roomCode, awardedTeam: team }), () => refreshSession());
+    run(
+      () => resolveQuizQuestion({ roomCode, awardedTeam: team }),
+      () => {
+        setActiveQuestion(null);
+        setAnswerContent(null);
+        refreshSession();
+      }
+    );
 
   const activateLifeline = (kind: "call" | "pit" | "rest", targetPlayerId?: string) => {
     if (!room) return;
@@ -386,11 +542,15 @@ export function useQuizHost() {
 
   return {
     mounted, isAccessChecking, isBooting, isBusy,
-    roomCode, room, board, columns, players, activeCell,
+    roomCode, room, board, columns, players, totalCells,
+    activeQuestion, answerContent,
     remainingCells, remaining,
 
+    setupStep, goToStep2, goBackToStep1,
     categories, playableCategories, selectedCategories, toggleCategory,
     t1Name, setT1Name, t2Name, setT2Name,
+    timerSeconds, setTimerSeconds,
+    isPreparing, preloadDone, preloadTotal,
 
     opposingPlayers, restTargetName, isLifelineUsed,
     restPickerOpen, setRestPickerOpen,

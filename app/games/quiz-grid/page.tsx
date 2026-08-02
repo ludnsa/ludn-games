@@ -48,7 +48,9 @@ export default function QuizGridHostScreen() {
           onNewSession={ctx.newSession}
           onFinish={ctx.finishGame}
         />
-        {ctx.room && <QuizScoreboard room={ctx.room} remainingCells={ctx.remainingCells} />}
+        {ctx.room && (
+          <QuizScoreboard room={ctx.room} remainingCells={ctx.remainingCells} totalCells={ctx.totalCells} />
+        )}
       </div>
 
       <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col justify-center pb-6">

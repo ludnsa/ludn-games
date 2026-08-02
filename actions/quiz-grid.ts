@@ -2,10 +2,11 @@
 
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { shuffleArray } from "@/lib/game/shuffle";
-import { QUIZ_CONFIG, QUIZ_GAME, QUIZ_TOTAL_CELLS } from "@/constants/quiz-grid";
+import { QUIZ_CONFIG, QUIZ_GAME, quizTotalCells } from "@/constants/quiz-grid";
 import {
   QuizJoinSchema,
   QuizLifelineSchema,
+  QuizPrepareSessionSchema,
   QuizResolveSchema,
   QuizRoomCodeSchema,
   QuizSelectCellSchema,
@@ -16,6 +17,7 @@ import type {
   QuizBoardCell,
   QuizCategory,
   QuizPoints,
+  QuizPreparedCell,
   QuizQuestion,
   QuizRoom,
   QuizSessionCell,
@@ -315,34 +317,96 @@ export async function getQuizActiveCell(
 }
 
 // ---------------------------------------------------------------------
-// بداية الجلسة: سحب 36 سؤالاً مرة واحدة
+// بداية الجلسة — على مرحلتين حتى لا يشعر الحكم بأي انتظار:
+//   1) prepareQuizSession: يسحب الأسئلة ويجهّز الصور (ثقيلة، بلا تحصيل)
+//   2) startQuizSession: يكتب الأسماء والمدة ويبدأ اللعب فعلياً (خفيفة)
 // ---------------------------------------------------------------------
 
-export async function startQuizSession(input: {
+export interface QuizPreparedBoard {
+  cells: QuizPreparedCell[];
+  /** ترتيب أعمدة اللوحة بأسماء الفئات */
+  columns: string[];
+}
+
+/** يبني حمولة اللوحة المُجهَّزة من اللقطة المخزّنة، بروابط صور موقّعة لصور السؤال فقط. */
+async function buildPreparedBoard(
+  admin: ReturnType<typeof getSupabaseServiceRole>,
+  roomCode: string
+): Promise<QuizPreparedBoard> {
+  const { data: cells } = await admin
+    .from("quiz_session_questions")
+    .select(
+      "id, column_index, row_index, category_id, category_name_ar, points, question_text, question_image, question_image_alt"
+    )
+    .eq("room_code", roomCode)
+    .order("column_index", { ascending: true })
+    .order("row_index", { ascending: true });
+
+  type Row = {
+    id: string;
+    column_index: number;
+    row_index: number;
+    category_id: string;
+    category_name_ar: string;
+    points: QuizPoints;
+    question_text: string;
+    question_image: string | null;
+    question_image_alt: string | null;
+  };
+  const rows = (cells || []) as Row[];
+
+  const signed = await signMedia(
+    admin,
+    rows.map((r) => r.question_image)
+  );
+
+  const columns: string[] = [];
+  const preparedCells: QuizPreparedCell[] = rows.map((r) => {
+    columns[r.column_index] = r.category_name_ar;
+    return {
+      id: r.id,
+      column_index: r.column_index,
+      row_index: r.row_index,
+      category_id: r.category_id,
+      category_name_ar: r.category_name_ar,
+      points: r.points,
+      question_text: r.question_text,
+      question_image_url: r.question_image ? signed[r.question_image] ?? null : null,
+      question_image_alt: r.question_image_alt,
+    };
+  });
+
+  return { cells: preparedCells, columns };
+}
+
+/**
+ * المرحلة الثقيلة: يسحب الأسئلة ويحفظها كلقطة، دون تحصيل أي رمز لعبة —
+ * الحكم قد يتراجع لتغيير الفئات بعدها. آمن لإعادة الاستدعاء: يحذف أي
+ * لقطة سابقة لنفس الغرفة قبل السحب الجديد.
+ */
+export async function prepareQuizSession(input: {
   roomCode: string;
   categoryIds: string[];
-  t1Name: string;
-  t2Name: string;
-}): Promise<ActionResult> {
-  const parsed = QuizStartSessionSchema.safeParse(input);
+}): Promise<ActionResult<QuizPreparedBoard>> {
+  const parsed = QuizPrepareSessionSchema.safeParse(input);
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message || "بيانات غير صحيحة.");
   }
 
   const ctx = await requireHost(parsed.data.roomCode);
   if (!ctx.ok) return fail(ctx.error);
-  const { admin, room, userId } = ctx;
+  const { admin, room } = ctx;
 
   if (room.game_state !== "setup") {
     return fail("الجلسة بدأت بالفعل.");
   }
 
   const uniqueIds = Array.from(new Set(parsed.data.categoryIds));
-  if (uniqueIds.length !== QUIZ_CONFIG.CATEGORIES_PER_SESSION) {
+  if (uniqueIds.length !== parsed.data.categoryIds.length) {
     return fail("لا يمكن اختيار الفئة نفسها أكثر من مرة.");
   }
 
-  // بوابة الرصيد — تُفحص على السيرفر حتى لا يمكن تجاوزها من المتصفح
+  // بوابة الرصيد — تُفحص هنا لإيقاف الحكم مبكراً، لكن بلا أي تحصيل
   const access = await checkAccessAction(QUIZ_GAME.id);
   if (!access.allowed) {
     return fail("رصيدك غير كافٍ لبدء لعبة جديدة.");
@@ -416,17 +480,73 @@ export async function startQuizSession(input: {
     });
   }
 
-  if (rows.length !== QUIZ_TOTAL_CELLS) {
+  if (rows.length !== quizTotalCells(uniqueIds.length)) {
     return fail("تعذّر تجهيز اللوحة كاملة، راجع بنك الأسئلة.");
   }
 
-  // تنظيف أي لقطة سابقة لنفس الغرفة قبل السحب الجديد
+  // تنظيف أي لقطة سابقة لنفس الغرفة قبل السحب الجديد — يسمح بالتراجع وتغيير الفئات
   await admin.from("quiz_session_questions").delete().eq("room_code", ctx.roomCode);
 
   const { error: insertError } = await admin.from("quiz_session_questions").insert(rows);
   if (insertError) {
-    console.error("startQuizSession insert error:", insertError);
+    console.error("prepareQuizSession insert error:", insertError);
     return fail("تعذّر تجهيز اللوحة.");
+  }
+
+  const board = await buildPreparedBoard(admin, ctx.roomCode);
+  return { success: true, data: board };
+}
+
+/**
+ * إعادة قراءة اللوحة المُجهَّزة بدون سحب جديد — تُستخدم عند استئناف
+ * شاشة الحكم بعد تحديث الصفحة أثناء الإعداد.
+ */
+export async function getQuizPreparedBoard(
+  roomCode: string
+): Promise<ActionResult<QuizPreparedBoard>> {
+  const ctx = await requireHost(roomCode);
+  if (!ctx.ok) return fail(ctx.error);
+
+  const board = await buildPreparedBoard(ctx.admin, ctx.roomCode);
+  return { success: true, data: board };
+}
+
+/**
+ * المرحلة الخفيفة: تكتب أسماء الفرق ومدة السؤال وتبدأ اللعب فعلياً،
+ * ثم تحصّل رمز اللعبة. تتطلب لقطة أسئلة جاهزة من prepareQuizSession.
+ */
+export async function startQuizSession(input: {
+  roomCode: string;
+  t1Name: string;
+  t2Name: string;
+  timerSeconds: number;
+}): Promise<ActionResult> {
+  const parsed = QuizStartSessionSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message || "بيانات غير صحيحة.");
+  }
+
+  const ctx = await requireHost(parsed.data.roomCode);
+  if (!ctx.ok) return fail(ctx.error);
+  const { admin, room, userId } = ctx;
+
+  if (room.game_state !== "setup") {
+    return fail("الجلسة بدأت بالفعل.");
+  }
+
+  const { count } = await admin
+    .from("quiz_session_questions")
+    .select("*", { count: "exact", head: true })
+    .eq("room_code", ctx.roomCode);
+
+  if (!count || count === 0) {
+    return fail("لم يتم تجهيز الأسئلة بعد — ارجع لخطوة اختيار الفئات.");
+  }
+
+  // بوابة الرصيد — تُفحص من جديد هنا لأن التحصيل الفعلي يحدث الآن
+  const access = await checkAccessAction(QUIZ_GAME.id);
+  if (!access.allowed) {
+    return fail("رصيدك غير كافٍ لبدء لعبة جديدة.");
   }
 
   const { error: updateError } = await admin
@@ -435,6 +555,7 @@ export async function startQuizSession(input: {
       game_state: "board",
       t1_name: parsed.data.t1Name,
       t2_name: parsed.data.t2Name,
+      timer_seconds: parsed.data.timerSeconds,
       t1_score: 0,
       t2_score: 0,
       turn: 1,
@@ -496,7 +617,7 @@ export async function selectQuizCell(input: {
   if (!cell) return fail("الخلية غير موجودة.");
   if (cell.status === "consumed") return fail("تم استخدام هذا السؤال مسبقاً.");
 
-  const deadline = new Date(Date.now() + QUIZ_CONFIG.TIMER_SECONDS * 1000).toISOString();
+  const deadline = new Date(Date.now() + room.timer_seconds * 1000).toISOString();
 
   const { error } = await admin
     .from("quiz_rooms")
@@ -519,13 +640,35 @@ export async function selectQuizCell(input: {
   return { success: true };
 }
 
-/** كشف الإجابة على شاشة الحكم. */
-export async function revealQuizAnswer(roomCode: string): Promise<ActionResult> {
+export interface QuizAnswerContent {
+  answer_text: string;
+  answer_image_url: string | null;
+  answer_image_alt: string | null;
+}
+
+/**
+ * كشف الإجابة على شاشة الحكم. يعيد محتوى الإجابة في نفس الطلب — لا حاجة
+ * لجولة ثانية، وصورة الإجابة عادة ما تكون مُحمَّلة مسبقاً بفعل
+ * getQuizAnswerMedia فيكون الكشف فورياً على الشاشة.
+ */
+export async function revealQuizAnswer(
+  roomCode: string
+): Promise<ActionResult<QuizAnswerContent>> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
 
   if (room.game_state !== "question") return fail("لا يوجد سؤال معروض حالياً.");
+  if (!room.active_cell_id) return fail("لا يوجد سؤال نشط.");
+
+  const { data: cell } = await admin
+    .from("quiz_session_questions")
+    .select("answer_text, answer_image, answer_image_alt")
+    .eq("id", room.active_cell_id)
+    .eq("room_code", ctx.roomCode)
+    .maybeSingle();
+
+  if (!cell) return fail("الخلية غير موجودة.");
 
   const { error } = await admin
     .from("quiz_rooms")
@@ -533,7 +676,48 @@ export async function revealQuizAnswer(roomCode: string): Promise<ActionResult> 
     .eq("room_code", ctx.roomCode);
 
   if (error) return fail("تعذّر كشف الإجابة.");
-  return { success: true };
+
+  const signed = await signMedia(admin, [cell.answer_image]);
+
+  return {
+    success: true,
+    data: {
+      answer_text: cell.answer_text,
+      answer_image_url: cell.answer_image ? signed[cell.answer_image] ?? null : null,
+      answer_image_alt: cell.answer_image_alt,
+    },
+  };
+}
+
+/**
+ * يُحضِّر رابط صورة الإجابة فقط، أثناء عرض السؤال — لتكون جاهزة عند الكشف.
+ *
+ * لا يُعاد أي نص إجابة هنا إطلاقاً. هذا هو المسار الوحيد الذي يرسل شيئاً
+ * متعلقاً بالإجابة قبل أن يضغط الحكم "كشف الإجابة"، لذا نطاقه مقصود أن
+ * يبقى بحقل واحد فقط — حتى يسهل التحقق أنه لا يسرّب نص الإجابة أبداً.
+ */
+export async function getQuizAnswerMedia(
+  roomCode: string
+): Promise<ActionResult<{ answer_image_url: string | null }>> {
+  const ctx = await requireHost(roomCode);
+  if (!ctx.ok) return fail(ctx.error);
+  const { admin, room } = ctx;
+
+  if (room.game_state !== "question" || !room.active_cell_id) {
+    return { success: true, data: { answer_image_url: null } };
+  }
+
+  const { data: cell } = await admin
+    .from("quiz_session_questions")
+    .select("answer_image")
+    .eq("id", room.active_cell_id)
+    .eq("room_code", ctx.roomCode)
+    .maybeSingle();
+
+  if (!cell?.answer_image) return { success: true, data: { answer_image_url: null } };
+
+  const signed = await signMedia(admin, [cell.answer_image]);
+  return { success: true, data: { answer_image_url: signed[cell.answer_image] ?? null } };
 }
 
 /**

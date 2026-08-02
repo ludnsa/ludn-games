@@ -90,9 +90,11 @@ function TeamPanel({
 export default function QuizScoreboard({
   room,
   remainingCells,
+  totalCells,
 }: {
   room: QuizRoom;
   remainingCells: number;
+  totalCells: number;
 }) {
   const showTurn = room.game_state !== "setup" && room.game_state !== "gameOver";
 
@@ -119,7 +121,7 @@ export default function QuizScoreboard({
 
       {showTurn && (
         <p className="text-center text-sm font-bold text-slate-500 dark:text-slate-400">
-          متبقٍ {remainingCells} سؤال من أصل 36
+          متبقٍ {remainingCells} سؤال من أصل {totalCells}
         </p>
       )}
     </div>

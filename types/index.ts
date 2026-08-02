@@ -85,6 +85,8 @@ export interface QuizRoom {
   rest_target_player_id: string | null;
   question_deadline_at: string | null;
   is_timer_running: boolean;
+  /** مدة كل سؤال بالثواني — يختارها الحكم في شاشة الإعداد (15-300) */
+  timer_seconds: number;
   winner_team: 0 | 1 | 2 | null;
   ended_at: string | null;
   created_at?: string;
@@ -116,6 +118,23 @@ export type QuizBoardCell = Pick<
   QuizSessionCell,
   "id" | "column_index" | "row_index" | "category_name_ar" | "points" | "status" | "awarded_team"
 >;
+
+/**
+ * خلية مُجهَّزة لجهاز الحكم: تحتوي نص وصورة السؤال (رابط موقّع) لكنها
+ * لا تحتوي أي شيء متعلق بالإجابة إطلاقاً. تُبنى في شاشة الإعداد وتُخزَّن
+ * في ذاكرة المتصفح، فيصبح فتح السؤال فورياً بلا أي اتصال بالسيرفر.
+ */
+export interface QuizPreparedCell {
+  id: string;
+  column_index: number;
+  row_index: number;
+  category_id: string;
+  category_name_ar: string;
+  points: QuizPoints;
+  question_text: string;
+  question_image_url: string | null;
+  question_image_alt: string | null;
+}
 
 export interface QuizSessionPlayer {
   id: string;

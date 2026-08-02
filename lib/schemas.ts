@@ -18,11 +18,25 @@ export const QuizRoomCodeSchema = z
   .toUpperCase()
   .regex(/^Q[A-Z0-9]{4}$/, "رمز الغرفة غير صحيح");
 
+// المرحلة الأولى: اختيار الفئات وسحب الأسئلة (ثقيلة، لا تحصم رمزاً)
+export const QuizPrepareSessionSchema = z.object({
+  roomCode: QuizRoomCodeSchema,
+  categoryIds: z
+    .array(z.uuid("معرّف فئة غير صحيح"))
+    .min(2, "اختر فئتين على الأقل")
+    .max(6, "لا يمكن اختيار أكثر من 6 فئات"),
+});
+
+// المرحلة الثانية: أسماء الفرق ومدة السؤال (خفيفة، تبدأ اللعبة فعلياً)
 export const QuizStartSessionSchema = z.object({
   roomCode: QuizRoomCodeSchema,
-  categoryIds: z.array(z.uuid("معرّف فئة غير صحيح")).length(6, "يجب اختيار 6 فئات بالضبط"),
   t1Name: z.string().trim().min(1, "اسم الفريق الأول مطلوب").max(30, "اسم الفريق طويل جداً"),
   t2Name: z.string().trim().min(1, "اسم الفريق الثاني مطلوب").max(30, "اسم الفريق طويل جداً"),
+  timerSeconds: z
+    .number()
+    .int("مدة السؤال يجب أن تكون رقماً صحيحاً")
+    .min(15, "أقل مدة للسؤال 15 ثانية")
+    .max(300, "أكثر مدة للسؤال 300 ثانية"),
 });
 
 export const QuizSelectCellSchema = z.object({
