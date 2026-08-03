@@ -60,7 +60,11 @@ function slugify(input: string): string {
 // الفئات
 // ---------------------------------------------------------------------
 
-export async function listQuizCategories(): Promise<AdminResult<QuizCategory[]>> {
+export interface QuizAdminCategory extends QuizCategory {
+  image_url: string | null;
+}
+
+export async function listQuizCategories(): Promise<AdminResult<QuizAdminCategory[]>> {
   const ctx = await requireAdmin();
   if (!ctx.ok) return fail(ctx.error);
 
@@ -73,7 +77,27 @@ export async function listQuizCategories(): Promise<AdminResult<QuizCategory[]>>
     console.error("listQuizCategories error:", error);
     return fail("تعذّر جلب الفئات.");
   }
-  return { success: true, data: (data || []) as QuizCategory[] };
+
+  const categories = (data || []) as QuizCategory[];
+  const paths = categories.map((c) => c.image_path).filter((p): p is string => Boolean(p));
+
+  const signed: Record<string, string> = {};
+  if (paths.length > 0) {
+    const { data: urls } = await ctx.admin.storage
+      .from(QUIZ_CONFIG.MEDIA_BUCKET)
+      .createSignedUrls(paths, 60 * 30);
+    urls?.forEach((u) => {
+      if (u.path && u.signedUrl) signed[u.path] = u.signedUrl;
+    });
+  }
+
+  return {
+    success: true,
+    data: categories.map((c) => ({
+      ...c,
+      image_url: c.image_path ? signed[c.image_path] ?? null : null,
+    })),
+  };
 }
 
 export async function saveQuizCategory(input: {
@@ -81,6 +105,8 @@ export async function saveQuizCategory(input: {
   name_ar: string;
   slug?: string;
   is_active?: boolean;
+  image_path?: string | null;
+  image_alt?: string | null;
 }): Promise<AdminResult<QuizCategory>> {
   const ctx = await requireAdmin();
   if (!ctx.ok) return fail(ctx.error);
@@ -91,10 +117,17 @@ export async function saveQuizCategory(input: {
   const slug = slugify(input.slug || nameAr);
   if (!slug) return fail("تعذّر توليد معرّف للفئة، اكتب معرّفاً بالإنجليزية.");
 
+  // صورة الفئة تحتاج وصفاً عربياً — نفس شرط صور الأسئلة
+  if (input.image_path && !input.image_alt?.trim()) {
+    return fail("اكتب وصفاً عربياً لصورة الفئة.");
+  }
+
   const payload = {
     name_ar: nameAr,
     slug,
     is_active: input.is_active ?? true,
+    image_path: input.image_path || null,
+    image_alt: input.image_path ? input.image_alt?.trim() || null : null,
   };
 
   const query = input.id
@@ -125,8 +158,19 @@ export async function deleteQuizCategory(id: string): Promise<AdminResult> {
     return fail(`لا يمكن حذف فئة تحتوي على ${count} سؤال. احذف أسئلتها أولاً أو عطّلها.`);
   }
 
+  const { data: category } = await ctx.admin
+    .from("quiz_categories")
+    .select("image_path")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await ctx.admin.from("quiz_categories").delete().eq("id", id);
   if (error) return fail("تعذّر حذف الفئة.");
+
+  if (category?.image_path) {
+    await ctx.admin.storage.from(QUIZ_CONFIG.MEDIA_BUCKET).remove([category.image_path]);
+  }
+
   return { success: true };
 }
 
@@ -289,7 +333,7 @@ export async function uploadQuizMedia(formData: FormData): Promise<AdminResult<{
   if (!file.type.startsWith("image/")) return fail("الملف المرفوع ليس صورة.");
 
   const kind = String(formData.get("kind") || "question");
-  const folder = kind === "answer" ? "answers" : "questions";
+  const folder = kind === "answer" ? "answers" : kind === "category" ? "categories" : "questions";
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const path = `${folder}/${unique}.webp`;
 

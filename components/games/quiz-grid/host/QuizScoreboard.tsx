@@ -1,19 +1,14 @@
 "use client";
 import React from "react";
-import { PhoneCall, Shovel, Armchair, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { QUIZ_LIFELINE_LABELS } from "@/constants/quiz-grid";
-import type { QuizRoom, QuizTeam } from "@/types";
+import { QUIZ_LIFELINE_ICONS } from "@/components/games/quiz-grid/shared/quizLifelineIcons";
+import type { QuizLifelineKey, QuizRoom, QuizTeam } from "@/types";
 
 /**
  * لوحة النتائج الثابتة أعلى شاشة الحكم.
  * مصممة لتُقرأ من آخر الغرفة: خط ضخم، تباين عالٍ، ومؤشر دور لا يمكن تفويته.
  */
-
-const LIFELINE_ICONS = {
-  call: PhoneCall,
-  pit: Shovel,
-  rest: Armchair,
-} as const;
 
 const TEAM_STYLES = {
   1: {
@@ -35,14 +30,16 @@ function TeamPanel({
   name,
   score,
   isActive,
-  lifelines,
+  owned,
+  used,
   showTurn,
 }: {
   team: QuizTeam;
   name: string;
   score: number;
   isActive: boolean;
-  lifelines: { call: boolean; pit: boolean; rest: boolean };
+  owned: QuizLifelineKey[];
+  used: QuizLifelineKey[];
   showTurn: boolean;
 }) {
   const styles = TEAM_STYLES[team];
@@ -65,17 +62,17 @@ function TeamPanel({
 
       <div className="text-4xl md:text-6xl font-black tabular-nums leading-none">{score}</div>
 
-      <div className="flex items-center gap-2">
-        {(["call", "pit", "rest"] as const).map((kind) => {
-          const Icon = LIFELINE_ICONS[kind];
-          const used = lifelines[kind];
+      <div className="flex items-center gap-2 flex-wrap">
+        {owned.map((kind) => {
+          const Icon = QUIZ_LIFELINE_ICONS[kind];
+          const isUsed = used.includes(kind);
           return (
             <span
               key={kind}
               title={QUIZ_LIFELINE_LABELS[kind]}
               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] md:text-xs font-black transition-opacity ${
                 isActive ? "bg-white/25" : styles.pip
-              } ${used ? "opacity-30 line-through" : ""}`}
+              } ${isUsed ? "opacity-30 line-through" : ""}`}
             >
               <Icon size={14} />
               <span className="hidden sm:inline">{QUIZ_LIFELINE_LABELS[kind]}</span>
@@ -107,7 +104,8 @@ export default function QuizScoreboard({
           score={room.t1_score}
           isActive={showTurn && room.turn === 1}
           showTurn={showTurn}
-          lifelines={{ call: room.t1_call_used, pit: room.t1_pit_used, rest: room.t1_rest_used }}
+          owned={room.t1_lifelines}
+          used={room.t1_lifelines_used}
         />
         <TeamPanel
           team={2}
@@ -115,7 +113,8 @@ export default function QuizScoreboard({
           score={room.t2_score}
           isActive={showTurn && room.turn === 2}
           showTurn={showTurn}
-          lifelines={{ call: room.t2_call_used, pit: room.t2_pit_used, rest: room.t2_rest_used }}
+          owned={room.t2_lifelines}
+          used={room.t2_lifelines_used}
         />
       </div>
 

@@ -20,9 +20,26 @@ import {
   saveQuizCategory,
   saveQuizQuestion,
   uploadQuizMedia,
+  type QuizAdminCategory,
   type QuizAdminQuestion,
 } from "@/app/actions/quiz-admin";
-import type { QuizCategory, QuizPoints } from "@/types";
+import type { QuizPoints } from "@/types";
+
+interface QuizCategoryDraft {
+  id: string | null;
+  name_ar: string;
+  slug: string;
+  image_path: string | null;
+  image_alt: string;
+}
+
+const emptyCategoryDraft = (): QuizCategoryDraft => ({
+  id: null,
+  name_ar: "",
+  slug: "",
+  image_path: null,
+  image_alt: "",
+});
 
 export interface QuizFormState {
   id: string | null;
@@ -53,11 +70,11 @@ const emptyForm = (categoryId = ""): QuizFormState => ({
 });
 
 export function useQuizAdmin() {
-  const [categories, setCategories] = useState<QuizCategory[]>([]);
+  const [categories, setCategories] = useState<QuizAdminCategory[]>([]);
   const [questions, setQuestions] = useState<QuizAdminQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState<"question" | "answer" | null>(null);
+  const [isUploading, setIsUploading] = useState<"question" | "answer" | "category" | null>(null);
 
   // مرشّحات القائمة
   const [filterCategory, setFilterCategory] = useState<string>("");
@@ -76,9 +93,12 @@ export function useQuizAdmin() {
   previewsRef.current = previews;
 
   const [isCategoryPanelOpen, setIsCategoryPanelOpen] = useState(false);
-  const [categoryDraft, setCategoryDraft] = useState<{ id: string | null; name_ar: string; slug: string }>(
-    { id: null, name_ar: "", slug: "" }
-  );
+  const [categoryDraft, setCategoryDraft] = useState<QuizCategoryDraft>(emptyCategoryDraft());
+
+  // معاينة محلية لصورة الفئة المرفوعة حديثاً (تُلغى عند الاستبدال أو الحفظ)
+  const [categoryImagePreview, setCategoryImagePreview] = useState<string | null>(null);
+  const categoryImagePreviewRef = useRef(categoryImagePreview);
+  categoryImagePreviewRef.current = categoryImagePreview;
 
   // -------------------------------------------------------------------
   // التحميل
@@ -130,8 +150,16 @@ export function useQuizAdmin() {
   useEffect(() => {
     return () => {
       Object.values(previewsRef.current).forEach((url) => url && URL.revokeObjectURL(url));
+      if (categoryImagePreviewRef.current) URL.revokeObjectURL(categoryImagePreviewRef.current);
     };
   }, []);
+
+  /** رابط معاينة صورة الفئة الحالية في النموذج: رفع جديد محلي، أو صورة محفوظة عند التعديل. */
+  const categoryImageUrl = useMemo(() => {
+    if (categoryImagePreview) return categoryImagePreview;
+    if (!categoryDraft.id) return null;
+    return categories.find((c) => c.id === categoryDraft.id)?.image_url ?? null;
+  }, [categoryImagePreview, categoryDraft.id, categories]);
 
   // -------------------------------------------------------------------
   // مشتقات
@@ -172,10 +200,23 @@ export function useQuizAdmin() {
   // الفئات
   // -------------------------------------------------------------------
 
+  /** يعيد نموذج الفئة لحالته الفارغة، ويُلغي أي معاينة صورة محلية. */
+  const resetCategoryDraft = useCallback(() => {
+    setCategoryImagePreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return null;
+    });
+    setCategoryDraft(emptyCategoryDraft());
+  }, []);
+
   const submitCategory = async (e: FormEvent) => {
     e.preventDefault();
     if (!categoryDraft.name_ar.trim()) {
       toast.error("اكتب اسم الفئة بالعربية.");
+      return;
+    }
+    if (categoryDraft.image_path && !categoryDraft.image_alt.trim()) {
+      toast.error("اكتب وصفاً عربياً لصورة الفئة.");
       return;
     }
 
@@ -184,6 +225,8 @@ export function useQuizAdmin() {
       id: categoryDraft.id,
       name_ar: categoryDraft.name_ar,
       slug: categoryDraft.slug || undefined,
+      image_path: categoryDraft.image_path,
+      image_alt: categoryDraft.image_alt,
     });
     setIsSaving(false);
 
@@ -193,21 +236,33 @@ export function useQuizAdmin() {
     }
 
     toast.success(categoryDraft.id ? "تم تحديث الفئة." : "تمت إضافة الفئة.");
-    setCategoryDraft({ id: null, name_ar: "", slug: "" });
+    resetCategoryDraft();
     await loadCategories();
   };
 
-  const editCategory = (category: QuizCategory) => {
-    setCategoryDraft({ id: category.id, name_ar: category.name_ar, slug: category.slug });
+  const editCategory = (category: QuizAdminCategory) => {
+    setCategoryImagePreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return null;
+    });
+    setCategoryDraft({
+      id: category.id,
+      name_ar: category.name_ar,
+      slug: category.slug,
+      image_path: category.image_path,
+      image_alt: category.image_alt || "",
+    });
     setIsCategoryPanelOpen(true);
   };
 
-  const toggleCategoryActive = async (category: QuizCategory) => {
+  const toggleCategoryActive = async (category: QuizAdminCategory) => {
     const res = await saveQuizCategory({
       id: category.id,
       name_ar: category.name_ar,
       slug: category.slug,
       is_active: !category.is_active,
+      image_path: category.image_path,
+      image_alt: category.image_alt,
     });
     if (!res.success) {
       toast.error(res.error);
@@ -217,7 +272,7 @@ export function useQuizAdmin() {
     await loadCategories();
   };
 
-  const removeCategory = async (category: QuizCategory) => {
+  const removeCategory = async (category: QuizAdminCategory) => {
     if (!window.confirm(`حذف الفئة "${category.name_ar}"؟`)) return;
     const res = await deleteQuizCategory(category.id);
     if (!res.success) {
@@ -226,6 +281,44 @@ export function useQuizAdmin() {
     }
     toast.success("تم حذف الفئة.");
     await loadCategories();
+  };
+
+  const uploadCategoryImage = async (file: File) => {
+    setIsUploading("category");
+    try {
+      const converted = await convertImageToWebp(file);
+
+      const body = new FormData();
+      body.append("file", converted.file);
+      body.append("kind", "category");
+
+      const res = await uploadQuizMedia(body);
+      if (!res.success) {
+        URL.revokeObjectURL(converted.previewUrl);
+        toast.error(res.error);
+        return;
+      }
+
+      setCategoryImagePreview((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return converted.previewUrl;
+      });
+      setCategoryDraft((prev) => ({ ...prev, image_path: res.data.path }));
+
+      toast.success(`تم رفع صورة الفئة (${converted.width}×${converted.height}).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "تعذّر رفع الصورة.");
+    } finally {
+      setIsUploading(null);
+    }
+  };
+
+  const clearCategoryImage = () => {
+    setCategoryImagePreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return null;
+    });
+    setCategoryDraft((prev) => ({ ...prev, image_path: null, image_alt: "" }));
   };
 
   // -------------------------------------------------------------------
@@ -477,8 +570,9 @@ export function useQuizAdmin() {
 
     // الفئات
     isCategoryPanelOpen, setIsCategoryPanelOpen,
-    categoryDraft, setCategoryDraft,
-    submitCategory, editCategory, toggleCategoryActive, removeCategory,
+    categoryDraft, setCategoryDraft, categoryImageUrl,
+    submitCategory, editCategory, toggleCategoryActive, removeCategory, resetCategoryDraft,
+    uploadCategoryImage, clearCategoryImage,
 
     // CSV
     exportCSV, importCSV,

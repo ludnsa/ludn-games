@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
-import { QUIZ_CONFIG, QUIZ_GAME } from "@/constants/quiz-grid";
+import { QUIZ_CONFIG, QUIZ_GAME, QUIZ_LIFELINES, QUIZ_LIFELINES_PER_TEAM } from "@/constants/quiz-grid";
 import {
   activateQuizLifeline,
   createQuizRoom,
@@ -24,7 +24,21 @@ import {
   type QuizCategoryOption,
   type QuizPreparedBoard,
 } from "@/actions/quiz-grid";
-import type { QuizBoardCell, QuizPoints, QuizPreparedCell, QuizRoom, QuizSessionPlayer, QuizTeam } from "@/types";
+import type {
+  QuizBoardCell,
+  QuizLifelineKey,
+  QuizPoints,
+  QuizPreparedCell,
+  QuizRoom,
+  QuizSessionPlayer,
+  QuizTeam,
+} from "@/types";
+
+const DEFAULT_LIFELINES: QuizLifelineKey[] = ["call", "pit", "rest"];
+
+function otherTeam(team: QuizTeam): QuizTeam {
+  return team === 1 ? 2 : 1;
+}
 
 const ROOM_STORAGE_KEY = "quiz_referee_room_code";
 const ACTIVE_SESSION_KEY = "quiz_active_session";
@@ -83,13 +97,14 @@ export function useQuizHost() {
   const [t1Name, setT1Name] = useState("الفريق الأول");
   const [t2Name, setT2Name] = useState("الفريق الثاني");
   const [timerSeconds, setTimerSeconds] = useState<number>(QUIZ_CONFIG.TIMER_DEFAULT);
+  // كل فريق يختار 3 وسائل مساعدة بشكل مستقل، ويجوز أن يختلف الفريقان في اختيارهما
+  const [t1Lifelines, setT1Lifelines] = useState<QuizLifelineKey[]>(DEFAULT_LIFELINES);
+  const [t2Lifelines, setT2Lifelines] = useState<QuizLifelineKey[]>(DEFAULT_LIFELINES);
 
   // اللوحة المُجهَّزة مسبقاً: نص وصورة كل سؤال، جاهزة قبل أن تبدأ اللعبة فعلياً
   const [preparedCells, setPreparedCells] = useState<Map<string, QuizPreparedCell>>(new Map());
   const preparedForRef = useRef<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
-  const [preloadDone, setPreloadDone] = useState(0);
-  const [preloadTotal, setPreloadTotal] = useState(0);
 
   const [showQRModal, setShowQRModal] = useState(false);
   const [restPickerOpen, setRestPickerOpen] = useState(false);
@@ -133,7 +148,11 @@ export function useQuizHost() {
     setPlayers(res.data.players);
   }, []);
 
-  /** يحوّل لقطة اللوحة المُجهَّزة إلى خريطة بحث سريعة، ويحمّل صور الأسئلة في الخلفية. */
+  /**
+   * يحوّل لقطة اللوحة المُجهَّزة إلى خريطة بحث سريعة، ويحمّل صور الأسئلة
+   * في الخلفية بصمت — بلا أي مؤشر تقدّم في الواجهة، فالحكم لا يحتاج
+   * معرفة ذلك أثناء تعبئة أسماء الفرق ووسائل المساعدة.
+   */
   const applyPreparedBoard = useCallback((board: QuizPreparedBoard, fingerprint: string | null) => {
     preparedForRef.current = fingerprint;
     setPreparedCells(new Map(board.cells.map((c) => [c.id, c])));
@@ -141,17 +160,7 @@ export function useQuizHost() {
     const urls = Array.from(
       new Set(board.cells.map((c) => c.question_image_url).filter((u): u is string => Boolean(u)))
     );
-    setPreloadDone(0);
-    setPreloadTotal(urls.length);
-
-    if (urls.length === 0) return;
-    let done = 0;
-    urls.forEach((url) => {
-      preloadImage(url).then(() => {
-        done += 1;
-        setPreloadDone(done);
-      });
-    });
+    urls.forEach((url) => preloadImage(url));
   }, []);
 
   /** يستعيد السؤال المعروض حالياً (وإجابته إن كُشفت) من السيرفر — مسار الاستئناف فقط. */
@@ -223,6 +232,8 @@ export function useQuizHost() {
           setT1Name(res.data.room.t1_name);
           setT2Name(res.data.room.t2_name);
           setTimerSeconds(res.data.room.timer_seconds);
+          setT1Lifelines(res.data.room.t1_lifelines);
+          setT2Lifelines(res.data.room.t2_lifelines);
 
           // إعادة بناء ذاكرة الأسئلة المُجهَّزة — إن وُجدت لقطة سابقة لهذه الغرفة
           const boardRes = await getQuizPreparedBoard(saved);
@@ -352,21 +363,39 @@ export function useQuizHost() {
   const totalCells = cells.length;
   const playableCategories = useMemo(() => categories.filter((c) => c.isPlayable), [categories]);
 
-  const opposingPlayers = useMemo(() => {
+  /**
+   * لاعبو الفريق المُجيب الآن (صاحب الدور) — هؤلاء هم الهدف الصحيح لـ"استريح"،
+   * التي يُفعّلها الفريق المنتظر ضدهم.
+   */
+  const answeringTeamPlayers = useMemo(() => {
     if (!room) return [];
-    return players.filter((p) => p.team !== room.turn);
+    return players.filter((p) => p.team === room.turn);
   }, [players, room]);
+
+  /** الفريق المنتظر الآن — هو من يملك حق تفعيل "استريح". */
+  const waitingTeam: QuizTeam | null = room ? otherTeam(room.turn) : null;
 
   const restTargetName = useMemo(() => {
     if (!room?.rest_target_player_id) return null;
     return players.find((p) => p.id === room.rest_target_player_id)?.display_name ?? null;
   }, [players, room]);
 
-  /** هل استُخدمت وسيلة مساعدة معيّنة لفريق معيّن؟ */
+  /** هل اختار هذا الفريق وسيلة المساعدة عند الإعداد؟ */
+  const isLifelineOwned = useCallback(
+    (team: QuizTeam, kind: QuizLifelineKey) => {
+      if (!room) return false;
+      const owned = room[team === 1 ? "t1_lifelines" : "t2_lifelines"] as QuizLifelineKey[];
+      return owned.includes(kind);
+    },
+    [room]
+  );
+
+  /** هل استُخدمت وسيلة مساعدة معيّنة لفريق معيّن بالفعل؟ */
   const isLifelineUsed = useCallback(
-    (team: QuizTeam, kind: "call" | "pit" | "rest") => {
+    (team: QuizTeam, kind: QuizLifelineKey) => {
       if (!room) return true;
-      return Boolean(room[`t${team}_${kind}_used` as keyof QuizRoom]);
+      const used = room[team === 1 ? "t1_lifelines_used" : "t2_lifelines_used"] as QuizLifelineKey[];
+      return used.includes(kind);
     },
     [room]
   );
@@ -405,6 +434,16 @@ export function useQuizHost() {
     });
   };
 
+  /** كل فريق يختار 3 وسائل مساعدة بالضبط، بشكل مستقل عن الفريق الآخر. */
+  const toggleTeamLifeline = (team: QuizTeam, kind: QuizLifelineKey) => {
+    const setter = team === 1 ? setT1Lifelines : setT2Lifelines;
+    setter((prev) => {
+      if (prev.includes(kind)) return prev.filter((k) => k !== kind);
+      if (prev.length >= QUIZ_LIFELINES_PER_TEAM) return prev;
+      return [...prev, kind];
+    });
+  };
+
   /**
    * ينتقل لخطوة الفرق والوقت. إن كان الاختيار الحالي مطابقاً لآخر لقطة
    * جُهِّزت يُعاد استخدامها فوراً؛ غير ذلك يسحب أسئلة جديدة (يحصل هذا
@@ -436,8 +475,11 @@ export function useQuizHost() {
 
   const goBackToStep1 = () => setSetupStep(1);
 
+  const canStartGame =
+    t1Lifelines.length === QUIZ_LIFELINES_PER_TEAM && t2Lifelines.length === QUIZ_LIFELINES_PER_TEAM;
+
   const startGame = () => {
-    if (isPreparing) return;
+    if (isPreparing || !canStartGame) return;
     return run(
       () =>
         startQuizSession({
@@ -445,6 +487,8 @@ export function useQuizHost() {
           t1Name: t1Name.trim() || "الفريق الأول",
           t2Name: t2Name.trim() || "الفريق الثاني",
           timerSeconds,
+          t1Lifelines,
+          t2Lifelines,
         }),
       () => {
         sessionStorage.setItem(ACTIVE_SESSION_KEY, "true");
@@ -499,11 +543,19 @@ export function useQuizHost() {
       }
     );
 
-  const activateLifeline = (kind: "call" | "pit" | "rest", targetPlayerId?: string) => {
+  /**
+   * تفعيل وسيلة مساعدة. الفريق المُفعِّل يُحسب من سجل القواعد في
+   * constants/quiz-grid.ts وليس دائماً صاحب الدور — "استريح" يفعّلها
+   * الفريق المنتظر تحديداً.
+   */
+  const activateLifeline = (kind: QuizLifelineKey, targetPlayerId?: string) => {
     if (!room) return;
+    const def = QUIZ_LIFELINES[kind];
+    const team: QuizTeam = def.activator === "waiting" ? otherTeam(room.turn) : room.turn;
+
     if (kind === "rest") {
-      if (opposingPlayers.length === 0) {
-        triggerAlert("لا يوجد لاعبون في الفريق الخصم. اطلب منهم الانضمام عبر الباركود أولاً.");
+      if (answeringTeamPlayers.length === 0) {
+        triggerAlert("لا يوجد لاعبون في الفريق الذي يجيب الآن. اطلب منهم الانضمام عبر الباركود أولاً.");
         return;
       }
       if (!targetPlayerId) {
@@ -513,7 +565,7 @@ export function useQuizHost() {
     }
     setRestPickerOpen(false);
     return run(() =>
-      activateQuizLifeline({ roomCode, team: room.turn, kind, targetPlayerId: targetPlayerId ?? null })
+      activateQuizLifeline({ roomCode, team, kind, targetPlayerId: targetPlayerId ?? null })
     );
   };
 
@@ -550,9 +602,10 @@ export function useQuizHost() {
     categories, playableCategories, selectedCategories, toggleCategory,
     t1Name, setT1Name, t2Name, setT2Name,
     timerSeconds, setTimerSeconds,
-    isPreparing, preloadDone, preloadTotal,
+    t1Lifelines, t2Lifelines, toggleTeamLifeline, canStartGame,
+    isPreparing,
 
-    opposingPlayers, restTargetName, isLifelineUsed,
+    waitingTeam, answeringTeamPlayers, restTargetName, isLifelineOwned, isLifelineUsed,
     restPickerOpen, setRestPickerOpen,
 
     showQRModal, setShowQRModal,

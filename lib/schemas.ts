@@ -27,7 +27,24 @@ export const QuizPrepareSessionSchema = z.object({
     .max(6, "لا يمكن اختيار أكثر من 6 فئات"),
 });
 
-// المرحلة الثانية: أسماء الفرق ومدة السؤال (خفيفة، تبدأ اللعبة فعلياً)
+// وسائل المساعدة الستّ — القائمة الكاملة معرَّفة في constants/quiz-grid.ts،
+// لكن zod يحتاج قائمة حرفية ثابتة عند البناء فنكررها هنا حرفياً
+export const QuizLifelineKeySchema = z.enum([
+  "call",
+  "pit",
+  "rest",
+  "double",
+  "extraTurn",
+  "audience",
+]);
+
+// كل فريق يختار 3 وسائل بالضبط، بلا تكرار
+const QuizLifelineLoadoutSchema = z
+  .array(QuizLifelineKeySchema)
+  .length(3, "اختر 3 وسائل مساعدة بالضبط")
+  .refine((arr) => new Set(arr).size === arr.length, "لا يمكن اختيار الوسيلة نفسها مرتين");
+
+// المرحلة الثانية: أسماء الفرق، مدة السؤال، ووسائل المساعدة (خفيفة، تبدأ اللعبة فعلياً)
 export const QuizStartSessionSchema = z.object({
   roomCode: QuizRoomCodeSchema,
   t1Name: z.string().trim().min(1, "اسم الفريق الأول مطلوب").max(30, "اسم الفريق طويل جداً"),
@@ -37,6 +54,8 @@ export const QuizStartSessionSchema = z.object({
     .int("مدة السؤال يجب أن تكون رقماً صحيحاً")
     .min(15, "أقل مدة للسؤال 15 ثانية")
     .max(300, "أكثر مدة للسؤال 300 ثانية"),
+  t1Lifelines: QuizLifelineLoadoutSchema,
+  t2Lifelines: QuizLifelineLoadoutSchema,
 });
 
 export const QuizSelectCellSchema = z.object({
@@ -53,7 +72,7 @@ export const QuizResolveSchema = z.object({
 export const QuizLifelineSchema = z.object({
   roomCode: QuizRoomCodeSchema,
   team: z.union([z.literal(1), z.literal(2)]),
-  kind: z.enum(["call", "pit", "rest"]),
+  kind: QuizLifelineKeySchema,
   targetPlayerId: z.uuid().nullable().optional(),
 });
 

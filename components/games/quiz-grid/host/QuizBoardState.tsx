@@ -1,7 +1,9 @@
 "use client";
 import React from "react";
-import { Shovel, Check } from "lucide-react";
-import { QUIZ_LIFELINE_LABELS, QUIZ_LIFELINE_HINTS } from "@/constants/quiz-grid";
+import { Check } from "lucide-react";
+import { QUIZ_LIFELINE_HINTS, QUIZ_LIFELINE_LIST } from "@/constants/quiz-grid";
+import { QUIZ_LIFELINE_ICONS } from "@/components/games/quiz-grid/shared/quizLifelineIcons";
+import type { QuizLifelineKey, QuizRoom } from "@/types";
 import type { useQuizHost } from "@/hooks/games/quiz-grid/useQuizHost";
 
 type Ctx = ReturnType<typeof useQuizHost>;
@@ -24,47 +26,84 @@ const GRID_COLS_BY_COUNT: Record<number, string> = {
   6: "grid-cols-6",
 };
 
+/** رهانات اللوحة تُعلن قبل عرض السؤال — كلها يفعّلها الفريق صاحب الدور فقط. */
+const BOARD_PHASE_LIFELINES = QUIZ_LIFELINE_LIST.filter((def) => def.phase === "board");
+
+/** الحقل في صف الغرفة الذي يُخزَّن فيه الفريق المُفعِّل لهذا الرهان، إن وُجد. */
+function armedTeamField(kind: QuizLifelineKey): keyof QuizRoom | null {
+  if (kind === "pit") return "pit_active_team";
+  if (kind === "double") return "double_active_team";
+  if (kind === "extraTurn") return "extra_turn_team";
+  return null;
+}
+
 export default function QuizBoardState({ ctx }: { ctx: Ctx }) {
-  const { board, columns, room, pickCell, isBusy, activateLifeline, isLifelineUsed } = ctx;
+  const { board, columns, room, pickCell, isBusy, activateLifeline, isLifelineOwned, isLifelineUsed } = ctx;
   if (!room) return null;
 
   const activeTeamName = room.turn === 1 ? room.t1_name : room.t2_name;
-  const pitUsed = isLifelineUsed(room.turn, "pit");
-  const pitArmed = room.pit_active_team === room.turn;
+  const ownedBoardLifelines = BOARD_PHASE_LIFELINES.filter((def) => isLifelineOwned(room.turn, def.key));
+  const anyArmed = ownedBoardLifelines.some((def) => {
+    const field = armedTeamField(def.key);
+    return field && room[field] === room.turn;
+  });
 
   return (
     <section className="w-full flex flex-col gap-5">
-      {/* "الحفرة" رهان يُعلن قبل رؤية السؤال، فمكانها الطبيعي هو شاشة اللوحة */}
+      {/* رهانات اللوحة تُعلن قبل رؤية السؤال، فمكانها الطبيعي هو هذه الشاشة */}
       <div
-        className={`flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border-2 p-4 transition-colors ${
-          pitArmed
+        className={`flex flex-col gap-3 rounded-2xl border-2 p-4 transition-colors ${
+          anyArmed
             ? "bg-orange-500 border-orange-700 text-white"
             : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
         }`}
       >
         <div className="text-center sm:text-right">
-          <p className={`font-black text-lg ${pitArmed ? "text-white" : "text-slate-800 dark:text-white"}`}>
-            {pitArmed ? `${activeTeamName} فعّل ${QUIZ_LIFELINE_LABELS.pit}!` : `دور ${activeTeamName} — اختاروا خلية`}
-          </p>
-          <p className={`text-xs font-bold ${pitArmed ? "text-white/80" : "text-slate-400"}`}>
-            {pitArmed
-              ? "إجابة صحيحة تكسبهم النقاط وتخصم نفس القيمة من الخصم. الخطأ لا يغيّر شيئاً."
-              : QUIZ_LIFELINE_HINTS.pit}
+          <p className={`font-black text-lg ${anyArmed ? "text-white" : "text-slate-800 dark:text-white"}`}>
+            دور {activeTeamName} — اختاروا خلية
           </p>
         </div>
 
-        <button
-          onClick={() => activateLifeline("pit")}
-          disabled={pitUsed || pitArmed || isBusy}
-          className={`shrink-0 flex items-center gap-2 font-black py-3 px-5 rounded-xl border-b-4 active:border-b-0 active:translate-y-[4px] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:translate-y-0 disabled:active:border-b-4 ${
-            pitArmed
-              ? "bg-white text-orange-600 border-orange-200"
-              : "bg-orange-500 hover:bg-orange-400 text-white border-orange-700"
-          }`}
-        >
-          {pitArmed ? <Check size={20} /> : <Shovel size={20} />}
-          {pitArmed ? "مُفعّلة" : pitUsed ? "استُخدمت" : QUIZ_LIFELINE_LABELS.pit}
-        </button>
+        {ownedBoardLifelines.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {ownedBoardLifelines.map((def) => {
+              const Icon = QUIZ_LIFELINE_ICONS[def.key];
+              const field = armedTeamField(def.key);
+              const isArmed = Boolean(field && room[field] === room.turn);
+              const isUsed = isLifelineUsed(room.turn, def.key);
+
+              return (
+                <button
+                  key={def.key}
+                  onClick={() => activateLifeline(def.key)}
+                  disabled={isUsed || isArmed || isBusy}
+                  title={def.hint}
+                  className={`flex items-center gap-2 font-black py-3 px-5 rounded-xl border-b-4 active:border-b-0 active:translate-y-[4px] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:translate-y-0 disabled:active:border-b-4 ${
+                    isArmed
+                      ? "bg-white text-orange-600 border-orange-200"
+                      : "bg-orange-500 hover:bg-orange-400 text-white border-orange-700"
+                  }`}
+                >
+                  {isArmed ? <Check size={20} /> : <Icon size={20} />}
+                  {isArmed ? `${def.label} مُفعّلة` : isUsed ? `${def.label} — استُخدمت` : def.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {anyArmed && (
+          <p className="text-xs font-bold text-white/80">
+            إجابة صحيحة تفعّل الرهان، والخطأ لا يغيّر شيئاً.{" "}
+            {ownedBoardLifelines
+              .filter((def) => {
+                const field = armedTeamField(def.key);
+                return field && room[field] === room.turn;
+              })
+              .map((def) => QUIZ_LIFELINE_HINTS[def.key])
+              .join(" ")}
+          </p>
+        )}
       </div>
 
       <div className={`grid ${GRID_COLS_BY_COUNT[columns.length] || "grid-cols-6"} gap-1.5 md:gap-3`}>

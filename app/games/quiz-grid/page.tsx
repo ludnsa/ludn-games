@@ -48,7 +48,7 @@ export default function QuizGridHostScreen() {
           onNewSession={ctx.newSession}
           onFinish={ctx.finishGame}
         />
-        {ctx.room && (
+        {ctx.room && ctx.room.game_state !== "setup" && (
           <QuizScoreboard room={ctx.room} remainingCells={ctx.remainingCells} totalCells={ctx.totalCells} />
         )}
       </div>

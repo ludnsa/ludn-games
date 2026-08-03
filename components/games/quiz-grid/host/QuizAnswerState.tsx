@@ -1,11 +1,29 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 import React, { useState } from "react";
-import { CheckCircle2, XCircle, ImageOff, Shovel } from "lucide-react";
-import { QUIZ_LIFELINE_LABELS } from "@/constants/quiz-grid";
+import { CheckCircle2, XCircle, ImageOff } from "lucide-react";
+import { QUIZ_LIFELINE_LIST } from "@/constants/quiz-grid";
+import { QUIZ_LIFELINE_ICONS } from "@/components/games/quiz-grid/shared/quizLifelineIcons";
+import type { QuizLifelineKey, QuizRoom, QuizTeam } from "@/types";
 import type { useQuizHost } from "@/hooks/games/quiz-grid/useQuizHost";
 
 type Ctx = ReturnType<typeof useQuizHost>;
+
+const BOARD_PHASE_LIFELINES = QUIZ_LIFELINE_LIST.filter((def) => def.phase === "board");
+
+function armedTeamField(kind: QuizLifelineKey): keyof QuizRoom | null {
+  if (kind === "pit") return "pit_active_team";
+  if (kind === "double") return "double_active_team";
+  if (kind === "extraTurn") return "extra_turn_team";
+  return null;
+}
+
+function describeArmedBet(kind: QuizLifelineKey, teamName: string, points: number): string {
+  if (kind === "pit") return `لصالح ${teamName}: إجابة صحيحة تكسبهم ${points} وتخصم ${points} من الخصم.`;
+  if (kind === "double") return `لصالح ${teamName}: إجابة صحيحة تضاعف نقاطهم إلى ${points * 2}.`;
+  if (kind === "extraTurn") return `لصالح ${teamName}: إجابة صحيحة تُبقي الدور لهم.`;
+  return "";
+}
 
 export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
   const { room, activeQuestion, answerContent, award, isBusy } = ctx;
@@ -13,8 +31,11 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
 
   if (!room || !activeQuestion || !answerContent) return null;
 
-  const pitTeam = room.pit_active_team;
-  const pitTeamName = pitTeam === 1 ? room.t1_name : pitTeam === 2 ? room.t2_name : null;
+  const teamName = (team: QuizTeam) => (team === 1 ? room.t1_name : room.t2_name);
+  const armedBets = BOARD_PHASE_LIFELINES.filter((def) => {
+    const field = armedTeamField(def.key);
+    return field && room[field] !== null;
+  });
 
   return (
     <section className="w-full max-w-5xl mx-auto flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -55,11 +76,23 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
         )}
       </div>
 
-      {pitTeamName && (
-        <div className="flex items-center justify-center gap-3 bg-orange-500 text-white font-black text-base md:text-xl rounded-2xl py-3 px-6">
-          <Shovel size={24} />
-          {QUIZ_LIFELINE_LABELS.pit} لصالح {pitTeamName}: إن كانت إجابتهم صحيحة يكسبون {activeQuestion.points} ويخسر
-          الخصم {activeQuestion.points}.
+      {armedBets.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {armedBets.map((def) => {
+            const field = armedTeamField(def.key);
+            const team = field ? (room[field] as QuizTeam | null) : null;
+            if (!team) return null;
+            const Icon = QUIZ_LIFELINE_ICONS[def.key];
+            return (
+              <div
+                key={def.key}
+                className="flex items-center justify-center gap-3 bg-orange-500 text-white font-black text-base md:text-xl rounded-2xl py-3 px-6 text-center"
+              >
+                <Icon size={24} className="shrink-0" />
+                {describeArmedBet(def.key, teamName(team), activeQuestion.points)}
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -1,12 +1,28 @@
 "use client";
 import React from "react";
-import {
-  PhoneCall, Armchair, Shovel, Hourglass, Eye, Trophy, Handshake, LogOut, Monitor, Ban,
-} from "lucide-react";
-import { QUIZ_CONFIG, QUIZ_LIFELINE_LABELS } from "@/constants/quiz-grid";
+import { Armchair, Hourglass, Eye, Trophy, Handshake, LogOut, Monitor, Ban } from "lucide-react";
+import { QUIZ_CONFIG, QUIZ_LIFELINE_LABELS, QUIZ_LIFELINE_LIST } from "@/constants/quiz-grid";
+import { QUIZ_LIFELINE_ICONS } from "@/components/games/quiz-grid/shared/quizLifelineIcons";
+import type { QuizLifelineKey, QuizRoom, QuizTeam } from "@/types";
 import type { useQuizPlayer } from "@/hooks/games/quiz-grid/useQuizPlayer";
 
 type Ctx = ReturnType<typeof useQuizPlayer>;
+
+const BOARD_PHASE_LIFELINES = QUIZ_LIFELINE_LIST.filter((def) => def.phase === "board");
+
+function armedTeamField(kind: QuizLifelineKey): keyof QuizRoom | null {
+  if (kind === "pit") return "pit_active_team";
+  if (kind === "double") return "double_active_team";
+  if (kind === "extraTurn") return "extra_turn_team";
+  return null;
+}
+
+function describeArmedBet(kind: QuizLifelineKey, isMine: boolean): string {
+  if (kind === "pit") return isMine ? "فعّلتم الحفرة — الإجابة الصحيحة تخصم من الخصم!" : "الخصم فعّل الحفرة";
+  if (kind === "double") return isMine ? "فعّلتم مضاعفة — إجابة صحيحة تُضاعف نقاطكم!" : "الخصم فعّل مضاعفة";
+  if (kind === "extraTurn") return isMine ? "فعّلتم دور إضافي — ستحتفظون بالدور!" : "الخصم فعّل دور إضافي";
+  return "";
+}
 
 /**
  * شاشة اللاعب بعد الانضمام.
@@ -22,7 +38,13 @@ export default function QuizPlayerState({ ctx }: { ctx: Ctx }) {
   const teamColor = me.team === 1 ? "sky" : "rose";
   const opponentScore = room ? (me.team === 1 ? room.t2_score : room.t1_score) : 0;
   const state = room?.game_state ?? "setup";
-  const pitIsMine = room?.pit_active_team === me.team;
+
+  const armedBets = room
+    ? BOARD_PHASE_LIFELINES.filter((def) => {
+        const field = armedTeamField(def.key);
+        return field && room[field] !== null;
+      })
+    : [];
 
   return (
     <section className="w-full max-w-md mx-auto flex flex-col gap-4">
@@ -135,10 +157,17 @@ export default function QuizPlayerState({ ctx }: { ctx: Ctx }) {
         <div className="flex flex-col gap-2">
           {room?.call_friend_active && (
             <div className="flex items-center gap-3 bg-emerald-500 text-white font-black rounded-2xl p-4 animate-pulse">
-              <PhoneCall size={24} className="shrink-0" />
+              <QUIZ_LIFELINE_ICONS.call size={24} className="shrink-0" />
               <span>
                 {QUIZ_LIFELINE_LABELS.call} — أُضيفت {QUIZ_CONFIG.CALL_FRIEND_BONUS} ثانية
               </span>
+            </div>
+          )}
+
+          {room?.audience_active && (
+            <div className="flex items-center gap-3 bg-fuchsia-500 text-white font-black rounded-2xl p-4 animate-pulse">
+              <QUIZ_LIFELINE_ICONS.audience size={24} className="shrink-0" />
+              <span>استشارة الجمهور — شاركوا برأيكم!</span>
             </div>
           )}
 
@@ -149,22 +178,26 @@ export default function QuizPlayerState({ ctx }: { ctx: Ctx }) {
             </div>
           )}
 
-          {room?.pit_active_team && (
-            <div
-              className={`flex items-center gap-3 font-black rounded-2xl p-4 ${
-                pitIsMine
-                  ? "bg-orange-500 text-white"
-                  : "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
-              }`}
-            >
-              <Shovel size={24} className="shrink-0" />
-              <span>
-                {pitIsMine
-                  ? `فعّلتم ${QUIZ_LIFELINE_LABELS.pit} — الإجابة الصحيحة تخصم من الخصم!`
-                  : `الخصم فعّل ${QUIZ_LIFELINE_LABELS.pit}`}
-              </span>
-            </div>
-          )}
+          {armedBets.map((def) => {
+            const field = armedTeamField(def.key);
+            const team = field && room ? (room[field] as QuizTeam | null) : null;
+            if (!team) return null;
+            const isMine = team === me.team;
+            const Icon = QUIZ_LIFELINE_ICONS[def.key];
+            return (
+              <div
+                key={def.key}
+                className={`flex items-center gap-3 font-black rounded-2xl p-4 ${
+                  isMine
+                    ? "bg-orange-500 text-white"
+                    : "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
+                }`}
+              >
+                <Icon size={24} className="shrink-0" />
+                <span>{describeArmedBet(def.key, isMine)}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 

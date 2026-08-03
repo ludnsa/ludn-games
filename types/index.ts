@@ -37,11 +37,17 @@ export type QuizPoints = 200 | 400 | 600;
 export type QuizTeam = 1 | 2;
 export type QuizGameState = "setup" | "board" | "question" | "answer" | "gameOver";
 
+/** مفاتيح وسائل المساعدة الستّ — التعريف الكامل لكل واحدة في constants/quiz-grid.ts */
+export type QuizLifelineKey = "call" | "pit" | "rest" | "double" | "extraTurn" | "audience";
+
 export interface QuizCategory {
   id: string;
   slug: string;
   name_ar: string;
   is_active: boolean;
+  /** مسار صورة الفئة في bucket التخزين الخاص، أو null إن لم تُرفع صورة */
+  image_path: string | null;
+  image_alt: string | null;
   created_at?: string;
 }
 
@@ -72,16 +78,26 @@ export interface QuizRoom {
   t1_score: number;
   t2_score: number;
   turn: QuizTeam;
-  t1_call_used: boolean;
-  t1_pit_used: boolean;
-  t1_rest_used: boolean;
-  t2_call_used: boolean;
-  t2_pit_used: boolean;
-  t2_rest_used: boolean;
+  /** الوسائل الثلاث التي اختارها كل فريق عند الإعداد (من أصل 6) */
+  t1_lifelines: QuizLifelineKey[];
+  t2_lifelines: QuizLifelineKey[];
+  /** الوسائل التي استُخدمت بالفعل — كل وسيلة تُستخدم مرة واحدة في المباراة */
+  t1_lifelines_used: QuizLifelineKey[];
+  t2_lifelines_used: QuizLifelineKey[];
   active_cell_id: string | null;
   is_question_revealed: boolean;
   call_friend_active: boolean;
   pit_active_team: QuizTeam | null;
+  /** الفريق الذي فعّل "مضاعفة" لهذا السؤال، إن وُجد */
+  double_active_team: QuizTeam | null;
+  /** الفريق الذي فعّل "دور إضافي" لهذا السؤال، إن وُجد */
+  extra_turn_team: QuizTeam | null;
+  /** هل "استشارة الجمهور" مُفعّلة الآن؟ إعلان فقط، بلا أثر على النقاط */
+  audience_active: boolean;
+  /**
+   * اللاعب الممنوع من الإجابة. يُفعَّل عبر "استريح" من الفريق المنتظر،
+   * ويستهدف لاعباً في الفريق صاحب الدور (المُجيب).
+   */
   rest_target_player_id: string | null;
   question_deadline_at: string | null;
   is_timer_running: boolean;

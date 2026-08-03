@@ -2,7 +2,7 @@
 
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { shuffleArray } from "@/lib/game/shuffle";
-import { QUIZ_CONFIG, QUIZ_GAME, quizTotalCells } from "@/constants/quiz-grid";
+import { QUIZ_CONFIG, QUIZ_GAME, QUIZ_LIFELINES, quizTotalCells } from "@/constants/quiz-grid";
 import {
   QuizJoinSchema,
   QuizLifelineSchema,
@@ -16,6 +16,7 @@ import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameA
 import type {
   QuizBoardCell,
   QuizCategory,
+  QuizLifelineKey,
   QuizPoints,
   QuizPreparedCell,
   QuizQuestion,
@@ -46,9 +47,9 @@ function fail(error: string): { success: false; error: string } {
 // أدوات مساعدة داخلية
 // ---------------------------------------------------------------------
 
-/** اسم عمود "تم استخدام الوسيلة" لفريق معيّن، مثل t1_pit_used */
-function lifelineColumn(team: QuizTeam, kind: "call" | "pit" | "rest") {
-  return `t${team}_${kind}_used` as keyof QuizRoom;
+/** اسم عمود مصفوفة معيّنة لفريق معيّن، مثل t1_lifelines أو t2_lifelines_used */
+function teamColumn(team: QuizTeam, suffix: "lifelines" | "lifelines_used") {
+  return `t${team}_${suffix}` as keyof QuizRoom;
 }
 
 function generateQuizRoomCode(): string {
@@ -140,9 +141,11 @@ export interface QuizCategoryOption extends QuizCategory {
   counts: Record<QuizPoints, number>;
   /** هل تملك الفئة 2 أسئلة على الأقل في كل فئة سعرية؟ */
   isPlayable: boolean;
+  /** رابط موقّع لصورة الفئة، أو null إن لم تُرفع صورة — الواجهة تعرض بطاقة متدرّجة اللون بدلاً منها */
+  image_url: string | null;
 }
 
-/** قائمة الفئات مع عدد الأسئلة في كل فئة سعرية، لشاشة الإعداد. */
+/** قائمة الفئات مع عدد الأسئلة في كل فئة سعرية وصورتها، لشاشة الإعداد. */
 export async function getQuizCategories(): Promise<ActionResult<QuizCategoryOption[]>> {
   const admin = getSupabaseServiceRole();
 
@@ -162,13 +165,24 @@ export async function getQuizCategories(): Promise<ActionResult<QuizCategoryOpti
     .select("category_id, points")
     .eq("is_active", true);
 
+  const signed = await signMedia(
+    admin,
+    (categories || []).map((c) => c.image_path as string | null)
+  );
+
   const options: QuizCategoryOption[] = (categories || []).map((c) => {
     const counts = { 200: 0, 400: 0, 600: 0 } as Record<QuizPoints, number>;
     questions?.forEach((q: { category_id: string; points: number }) => {
       if (q.category_id === c.id) counts[q.points as QuizPoints] += 1;
     });
     const isPlayable = QUIZ_CONFIG.TIERS.every((t) => counts[t] >= QUIZ_CONFIG.PER_TIER);
-    return { ...(c as QuizCategory), counts, isPlayable };
+    const typed = c as QuizCategory;
+    return {
+      ...typed,
+      counts,
+      isPlayable,
+      image_url: typed.image_path ? signed[typed.image_path] ?? null : null,
+    };
   });
 
   return { success: true, data: options };
@@ -512,14 +526,17 @@ export async function getQuizPreparedBoard(
 }
 
 /**
- * المرحلة الخفيفة: تكتب أسماء الفرق ومدة السؤال وتبدأ اللعب فعلياً،
- * ثم تحصّل رمز اللعبة. تتطلب لقطة أسئلة جاهزة من prepareQuizSession.
+ * المرحلة الخفيفة: تكتب أسماء الفرق، مدة السؤال، ووسائل المساعدة التي
+ * اختارها كل فريق (3 من أصل 6، ويجوز أن تختلف بين الفريقين)، ثم تبدأ
+ * اللعب فعلياً وتحصّل رمز اللعبة. تتطلب لقطة أسئلة جاهزة من prepareQuizSession.
  */
 export async function startQuizSession(input: {
   roomCode: string;
   t1Name: string;
   t2Name: string;
   timerSeconds: number;
+  t1Lifelines: QuizLifelineKey[];
+  t2Lifelines: QuizLifelineKey[];
 }): Promise<ActionResult> {
   const parsed = QuizStartSessionSchema.safeParse(input);
   if (!parsed.success) {
@@ -559,16 +576,17 @@ export async function startQuizSession(input: {
       t1_score: 0,
       t2_score: 0,
       turn: 1,
-      t1_call_used: false,
-      t1_pit_used: false,
-      t1_rest_used: false,
-      t2_call_used: false,
-      t2_pit_used: false,
-      t2_rest_used: false,
+      t1_lifelines: parsed.data.t1Lifelines,
+      t2_lifelines: parsed.data.t2Lifelines,
+      t1_lifelines_used: [],
+      t2_lifelines_used: [],
       active_cell_id: null,
       is_question_revealed: false,
       call_friend_active: false,
       pit_active_team: null,
+      double_active_team: null,
+      extra_turn_team: null,
+      audience_active: false,
       rest_target_player_id: null,
       question_deadline_at: null,
       is_timer_running: false,
@@ -628,6 +646,7 @@ export async function selectQuizCell(input: {
       question_deadline_at: deadline,
       is_timer_running: true,
       call_friend_active: false,
+      audience_active: false,
       rest_target_player_id: null,
     })
     .eq("room_code", ctx.roomCode);
@@ -754,16 +773,21 @@ export async function resolveQuizQuestion(input: {
   let t2Score = room.t2_score;
 
   if (awarded) {
+    // "مضاعفة": إجابة صحيحة من صاحبها تضاعف نقاط هذا السؤال فقط
+    const isDoubled = room.double_active_team === awarded;
+    const gain = isDoubled ? points * 2 : points;
+    // "الحفرة": إجابة صحيحة من صاحبها تخصم نفس قيمة السؤال (غير مضاعفة) من الخصم
     const usedPit = room.pit_active_team === awarded;
+
     if (awarded === 1) {
-      t1Score += points;
+      t1Score += gain;
       if (usedPit) t2Score -= points;
     } else {
-      t2Score += points;
+      t2Score += gain;
       if (usedPit) t1Score -= points;
     }
   }
-  // لا أحد أجاب، أو أخطأ صاحب "الحفرة" => لا تغيير في النقاط
+  // لا أحد أجاب، أو أخطأ صاحب رهان أعمى (الحفرة/مضاعفة/دور إضافي) => لا تغيير في النقاط
 
   await admin
     .from("quiz_session_questions")
@@ -779,17 +803,24 @@ export async function resolveQuizQuestion(input: {
   const isOver = (remaining || 0) === 0;
   const winner = t1Score === t2Score ? 0 : t1Score > t2Score ? 1 : 2;
 
+  // "دور إضافي": إجابة صحيحة من صاحبها تُبقي الدور له؛ غير ذلك ينتقل الدور كالمعتاد
+  const keepsTurn = awarded !== null && room.extra_turn_team === awarded;
+  const nextTurn = keepsTurn ? room.turn : room.turn === 1 ? 2 : 1;
+
   const { error } = await admin
     .from("quiz_rooms")
     .update({
       t1_score: t1Score,
       t2_score: t2Score,
-      turn: room.turn === 1 ? 2 : 1,
+      turn: nextTurn,
       game_state: isOver ? "gameOver" : "board",
       active_cell_id: null,
       is_question_revealed: false,
       call_friend_active: false,
       pit_active_team: null,
+      double_active_team: null,
+      extra_turn_team: null,
+      audience_active: false,
       rest_target_player_id: null,
       question_deadline_at: null,
       is_timer_running: false,
@@ -810,10 +841,19 @@ export async function resolveQuizQuestion(input: {
 // وسائل المساعدة — التوقيت مفروض هنا، لا في الواجهة
 // ---------------------------------------------------------------------
 
+/**
+ * تفعيل وسيلة مساعدة. القواعد الحاكمة (من يفعّل، ومتى) مصدرها سجل
+ * QUIZ_LIFELINES في constants/quiz-grid.ts — لا يوجد منطق توقيت هنا
+ * غير مرتبط بذلك السجل، حتى لا يتباعد تعريف القاعدة عن تطبيقها.
+ *
+ * ملاحظة على "استريح": نشاطها المعكوس (activator: "waiting") يعني أن
+ * الفريق الذي يستدعي الدالة هو الفريق **المنتظر**، لا صاحب الدور —
+ * فهو من يعطّل لاعباً في الفريق المُجيب.
+ */
 export async function activateQuizLifeline(input: {
   roomCode: string;
   team: QuizTeam;
-  kind: "call" | "pit" | "rest";
+  kind: QuizLifelineKey;
   targetPlayerId?: string | null;
 }): Promise<ActionResult> {
   const parsed = QuizLifelineSchema.safeParse(input);
@@ -824,56 +864,86 @@ export async function activateQuizLifeline(input: {
   const { admin, room } = ctx;
 
   const { team, kind, targetPlayerId } = parsed.data;
-  const usedColumn = lifelineColumn(team, kind);
+  const def = QUIZ_LIFELINES[kind];
 
-  if (room.turn !== team) {
-    return fail("وسائل المساعدة تُستخدم في دور الفريق نفسه فقط.");
+  const owned = room[teamColumn(team, "lifelines")] as QuizLifelineKey[];
+  const used = room[teamColumn(team, "lifelines_used")] as QuizLifelineKey[];
+  const opponent: QuizTeam = team === 1 ? 2 : 1;
+
+  if (!owned.includes(kind)) {
+    return fail("هذا الفريق لم يختر هذه الوسيلة عند الإعداد.");
   }
-
-  if (room[usedColumn] === true) {
+  if (used.includes(kind)) {
     return fail("تم استخدام وسيلة المساعدة هذه مسبقاً.");
   }
 
-  const patch: Record<string, unknown> = { [usedColumn]: true };
+  // من يملك حق التفعيل: صاحب الدور لمعظم الوسائل، والفريق المنتظر لـ"استريح"
+  const requiredActivator = def.activator === "waiting" ? opponent : room.turn;
+  if (team !== requiredActivator) {
+    return fail(
+      def.activator === "waiting"
+        ? "استريح يُفعّلها الفريق المنتظر فقط، ضد الفريق الذي يجيب الآن."
+        : "وسائل المساعدة تُستخدم في دور الفريق نفسه فقط."
+    );
+  }
+
+  // التوقيت: رهانات اللوحة تُعلن قبل عرض السؤال، ووسائل السؤال أثناء عرضه
+  if (def.phase === "board" && room.game_state !== "board") {
+    return fail(`${def.label} تُستخدم من شاشة اللوحة قبل عرض السؤال.`);
+  }
+  if (def.phase === "question" && room.game_state !== "question") {
+    return fail(`${def.label} تُستخدم أثناء عرض السؤال فقط.`);
+  }
+
+  const patch: Record<string, unknown> = {
+    [teamColumn(team, "lifelines_used")]: [...used, kind],
+  };
 
   if (kind === "pit") {
-    // "الحفرة" رهان أعمى: يجب أن يُعلن قبل عرض السؤال
-    if (room.game_state !== "board") {
-      return fail("الحفرة تُستخدم من شاشة اللوحة قبل عرض السؤال.");
-    }
     patch.pit_active_team = team;
-  } else {
-    if (room.game_state !== "question") {
-      return fail("هذه الوسيلة تُستخدم بعد عرض السؤال فقط.");
+  }
+
+  if (kind === "double") {
+    patch.double_active_team = team;
+  }
+
+  if (kind === "extraTurn") {
+    patch.extra_turn_team = team;
+  }
+
+  if (kind === "audience") {
+    patch.audience_active = true;
+  }
+
+  if (kind === "call") {
+    const current = room.question_deadline_at
+      ? new Date(room.question_deadline_at).getTime()
+      : Date.now();
+    const base = Math.max(current, Date.now());
+    patch.question_deadline_at = new Date(
+      base + QUIZ_CONFIG.CALL_FRIEND_BONUS * 1000
+    ).toISOString();
+    patch.call_friend_active = true;
+    patch.is_timer_running = true;
+  }
+
+  if (kind === "rest") {
+    if (!targetPlayerId) return fail("اختر لاعباً من الفريق المُجيب.");
+
+    const { data: target } = await admin
+      .from("quiz_session_players")
+      .select("id, team")
+      .eq("id", targetPlayerId)
+      .eq("room_code", ctx.roomCode)
+      .maybeSingle();
+
+    if (!target) return fail("اللاعب غير موجود في هذه الغرفة.");
+    // "استريح" يستهدف لاعباً في الفريق المُجيب (صاحب الدور)، لا فريق المُفعِّل نفسه
+    if (target.team !== room.turn) {
+      return fail("يجب اختيار لاعب من الفريق الذي يجيب الآن.");
     }
 
-    if (kind === "call") {
-      const current = room.question_deadline_at
-        ? new Date(room.question_deadline_at).getTime()
-        : Date.now();
-      const base = Math.max(current, Date.now());
-      patch.question_deadline_at = new Date(
-        base + QUIZ_CONFIG.CALL_FRIEND_BONUS * 1000
-      ).toISOString();
-      patch.call_friend_active = true;
-      patch.is_timer_running = true;
-    }
-
-    if (kind === "rest") {
-      if (!targetPlayerId) return fail("اختر لاعباً من الفريق الخصم.");
-
-      const { data: target } = await admin
-        .from("quiz_session_players")
-        .select("id, team")
-        .eq("id", targetPlayerId)
-        .eq("room_code", ctx.roomCode)
-        .maybeSingle();
-
-      if (!target) return fail("اللاعب غير موجود في هذه الغرفة.");
-      if (target.team === team) return fail("يجب اختيار لاعب من الفريق الخصم.");
-
-      patch.rest_target_player_id = targetPlayerId;
-    }
+    patch.rest_target_player_id = targetPlayerId;
   }
 
   const { error } = await admin.from("quiz_rooms").update(patch).eq("room_code", ctx.roomCode);

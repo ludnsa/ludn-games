@@ -1,8 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 import React, { useState } from "react";
-import { PhoneCall, Armchair, Eye, Shovel, ImageOff, X } from "lucide-react";
-import { QUIZ_CONFIG, QUIZ_LIFELINE_LABELS, quizTimerDangerAt } from "@/constants/quiz-grid";
+import { Armchair, Eye, ImageOff, X } from "lucide-react";
+import { QUIZ_CONFIG, QUIZ_LIFELINE_LIST, quizTimerDangerAt } from "@/constants/quiz-grid";
+import { QUIZ_LIFELINE_ICONS } from "@/components/games/quiz-grid/shared/quizLifelineIcons";
+import type { QuizLifelineKey, QuizRoom } from "@/types";
 import type { useQuizHost } from "@/hooks/games/quiz-grid/useQuizHost";
 
 type Ctx = ReturnType<typeof useQuizHost>;
@@ -45,10 +47,25 @@ function Timer({ seconds, totalSeconds }: { seconds: number; totalSeconds: numbe
   );
 }
 
+// رهانات اللوحة (الحفرة، مضاعفة، دور إضافي) تظل مُعلَنة أثناء عرض السؤال أيضاً — نعرضها كشارات هنا
+const BOARD_PHASE_LIFELINES = QUIZ_LIFELINE_LIST.filter((def) => def.phase === "board");
+// وسائل تُستخدم أثناء عرض السؤال ويفعّلها الفريق صاحب الدور (اتصال بصديق، استشارة الجمهور)
+const ACTIVE_QUESTION_LIFELINES = QUIZ_LIFELINE_LIST.filter(
+  (def) => def.phase === "question" && def.activator === "active"
+);
+
+function armedTeamField(kind: QuizLifelineKey): keyof QuizRoom | null {
+  if (kind === "pit") return "pit_active_team";
+  if (kind === "double") return "double_active_team";
+  if (kind === "extraTurn") return "extra_turn_team";
+  return null;
+}
+
 export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
   const {
     room, activeQuestion, remaining, reveal, isBusy,
-    activateLifeline, isLifelineUsed, opposingPlayers,
+    activateLifeline, isLifelineOwned, isLifelineUsed,
+    waitingTeam, answeringTeamPlayers,
     restPickerOpen, setRestPickerOpen, restTargetName,
   } = ctx;
 
@@ -56,9 +73,14 @@ export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
 
   if (!room || !activeQuestion) return null;
 
-  const callUsed = isLifelineUsed(room.turn, "call");
-  const restUsed = isLifelineUsed(room.turn, "rest");
-  const pitArmed = room.pit_active_team === room.turn;
+  const armedBoardBets = BOARD_PHASE_LIFELINES.filter((def) => {
+    const field = armedTeamField(def.key);
+    return field && room[field] === room.turn;
+  });
+
+  const waitingTeamName = waitingTeam === 1 ? room.t1_name : room.t2_name;
+  const restOwnedByWaitingTeam = waitingTeam !== null && isLifelineOwned(waitingTeam, "rest");
+  const restUsedByWaitingTeam = waitingTeam !== null && isLifelineUsed(waitingTeam, "rest");
 
   return (
     <section className="w-full max-w-5xl mx-auto flex flex-col gap-5 animate-in fade-in duration-300">
@@ -69,16 +91,30 @@ export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
         <span className="px-4 py-2 rounded-xl bg-slate-800 dark:bg-white text-white dark:text-slate-900 font-black text-base md:text-xl">
           {activeQuestion.points} نقطة
         </span>
-        {pitArmed && (
-          <span className="px-4 py-2 rounded-xl bg-orange-500 text-white font-black text-base md:text-xl flex items-center gap-2">
-            <Shovel size={20} /> {QUIZ_LIFELINE_LABELS.pit} مُفعّلة
-          </span>
-        )}
+        {armedBoardBets.map((def) => {
+          const Icon = QUIZ_LIFELINE_ICONS[def.key];
+          return (
+            <span
+              key={def.key}
+              className="px-4 py-2 rounded-xl bg-orange-500 text-white font-black text-base md:text-xl flex items-center gap-2"
+            >
+              <Icon size={20} /> {def.label} مُفعّلة
+            </span>
+          );
+        })}
       </div>
 
       {room.call_friend_active && (
         <div className="flex items-center justify-center gap-3 bg-emerald-500 text-white font-black text-lg md:text-2xl rounded-2xl py-4 px-6 animate-pulse">
-          <PhoneCall size={28} /> جاري الاتصال بصديق — أُضيفت {QUIZ_CONFIG.CALL_FRIEND_BONUS} ثانية
+          {React.createElement(QUIZ_LIFELINE_ICONS.call, { size: 28 })}
+          جاري الاتصال بصديق — أُضيفت {QUIZ_CONFIG.CALL_FRIEND_BONUS} ثانية
+        </div>
+      )}
+
+      {room.audience_active && (
+        <div className="flex items-center justify-center gap-3 bg-fuchsia-500 text-white font-black text-lg md:text-2xl rounded-2xl py-4 px-6 animate-pulse">
+          {React.createElement(QUIZ_LIFELINE_ICONS.audience, { size: 28 })}
+          استشارة الجمهور — شاركونا آراءكم!
         </div>
       )}
 
@@ -114,23 +150,39 @@ export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
-        <button
-          onClick={() => activateLifeline("call")}
-          disabled={callUsed || room.call_friend_active || isBusy}
-          className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-4 px-4 rounded-2xl border-b-4 border-emerald-700 active:border-b-0 active:translate-y-[4px] disabled:active:translate-y-0 disabled:active:border-b-4 transition-all"
-        >
-          <PhoneCall size={22} />
-          {callUsed ? `${QUIZ_LIFELINE_LABELS.call} (استُخدمت)` : `${QUIZ_LIFELINE_LABELS.call} +${QUIZ_CONFIG.CALL_FRIEND_BONUS}ث`}
-        </button>
+        {ACTIVE_QUESTION_LIFELINES.filter((def) => isLifelineOwned(room.turn, def.key)).map((def) => {
+          const Icon = QUIZ_LIFELINE_ICONS[def.key];
+          const used = isLifelineUsed(room.turn, def.key);
+          const alreadyActive = def.key === "call" ? room.call_friend_active : room.audience_active;
 
-        <button
-          onClick={() => activateLifeline("rest")}
-          disabled={restUsed || Boolean(restTargetName) || isBusy}
-          className="flex-1 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-4 px-4 rounded-2xl border-b-4 border-amber-700 active:border-b-0 active:translate-y-[4px] disabled:active:translate-y-0 disabled:active:border-b-4 transition-all"
-        >
-          <Armchair size={22} />
-          {restUsed ? `${QUIZ_LIFELINE_LABELS.rest} (استُخدمت)` : QUIZ_LIFELINE_LABELS.rest}
-        </button>
+          return (
+            <button
+              key={def.key}
+              onClick={() => activateLifeline(def.key)}
+              disabled={used || alreadyActive || isBusy}
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-4 px-4 rounded-2xl border-b-4 border-emerald-700 active:border-b-0 active:translate-y-[4px] disabled:active:translate-y-0 disabled:active:border-b-4 transition-all"
+            >
+              <Icon size={22} />
+              {used
+                ? `${def.label} — استُخدمت`
+                : def.key === "call"
+                  ? `${def.label} +${QUIZ_CONFIG.CALL_FRIEND_BONUS}ث`
+                  : def.label}
+            </button>
+          );
+        })}
+
+        {restOwnedByWaitingTeam && (
+          <button
+            onClick={() => activateLifeline("rest")}
+            disabled={restUsedByWaitingTeam || Boolean(restTargetName) || isBusy}
+            title={`استريح يُفعّلها ${waitingTeamName} ضد الفريق الذي يجيب الآن`}
+            className="flex-1 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black py-4 px-4 rounded-2xl border-b-4 border-amber-700 active:border-b-0 active:translate-y-[4px] disabled:active:translate-y-0 disabled:active:border-b-4 transition-all"
+          >
+            <Armchair size={22} />
+            {restUsedByWaitingTeam ? "استريح — استُخدمت" : `استريح — ${waitingTeamName}`}
+          </button>
+        )}
 
         <button
           onClick={reveal}
@@ -141,13 +193,13 @@ export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
         </button>
       </div>
 
-      {/* اختيار اللاعب الممنوع من الإجابة */}
+      {/* اختيار اللاعب الممنوع من الإجابة — من الفريق الذي يجيب الآن، يختاره الفريق المنتظر */}
       {restPickerOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 border-4 border-amber-500 p-6 md:p-8 rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between gap-3 mb-5">
               <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">
-                من يستريح من الفريق الخصم؟
+                من يستريح من {room.turn === 1 ? room.t1_name : room.t2_name}؟
               </h2>
               <button
                 onClick={() => setRestPickerOpen(false)}
@@ -159,7 +211,7 @@ export default function QuizQuestionState({ ctx }: { ctx: Ctx }) {
             </div>
 
             <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
-              {opposingPlayers.map((player) => (
+              {answeringTeamPlayers.map((player) => (
                 <button
                   key={player.id}
                   onClick={() => activateLifeline("rest", player.id)}
