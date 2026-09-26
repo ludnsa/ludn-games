@@ -82,3 +82,42 @@ export const QuizJoinSchema = z.object({
   displayName: z.string().trim().min(2, "الاسم قصير جداً").max(20, "الاسم طويل جداً"),
   team: z.union([z.literal(1), z.literal(2)]),
 });
+
+// ---------------------------------------------------------------
+// مخططات لعبة المافيا
+// ---------------------------------------------------------------
+
+export const MafiaRoomCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^M[A-Z0-9]{4}$/, "رمز الغرفة غير صحيح");
+
+export const MafiaTokenSchema = z.string().trim().min(20, "مفتاح اللاعب غير صحيح").max(100);
+
+export const MafiaNameSchema = z
+  .string()
+  .trim()
+  .min(2, "الاسم قصير جداً")
+  .max(16, "الاسم طويل جداً");
+
+export const MafiaSettingsSchema = z.object({
+  maxPlayers: z.number().int().min(7, "أقل عدد 7 لاعبين").max(20, "أكثر عدد 20 لاعب"),
+  mafiaCount: z.number().int().min(2, "أقل عدد للمافيا 2").max(9),
+  optionalRoles: z.array(z.enum(["magician", "journalist", "soldier", "suicide"])).max(4),
+});
+
+export const MafiaCreateSchema = z.object({
+  displayName: MafiaNameSchema,
+  settings: MafiaSettingsSchema,
+});
+
+export const MafiaJoinSchema = z.object({
+  roomCode: MafiaRoomCodeSchema,
+  displayName: MafiaNameSchema,
+});
+
+export const MafiaSessionSchema = z.object({
+  roomCode: MafiaRoomCodeSchema,
+  token: MafiaTokenSchema,
+});

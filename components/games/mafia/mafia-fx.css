@@ -1,0 +1,290 @@
+/* حركات لعبة المافيا — كل الأسماء تبدأ بـ mfx- حتى ما تتعارض مع باقي الموقع */
+
+/* غلاف كل حركة: ظاهر طول المدة ويختفي تدريجياً في آخرها */
+.mfx-scene {
+  position: absolute;
+  inset: 0;
+  animation: mfx-scene-out linear both;
+}
+@keyframes mfx-scene-out {
+  0%, 82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- الدم ---------- */
+.mfx-blood-top {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 14px;
+  background: linear-gradient(to bottom, #3b0000, #8b0000);
+  animation: mfx-fade-in 0.4s ease-out both;
+}
+.mfx-drip {
+  position: absolute;
+  top: 8px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(to bottom, #8b0000 0%, #b00000 70%, #d10000 100%);
+  box-shadow: inset -2px 0 3px rgba(0, 0, 0, 0.35);
+  transform-origin: top;
+  animation-name: mfx-drip;
+  animation-timing-function: cubic-bezier(0.55, 0, 0.8, 0.6);
+  animation-fill-mode: both;
+}
+.mfx-drip::after {
+  content: "";
+  position: absolute;
+  bottom: -40%;
+  left: 50%;
+  width: 160%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: #d10000;
+}
+@keyframes mfx-drip {
+  0% { height: 0; opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0.85; }
+}
+
+/* ---------- الوميض والظلام ---------- */
+.mfx-flash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: mfx-flash 0.45s ease-out both;
+}
+.mfx-flash-red { background: radial-gradient(circle at center, rgba(220, 0, 0, 0.25), rgba(140, 0, 0, 0.75)); }
+.mfx-flash-white { background: rgba(255, 255, 255, 0.9); }
+@keyframes mfx-flash {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.mfx-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(0, 0, 0, 0.85) 100%);
+  animation-name: mfx-vignette;
+  animation-fill-mode: both;
+}
+.mfx-vignette-red {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(160, 0, 0, 0.6) 100%);
+  animation-name: mfx-vignette-pulse;
+}
+@keyframes mfx-vignette {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes mfx-vignette-pulse {
+  0%, 100% { opacity: 0; }
+  20%, 60% { opacity: 1; }
+  40%, 80% { opacity: 0.5; }
+}
+
+@keyframes mfx-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---------- ضربة السيف ---------- */
+.mfx-slash {
+  position: absolute;
+  top: 50%;
+  left: -20%;
+  width: 140%;
+  height: 6px;
+  background: linear-gradient(90deg, transparent, #fff 40%, #ff2a2a 60%, transparent);
+  box-shadow: 0 0 25px 6px rgba(255, 40, 40, 0.8);
+  transform: rotate(-25deg) scaleX(0);
+  transform-origin: right;
+  animation: mfx-slash 0.5s ease-out both;
+}
+@keyframes mfx-slash {
+  0% { transform: rotate(-25deg) scaleX(0); opacity: 1; }
+  40% { transform: rotate(-25deg) scaleX(1); opacity: 1; }
+  100% { transform: rotate(-25deg) scaleX(1); opacity: 0; }
+}
+
+/* ---------- البرق ---------- */
+.mfx-bolt {
+  position: absolute;
+  top: 0;
+  width: 90px;
+  height: 60%;
+  opacity: 0;
+  filter: drop-shadow(0 0 12px #fff) drop-shadow(0 0 30px #ff3b3b);
+  animation: mfx-bolt 0.5s ease-out both;
+}
+@keyframes mfx-bolt {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  25% { opacity: 0.2; }
+  35% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- الجزيئات (حماية، سحر، فوز) ---------- */
+.mfx-particle {
+  position: absolute;
+  bottom: -20px;
+  border-radius: 999px;
+  animation-name: mfx-rise;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+@keyframes mfx-rise {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-85vh) scale(1.2); opacity: 0; }
+}
+
+.mfx-swirl {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 999px;
+  animation-name: mfx-swirl;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+@keyframes mfx-swirl {
+  0% { transform: translate(-50%, -50%) rotate(0deg) translateX(0) scale(0); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(540deg) translateX(40vmin) scale(1); opacity: 0; }
+}
+
+.mfx-confetti {
+  position: absolute;
+  top: -20px;
+  width: 10px;
+  height: 16px;
+  border-radius: 2px;
+  animation-name: mfx-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes mfx-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.8; }
+}
+
+/* ---------- درع النور ---------- */
+.mfx-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60vmin;
+  height: 60vmin;
+  border-radius: 999px;
+  border: 6px solid rgba(255, 215, 90, 0.9);
+  box-shadow: 0 0 60px 20px rgba(255, 200, 60, 0.5), inset 0 0 60px 10px rgba(255, 220, 120, 0.4);
+  animation: mfx-ring 1.2s ease-out both;
+}
+@keyframes mfx-ring {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+}
+
+.mfx-big-emoji {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  font-size: 9rem;
+  line-height: 1;
+  animation-name: mfx-pop;
+  animation-fill-mode: both;
+  filter: drop-shadow(0 0 30px rgba(0, 0, 0, 0.6));
+}
+@keyframes mfx-pop {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  15% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  25% { transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.3); opacity: 0; }
+}
+
+/* ---------- الانفجار ---------- */
+.mfx-smoke {
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 140, 0, 0.9), rgba(120, 60, 20, 0.6) 40%, rgba(60, 60, 60, 0) 70%);
+  animation-name: mfx-smoke;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+@keyframes mfx-smoke {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
+}
+
+/* ---------- أجواء الليل (ثابتة طول الليل) ---------- */
+.mfx-fog {
+  position: absolute;
+  inset: auto -50% 0 -50%;
+  height: 45%;
+  background: radial-gradient(ellipse at 30% 80%, rgba(148, 163, 184, 0.16), transparent 60%),
+    radial-gradient(ellipse at 70% 90%, rgba(148, 163, 184, 0.12), transparent 55%);
+  animation: mfx-fog 22s ease-in-out infinite alternate;
+}
+.mfx-fog-2 {
+  animation-duration: 31s;
+  animation-direction: alternate-reverse;
+  opacity: 0.8;
+}
+@keyframes mfx-fog {
+  from { transform: translateX(-12%); }
+  to { transform: translateX(12%); }
+}
+.mfx-moon {
+  position: absolute;
+  top: 20%;
+  left: 8%;
+  width: 70px;
+  height: 70px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, #fefce8, #e2e8f0 60%, #94a3b8);
+  box-shadow: 0 0 60px 15px rgba(226, 232, 240, 0.25);
+  animation: mfx-fade-in 2s ease-out both;
+}
+.mfx-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: #fff;
+  animation: mfx-twinkle ease-in-out infinite;
+}
+@keyframes mfx-twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+
+/* ---------- الأشباح (للموتى) ---------- */
+.mfx-ghost {
+  display: inline-block;
+  animation: mfx-float 3s ease-in-out infinite;
+}
+@keyframes mfx-float {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-10px) rotate(6deg); }
+}
+
+/* ---------- كشف الدور: البطاقة تنقلب ---------- */
+.mfx-flip-in {
+  animation: mfx-flip-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1.2) both;
+}
+@keyframes mfx-flip-in {
+  0% { transform: perspective(900px) rotateY(90deg) scale(0.8); opacity: 0; }
+  100% { transform: perspective(900px) rotateY(0) scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mfx-fog, .mfx-star { animation: none; }
+}

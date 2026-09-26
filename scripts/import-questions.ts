@@ -139,11 +139,15 @@ interface PreparedImage {
 }
 
 // sharp تُحمَّل عند الحاجة فقط — استيراد ملف بلا صور لا يشغّل libvips إطلاقاً
-type SharpFactory = (typeof import("sharp"))["default"];
+// sharp تصدّر بـ `export =`، فالاستيراد الديناميكي يرجع الدالة إما في default أو مباشرة
+type SharpFactory = typeof import("sharp");
 let sharpFactory: SharpFactory | null = null;
 
 async function getSharp(): Promise<SharpFactory> {
-  if (!sharpFactory) sharpFactory = (await import("sharp")).default;
+  if (!sharpFactory) {
+    const mod = (await import("sharp")) as unknown as SharpFactory & { default?: SharpFactory };
+    sharpFactory = mod.default ?? mod;
+  }
   return sharpFactory;
 }
 

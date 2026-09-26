@@ -160,3 +160,101 @@ export interface QuizSessionPlayer {
   team: QuizTeam;
   joined_at?: string;
 }
+// ---------------------------------------------------------------
+// لعبة المافيا
+// الأدوار نفسها ما تنحفظ في أي نوع عام يُبث للأجهزة — شوف
+// supabase/migrations/0004_mafia.sql و actions/mafia.ts
+// ---------------------------------------------------------------
+
+export type MafiaRole =
+  | "mafia"
+  | "detective"
+  | "doctor"
+  | "citizen"
+  | "magician"
+  | "journalist"
+  | "soldier"
+  | "suicide";
+
+export type MafiaOptionalRole = "magician" | "journalist" | "soldier" | "suicide";
+
+export type MafiaNightStep = "doctor" | "mafia" | "detective" | "magician" | "journalist" | "suicide";
+
+export type MafiaPhase =
+  | "lobby"
+  | "reveal"
+  | "night_act"
+  | "night_done"
+  | "morning"
+  | "discussion"
+  | "voting"
+  | "vote_result"
+  | "ended";
+
+export type MafiaTeam = "mafia" | "town";
+
+export interface MafiaSettings {
+  maxPlayers: number;
+  mafiaCount: number;
+  optionalRoles: MafiaOptionalRole[];
+}
+
+export type MafiaAnnouncementKind =
+  | "kill"
+  | "saved"
+  | "soldier"
+  | "quiet"
+  | "bomb"
+  | "investigate_hit"
+  | "investigate_miss"
+  | "investigate_none"
+  | "magic"
+  | "journalist";
+
+export interface MafiaAnnouncement {
+  kind: MafiaAnnouncementKind;
+  emoji: string;
+  text: string;
+}
+
+export interface MafiaVoteResult {
+  eliminatedId: string | null;
+  reason: "player" | "skip" | "tie" | "none";
+}
+
+export interface MafiaFinalRole {
+  playerId: string;
+  role: MafiaRole;
+  originalRole: MafiaRole;
+}
+
+export interface MafiaRoom {
+  room_code: string;
+  host_user_id: string;
+  host_player_id: string | null;
+  phase: MafiaPhase;
+  night_step: MafiaNightStep | null;
+  night_number: number;
+  phase_seq: number;
+  phase_ends_at: string | null;
+  settings: MafiaSettings;
+  announcements: MafiaAnnouncement[];
+  vote_counts: Record<string, number>;
+  /** التصويت مكشوف: لكل هدف (أو "skip") قائمة معرّفات اللي صوّتوا عليه */
+  vote_voters?: Record<string, string[]>;
+  vote_result: MafiaVoteResult | null;
+  winner: MafiaTeam | null;
+  final_roles: MafiaFinalRole[] | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MafiaPlayer {
+  id: string;
+  room_code: string;
+  display_name: string;
+  seat: number;
+  is_alive: boolean;
+  is_bot: boolean;
+  joined_at?: string;
+}
