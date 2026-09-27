@@ -13,6 +13,8 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [editing, setEditing] = useState(false);
+  // الطرد يحتاج ضغطتين: الأولى تسأل "طرد؟"، والثانية تطرد
+  const [kickArmed, setKickArmed] = useState<string | null>(null);
 
   if (!room) return null;
   const max = room.settings.maxPlayers;
@@ -80,15 +82,27 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
               }`}
             >
               {p.id === room.host_player_id && <Crown size={16} className="text-amber-400 shrink-0" />}
-              <span className="truncate flex-1">{p.display_name}</span>
+              <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}</span>
               {isHost && p.id !== room.host_player_id && (
                 <button
                   type="button"
-                  onClick={() => host.kick(p.id)}
-                  aria-label={`طرد ${p.display_name}`}
-                  className="text-slate-500 hover:text-red-400 shrink-0"
+                  onClick={async () => {
+                    if (kickArmed !== p.id) {
+                      setKickArmed(p.id);
+                      return;
+                    }
+                    setKickArmed(null);
+                    await host.kick(p.id);
+                  }}
+                  onBlur={() => setKickArmed((cur) => (cur === p.id ? null : cur))}
+                  aria-label={kickArmed === p.id ? `تأكيد طرد ${p.display_name}` : `طرد ${p.display_name}`}
+                  className={`shrink-0 h-9 rounded-xl flex items-center justify-center transition-all ${
+                    kickArmed === p.id
+                      ? "px-2.5 bg-red-600 text-white text-xs font-black animate-pulse"
+                      : "w-9 bg-slate-900/60 text-slate-400 hover:text-red-400"
+                  }`}
                 >
-                  <X size={16} />
+                  {kickArmed === p.id ? "طرد؟" : <X size={18} />}
                 </button>
               )}
             </li>

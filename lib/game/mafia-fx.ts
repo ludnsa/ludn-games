@@ -30,7 +30,13 @@ export type MafiaFxKind =
   /** خروج بالتصويت: ظلام + ضربة مطرقة */
   | "doom"
   | "win_town"
-  | "win_mafia";
+  | "win_mafia"
+  /** على شاشة الضحية بس: "المافيا ذبحوك" */
+  | "victim"
+  /** على شاشة اللي حاولوا يذبحونه ونجا: "فكك الله" */
+  | "escaped"
+  /** على شاشة هدف الانتحاري بس: "الانتحاري أخذك معه" */
+  | "victim_bomb";
 
 export interface MafiaFxEvent {
   id: number;
@@ -51,10 +57,13 @@ export function subscribeMafiaFx(listener: Listener) {
   };
 }
 
-/** يشغّل الصوت والحركة المرتبطة فيه بنفس اللحظة */
-export function cueMafia(sound: MafiaSound, fx?: MafiaFxKind) {
+/**
+ * يشغّل الصوت والحركة المرتبطة فيه بنفس اللحظة.
+ * silent: الحركة بس بدون صوت — لأفعال سرية (مثل المحقق) عشان جواله ما يفضحه.
+ */
+export function cueMafia(sound: MafiaSound, fx?: MafiaFxKind, opts: { silent?: boolean } = {}) {
   const timing = getMafiaSoundTiming(sound);
-  playMafiaSound(sound);
+  if (!opts.silent) playMafiaSound(sound);
   if (!fx) return;
   const event: MafiaFxEvent = { id: nextId++, kind: fx, duration: timing.duration, peaks: timing.peaks };
   listeners.forEach((l) => l(event));

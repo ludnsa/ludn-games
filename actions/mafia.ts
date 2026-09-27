@@ -18,6 +18,7 @@ import {
   countVotes,
   groupVoters,
   mafiaDeadline,
+  mafiaKillOutcome,
   mafiaLeaderId,
   mafiaNightSteps,
   pickRandom,
@@ -396,6 +397,13 @@ export interface MafiaTask {
 
 export interface MafiaMyView {
   serverNow: number;
+  /** رقم المرحلة وقت ما انحسبت هذي الحالة — الجهاز يربط فيه المؤثرات بالمرحلة الصحيحة */
+  phaseSeq: number;
+  /**
+   * مصيري من المافيا الليلة — يوصلني أنا بس لحظة "تم الاغتيال":
+   * killed = انذبحت، escaped = حاولوا بس الدكتور أو درع الجندي أنقذني
+   */
+  nightFate: "killed" | "escaped" | null;
   me: {
     id: string;
     name: string;
@@ -424,6 +432,8 @@ export async function getMafiaMyView(input: {
   const role = room.phase === "lobby" ? null : secret.role;
   const view: MafiaMyView = {
     serverNow: Date.now(),
+    phaseSeq: room.phase_seq,
+    nightFate: null,
     me: {
       id: player.id,
       name: player.display_name,
@@ -453,6 +463,30 @@ export async function getMafiaMyView(input: {
 
     if (room.phase === "night_act" && room.night_step && player.is_alive) {
       view.task = await buildTask(admin, room, room.night_step, engine, player.id);
+    }
+  }
+
+  // لحظة "تم الاغتيال": الدكتور قبل المافيا، فمصير الضحية معروف الحين
+  if (room.phase === "night_done" && room.night_step === "mafia" && player.is_alive) {
+    const [{ engine }, { data: acts }] = await Promise.all([
+      loadEngine(admin, room.room_code),
+      admin
+        .from("mafia_actions")
+        .select("step, actor_id, target_id")
+        .eq("room_code", room.room_code)
+        .eq("night", room.night_number)
+        .in("step", ["doctor", "mafia"]),
+    ]);
+    const outcome = mafiaKillOutcome(
+      engine,
+      ((acts as Pick<ActionRow, "step" | "actor_id" | "target_id">[]) ?? []).map((a) => ({
+        step: a.step,
+        actorId: a.actor_id,
+        targetId: a.target_id,
+      }))
+    );
+    if (outcome.victimId === player.id && outcome.fate) {
+      view.nightFate = outcome.fate === "killed" ? "killed" : "escaped";
     }
   }
 
@@ -1068,14 +1102,40 @@ export async function endMafiaGameNow(roomCode: string): Promise<ActionResult> {
   return { success: true };
 }
 
+/**
+ * طرد لاعب — في أي وقت، حتى وسط اللعبة، عشان محد يخرب.
+ * نحذف اللاعب كامل: دوره وأفعاله وصوته تنحذف معه (on delete cascade)،
+ * ومفتاحه يبطل فجهازه يطلع من الغرفة تلقائياً وما يقدر يرجع لين تخلص الجولة.
+ * لو كان مافيا أو آخر مواطن، الفوز ينحسب في نهاية الصباح أو التصويت الجاي.
+ */
 export async function kickMafiaPlayer(input: { roomCode: string; playerId: string }): Promise<ActionResult> {
   const ctx = await requireHost(input.roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
-  if (room.phase !== "lobby") return fail("ما تقدر تطرد أحد بعد بداية اللعبة.");
   if (input.playerId === room.host_player_id) return fail("ما تقدر تطرد نفسك 😅");
 
-  await admin.from("mafia_players").delete().eq("id", input.playerId).eq("room_code", room.room_code);
+  const { data: removed, error } = await admin
+    .from("mafia_players")
+    .delete()
+    .eq("id", input.playerId)
+    .eq("room_code", room.room_code)
+    .select("id");
+  if (error) {
+    console.error("kickMafiaPlayer error:", error);
+    return fail("تعذّر طرد اللاعب.");
+  }
+  if (!removed || removed.length === 0) return fail("اللاعب مو موجود في الغرفة.");
+
+  // صوته انحذف — نحدّث العداد ومين صوّت على مين
+  if (room.phase === "voting") {
+    const counts = await recountVotes(admin, room);
+    await admin
+      .from("mafia_rooms")
+      .update({ vote_counts: counts })
+      .eq("room_code", room.room_code)
+      .eq("phase_seq", room.phase_seq);
+  }
+
   return { success: true };
 }
 

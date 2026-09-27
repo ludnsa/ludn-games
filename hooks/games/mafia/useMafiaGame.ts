@@ -82,7 +82,7 @@ export function mafiaMorningSchedule(announcements: MafiaAnnouncement[]): number
  * الحالة العامة (المرحلة، المؤقت، مين حي، عدد الأصوات) تجي من البث اللحظي.
  * الحالة الخاصة (دوري، مهمتي، نتيجة تحقيقي) تجي من getMafiaMyView فقط.
  */
-export function useMafiaGame(session: MafiaSession | null, onSessionLost: () => void) {
+export function useMafiaGame(session: MafiaSession | null, onSessionLost: (notice?: string) => void) {
   const supabase = useMemo(() => getSupabaseBrowser(), []);
   const roomCode = session?.roomCode ?? "";
   const token = session?.token ?? "";
@@ -123,7 +123,9 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: () => 
     const sentAt = Date.now();
     const res = await getMafiaMyView({ roomCode, token });
     if (!res.success) {
-      if (res.error.includes("انتهت جلستك") || res.error.includes("غير موجودة")) onLostRef.current();
+      if (res.error.includes("انتهت جلستك") || res.error.includes("غير موجودة")) {
+        onLostRef.current("🚫 طلعت من الغرفة — المنشئ طردك أو انتهت الغرفة.");
+      }
       return;
     }
     const roundTrip = Date.now() - sentAt;
@@ -232,6 +234,15 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: () => 
   // المؤثرات الصوتية
   // -------------------------------------------------------------------
 
+  // معرّفي بدون ما يعيد تشغيل مؤثرات المرحلة كل ما تحدّثت حالتي الخاصة
+  const meIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    meIdRef.current = view?.me.id ?? null;
+  }, [view?.me.id]);
+
+  // "تم الاغتيال": ننتظر حالتي الخاصة (هل أنا الضحية؟) قبل ما نشغّل الحركة
+  const pendingKillSeq = useRef<number | null>(null);
+
   const soundSeq = useRef(-1);
   useEffect(() => {
     if (!room || room.phase_seq === soundSeq.current) return;
@@ -250,13 +261,29 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: () => 
         if (room.night_step === mafiaNightSteps(room.settings)[0]) playMafiaSound("owl");
         break;
       case "night_done":
-        if (room.night_step) cueMafia(...STEP_DONE_CUE[room.night_step]);
+        if (room.night_step === "mafia") {
+          // الحركة تنحدد لما توصل حالتي (شوف التأثير اللي تحت)، ولو تأخرت نشغّل العادية
+          pendingKillSeq.current = room.phase_seq;
+          const seqAtStart = room.phase_seq;
+          timers.push(
+            setTimeout(() => {
+              if (pendingKillSeq.current !== seqAtStart) return;
+              pendingKillSeq.current = null;
+              cueMafia(...STEP_DONE_CUE.mafia);
+            }, 1500)
+          );
+        } else if (room.night_step) {
+          cueMafia(...STEP_DONE_CUE[room.night_step]);
+        }
         break;
       case "morning": {
         playMafiaSound("rooster");
         const schedule = mafiaMorningSchedule(room.announcements);
         room.announcements.forEach((a, i) => {
-          const cue = ANNOUNCEMENT_CUE[a.kind];
+          // ضحية الذبح شافت حركتها بالليل؛ هدف الانتحاري يشوف حركته الخاصة هنا
+          const mine = Boolean(a.targetId && a.targetId === meIdRef.current);
+          const cue: Cue | undefined =
+            mine && a.kind === "bomb" ? ["bomb", "victim_bomb"] : ANNOUNCEMENT_CUE[a.kind];
           if (cue) timers.push(setTimeout(() => cueMafia(...cue), schedule[i]));
         });
         break;
@@ -280,6 +307,16 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: () => 
     }
     return () => timers.forEach(clearTimeout);
   }, [room]);
+
+  // وصلت حالتي بعد "تم الاغتيال": الضحية تشوف "المافيا ذبحوك"، واللي نجا يشوف "فكك الله".
+  // الصوت نفسه عند الكل، عشان محد يعرف مين الضحية من صوت جواله.
+  useEffect(() => {
+    if (!view || pendingKillSeq.current === null || view.phaseSeq !== pendingKillSeq.current) return;
+    pendingKillSeq.current = null;
+    if (view.nightFate === "killed") cueMafia("horror", "victim");
+    else if (view.nightFate === "escaped") cueMafia("horror", "escaped");
+    else cueMafia(...STEP_DONE_CUE.mafia);
+  }, [view]);
 
   // تكتكة آخر 3 ثواني في أدوار الليل والتصويت
   const lastTick = useRef<number | null>(null);
@@ -320,8 +357,9 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: () => 
         if (step === "mafia") cueMafia("slash", "slash");
         else if (step === "doctor") cueMafia("sparkle", "saved");
         else if (step === "detective") {
-          if (res.data.detectiveResult?.isMafia) cueMafia("dramatic", "reveal_mafia");
-          else cueMafia("womp", "miss");
+          // بدون صوت: لو جوال المحقق طلّع صوت، اللي جنبه بيعرف إنه المحقق
+          if (res.data.detectiveResult?.isMafia) cueMafia("dramatic", "reveal_mafia", { silent: true });
+          else cueMafia("womp", "miss", { silent: true });
         } else if (step === "magician") cueMafia("magic", "magic");
         else if (step === "journalist") cueMafia("camera", "flash");
         else playMafiaSound("vote");

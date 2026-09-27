@@ -131,8 +131,33 @@ export interface NightResolution {
   notes: { playerId: string; text: string }[];
 }
 
+/** مصير ضحية المافيا الليلة — ينعرف أول ما يخلص دور المافيا، لأن الدكتور قبلهم */
+export interface MafiaKillOutcome {
+  victimId: string | null;
+  /** killed = انذبح، saved = الدكتور حماه، shield = درع الجندي أنقذه */
+  fate: "killed" | "saved" | "shield" | null;
+}
+
+export function mafiaKillOutcome(players: EnginePlayer[], actions: EngineAction[]): MafiaKillOutcome {
+  const byId = new Map(players.map((p) => [p.id, p]));
+  const aliveActor = (a: EngineAction) => byId.get(a.actorId)?.alive === true;
+
+  const killTargetId = actions.find((a) => a.step === "mafia" && aliveActor(a) && a.targetId)?.targetId ?? null;
+  const victim = killTargetId ? byId.get(killTargetId) : undefined;
+  if (!victim || !victim.alive) return { victimId: null, fate: null };
+
+  const protectedByDoctor = actions.some(
+    (a) => a.step === "doctor" && a.targetId === victim.id && byId.get(a.actorId)?.alive && byId.get(a.actorId)?.role === "doctor"
+  );
+  if (protectedByDoctor) return { victimId: victim.id, fate: "saved" };
+  if (victim.role === "soldier" && !victim.soldierShieldUsed) return { victimId: victim.id, fate: "shield" };
+  return { victimId: victim.id, fate: "killed" };
+}
+
 export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): NightResolution {
   const byId = new Map(players.map((p) => [p.id, p]));
+  const outcome = mafiaKillOutcome(players, actions);
+  // ضحية الذبح تكمل دورها تلك الليلة عادي (المحقق يحقق، الصحفي يكشف، الانتحاري يختار)
   const aliveActor = (a: EngineAction) => byId.get(a.actorId)?.alive === true;
   const acts = (step: MafiaNightStep) => actions.filter((a) => a.step === step && aliveActor(a) && a.targetId);
   const name = (id: string) => byId.get(id)?.name ?? "لاعب";
@@ -147,31 +172,33 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     notes: [],
   };
 
-  // الدكتور (ممكن يكونون أكثر من واحد لو الساحر أخذ فئة الدكتور)
-  const protectedIds = new Set<string>();
+  // الدكتور (ممكن يكونون أكثر من واحد لو الساحر أخذ فئة الدكتور) — نحفظ مين حمى عشان الليلة الجاية
   players
     .filter((p) => p.alive && p.role === "doctor")
     .forEach((doc) => {
       const act = acts("doctor").find((a) => a.actorId === doc.id);
-      if (act?.targetId) protectedIds.add(act.targetId);
       out.lastProtected.push({ doctorId: doc.id, targetId: act?.targetId ?? null });
     });
 
-  // الذبح
-  const killTargetId = acts("mafia")[0]?.targetId ?? null;
-  const victim = killTargetId ? byId.get(killTargetId) : undefined;
+  // الذبح (نفس منطق mafiaKillOutcome — مصدر واحد)
+  const victim = outcome.victimId ? byId.get(outcome.victimId) : undefined;
 
-  if (!victim || !victim.alive) {
+  if (!victim || !outcome.fate) {
     out.announcements.push({ kind: "quiet", emoji: "🌙", text: "ليلة هادئة… المافيا ما ذبحوا أحد" });
-  } else if (protectedIds.has(victim.id)) {
+  } else if (outcome.fate === "saved") {
     out.announcements.push({ kind: "saved", emoji: "✨", text: "حماية ناجحة! الدكتور أنقذ أحد اللاعبين الليلة" });
-  } else if (victim.role === "soldier" && !victim.soldierShieldUsed) {
+  } else if (outcome.fate === "shield") {
     out.shieldUsedBy.push(victim.id);
     // الجندي ينكشف اسمه لما ينجو — مكافأة للمواطنين
     out.announcements.push({ kind: "soldier", emoji: "🪖", text: `المافيا حاولوا يذبحون ${victim.name}… بس طلع الجندي ودافع عن نفسه ونجا!` });
   } else {
     out.deaths.push(victim.id);
-    out.announcements.push({ kind: "kill", emoji: "🗡️", text: `حماية فاشلة… المافيا ذبحوا ${victim.name}` });
+    out.announcements.push({
+      kind: "kill",
+      emoji: "🗡️",
+      text: `حماية فاشلة… المافيا ذبحوا ${victim.name}`,
+      targetId: victim.id,
+    });
 
     // الانتحاري ينفجر بس لو انذبح (مو بالتصويت)، وهدفه يموت حتى لو محمي
     const boomId = victim.role === "suicide" ? victim.suicideTarget : null;
@@ -182,6 +209,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
         kind: "bomb",
         emoji: "💣",
         text: `الانتحاري فجّر نفسه وأخذ معه ${boom.name}!`,
+        targetId: boom.id,
       });
     }
   }

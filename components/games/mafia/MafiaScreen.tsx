@@ -114,8 +114,13 @@ export default function MafiaScreen({
         <div className="flex items-center gap-2 text-sm font-bold text-red-200 bg-red-950/70 border border-red-800 rounded-xl p-3 animate-in fade-in">
           <AlertCircle size={18} className="shrink-0" />
           <span className="flex-1">{error}</span>
-          <button type="button" onClick={() => setError("")} aria-label="إغلاق">
-            <X size={16} />
+          <button
+            type="button"
+            onClick={() => setError("")}
+            aria-label="إغلاق"
+            className="shrink-0 w-10 h-10 -my-2 -me-2 rounded-xl flex items-center justify-center hover:bg-red-900/60"
+          >
+            <X size={20} />
           </button>
         </div>
       )}

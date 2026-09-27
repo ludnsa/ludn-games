@@ -61,6 +61,20 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
         <p className="text-center text-xs font-bold text-amber-300 mb-3">⚠️ اختيارك نهائي وما يتغير</p>
       )}
 
+      {/* نتيجة المحقق فوق القائمة — تبان على طول بدون ما ينزل */}
+      {task.step === "detective" && task.detectiveResult && (
+        <div
+          className={`mb-4 p-5 rounded-2xl text-center animate-in zoom-in-50 ${
+            task.detectiveResult.isMafia ? "bg-red-600" : "bg-emerald-700"
+          }`}
+        >
+          <p className="text-5xl mb-2">{task.detectiveResult.isMafia ? "🚨" : "✅"}</p>
+          <p className="text-2xl font-black">
+            {task.detectiveResult.targetName} {task.detectiveResult.isMafia ? "مافيا!" : "مو مافيا"}
+          </p>
+        </div>
+      )}
+
       <PlayerPicker
         options={task.options}
         selectedId={task.locked ? task.selectedId : pending ?? task.selectedId}
@@ -79,19 +93,6 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
           {ctx.busy && <Loader2 className="animate-spin" size={20} />}
           تأكيد الاختيار
         </button>
-      )}
-
-      {task.step === "detective" && task.detectiveResult && (
-        <div
-          className={`mt-4 p-5 rounded-2xl text-center animate-in zoom-in-50 ${
-            task.detectiveResult.isMafia ? "bg-red-600" : "bg-emerald-700"
-          }`}
-        >
-          <p className="text-5xl mb-2">{task.detectiveResult.isMafia ? "🚨" : "✅"}</p>
-          <p className="text-2xl font-black">
-            {task.detectiveResult.targetName} {task.detectiveResult.isMafia ? "مافيا!" : "مو مافيا"}
-          </p>
-        </div>
       )}
 
       {task.step === "mafia" && (

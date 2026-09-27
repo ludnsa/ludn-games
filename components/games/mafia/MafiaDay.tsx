@@ -34,8 +34,9 @@ export function MafiaMorning({ ctx }: { ctx: MafiaGameCtx }) {
 }
 
 export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
-  const { alivePlayers, players, isHost, host, busy, secondsLeft } = ctx;
+  const { alivePlayers, players, isHost, host, busy, secondsLeft, room } = ctx;
   const dead = players.filter((p) => !p.is_alive);
+  const results = room?.announcements ?? [];
   return (
     <div className="flex flex-col gap-4">
       <Panel className="text-center">
@@ -48,6 +49,21 @@ export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
             : "--"}
         </p>
       </Panel>
+
+      {/* نتائج الليل تظل قدامهم طول النقاش عشان يحللون */}
+      {results.length > 0 && (
+        <Panel>
+          <h3 className="font-black mb-3">🌅 نتائج الليلة {room?.night_number}</h3>
+          <ul className="flex flex-col gap-2">
+            {results.map((a, i) => (
+              <li key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-800">
+                <span className="text-2xl shrink-0">{a.emoji}</span>
+                <span className="font-bold leading-snug">{a.text}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
 
       <Panel>
         <h3 className="font-black mb-3">🟢 الأحياء ({alivePlayers.length})</h3>

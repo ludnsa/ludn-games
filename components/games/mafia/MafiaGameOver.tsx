@@ -52,7 +52,7 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
               >
                 <span className="text-3xl shrink-0">{def.emoji}</span>
                 <span className="flex-1 min-w-0">
-                  <span className="block font-black truncate">
+                  <span className="block font-black break-words leading-tight">
                     {p.display_name} {p.is_alive ? "" : "☠️"}
                   </span>
                   <span className={`block text-sm font-bold ${def.team === "mafia" ? "text-red-400" : "text-slate-400"}`}>

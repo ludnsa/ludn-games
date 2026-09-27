@@ -215,6 +215,8 @@ export interface MafiaAnnouncement {
   kind: MafiaAnnouncementKind;
   emoji: string;
   text: string;
+  /** اللاعب اللي مات في هذا الإعلان (ذبح/انفجار) — جهازه يعرض حركة خاصة */
+  targetId?: string;
 }
 
 export interface MafiaVoteResult {

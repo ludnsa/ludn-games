@@ -183,11 +183,14 @@ export function PlayerPicker({
                 : "bg-slate-800 border-slate-950 text-slate-100 hover:bg-slate-700"
             } disabled:cursor-not-allowed ${disabled && !selected ? "opacity-50" : ""}`}
           >
-            <span className="flex items-center gap-2">
-              <span className="flex-1 min-w-0 truncate text-right">{o.name}</span>
-              {count !== undefined && count > 0 && <VoteCount count={count} />}
-            </span>
-            {names.length > 0 && <VoterNames names={names} />}
+            {/* الاسم بسطر كامل عشان ما ينكسر، والعدد والمصوّتين تحته */}
+            <span className="w-full break-words leading-tight text-right">{o.name}</span>
+            {((count ?? 0) > 0 || names.length > 0) && (
+              <span className="flex flex-wrap items-center gap-1">
+                {count !== undefined && count > 0 && <VoteCount count={count} />}
+                {names.length > 0 && <VoterNames names={names} />}
+              </span>
+            )}
           </button>
         );
       })}

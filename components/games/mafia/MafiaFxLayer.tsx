@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { subscribeMafiaFx, type MafiaFxEvent, type MafiaFxKind } from "@/lib/game/mafia-fx";
+import { MAFIA_CONFIG } from "@/constants/mafia";
 import "./mafia-fx.css";
 
 /** العنصر اللي يهتز — يلف شاشة اللعبة كاملة (MafiaApp) */
@@ -49,6 +50,9 @@ const STAGE_MOVE: Partial<Record<MafiaFxKind, StageMove>> = {
   bomb: "bigShake",
   doom: "shake",
   win_mafia: "bigShake",
+  victim: "bigShake",
+  victim_bomb: "bigShake",
+  escaped: "shake",
 };
 
 /** كل القيم العشوائية تنحسب مرة وحدة لحظة الحدث، عشان الرسم يظل ثابت */
@@ -62,14 +66,21 @@ const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
 function prepare(e: MafiaFxEvent): ActiveFx {
   const d = Math.max(e.duration, 1);
-  const withBlood = e.kind === "kill" || e.kind === "win_mafia";
+  const withBlood = e.kind === "kill" || e.kind === "win_mafia" || e.kind === "victim";
+  const isVictim = e.kind === "victim" || e.kind === "victim_bomb" || e.kind === "escaped";
   const bitCount =
-    e.kind === "win_town" ? 80 : e.kind === "saved" || e.kind === "magic" ? 28 : e.kind === "bomb" ? 7 : 0;
+    e.kind === "win_town"
+      ? 80
+      : e.kind === "saved" || e.kind === "magic"
+        ? 28
+        : e.kind === "bomb" || e.kind === "victim_bomb"
+          ? 7
+          : 0;
 
   return {
     ...e,
     drips: withBlood
-      ? Array.from({ length: 16 }, () => ({
+      ? Array.from({ length: isVictim ? 24 : 16 }, () => ({
           left: rand(0, 98),
           width: rand(6, 18),
           height: rand(12, 65),
@@ -103,6 +114,19 @@ const BIG_EMOJI: Partial<Record<MafiaFxKind, string>> = {
   win_mafia: "😈",
 };
 
+/** رسالة الضحية — تطلع على جوالها بس */
+const VICTIM_TEXT: Partial<Record<MafiaFxKind, { title: string; sub: string }>> = {
+  victim: { title: "المافيا ذبحوك! 🔪", sub: "يا حرام… طلعت من اللعبة" },
+  victim_bomb: { title: "الانتحاري أخذك معه! 💣", sub: "كنت في المكان الغلط 😵" },
+  escaped: { title: "المافيا حاولوا يذبحونك!", sub: "بس فكك الله 😈" },
+};
+
+const VICTIM_ICON: Partial<Record<MafiaFxKind, string>> = {
+  victim: "💀",
+  victim_bomb: "💥",
+  escaped: "😈",
+};
+
 export default function MafiaFxLayer() {
   const [active, setActive] = useState<ActiveFx[]>([]);
 
@@ -115,7 +139,7 @@ export default function MafiaFxLayer() {
         const move = STAGE_MOVE[e.kind];
         if (move) moveStage(move, e.kind === "bomb" ? [e.peaks[0] ?? 0] : e.peaks);
 
-        const lifetime = (Math.max(e.duration, 1.2) + 1.2) * 1000;
+        const lifetime = (sceneSeconds(e) + 0.3) * 1000;
         setTimeout(() => setActive((list) => list.filter((a) => a.id !== fx.id)), lifetime);
       }),
     []
@@ -132,8 +156,22 @@ export default function MafiaFxLayer() {
   );
 }
 
+/**
+ * مدة ظهور الحركة كاملة.
+ * حركة الضحية بالليل لازم تخلص داخل ثواني "تم الاغتيال"، عشان لو الضحية محقق
+ * (أو أي دور بعد المافيا) يلقى شاشته نظيفة أول ما يبدأ دوره.
+ * رسالة الانتحاري بالصباح تظل أطول عشان تنقرا.
+ */
+function sceneSeconds(e: MafiaFxEvent): number {
+  const base = Math.max(e.duration, 1.2) + 1;
+  if (e.kind === "victim" || e.kind === "escaped") return Math.min(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.6);
+  if (e.kind === "victim_bomb") return Math.max(base, 6);
+  return base;
+}
+
 function FxScene({ fx }: { fx: ActiveFx }) {
-  const total = Math.max(fx.duration, 1.2) + 1;
+  const total = sceneSeconds(fx);
+  const victim = VICTIM_TEXT[fx.kind];
   const first = fx.peaks[0] ?? 0;
   const emoji = BIG_EMOJI[fx.kind];
 
@@ -141,11 +179,19 @@ function FxScene({ fx }: { fx: ActiveFx }) {
     // الغلاف كله يختفي تدريجياً في النهاية
     <div className="mfx-scene" style={{ animationDuration: `${total}s` }}>
       {/* ظلام الأطراف */}
-      {(fx.kind === "kill" || fx.kind === "doom" || fx.kind === "win_mafia") && (
+      {(fx.kind === "kill" || fx.kind === "doom" || fx.kind === "win_mafia" || victim) && (
         <div className="mfx-vignette" style={{ animationDuration: `${total}s` }} />
       )}
       {fx.kind === "reveal_mafia" && (
         <div className="mfx-vignette mfx-vignette-red" style={{ animationDuration: `${total}s` }} />
+      )}
+
+      {/* خلفية الضحية الحمراء — تحت الدم */}
+      {victim && (
+        <div
+          className={`mfx-victim-bg ${fx.kind === "escaped" ? "mfx-victim-bg-escaped" : ""}`}
+          style={{ animationDelay: `${first}s` }}
+        />
       )}
 
       {/* الدم */}
@@ -165,7 +211,11 @@ function FxScene({ fx }: { fx: ActiveFx }) {
       ))}
 
       {/* وميض على كل ذروة */}
-      {(fx.kind === "kill" || fx.kind === "slash" || fx.kind === "win_mafia") &&
+      {(fx.kind === "kill" ||
+        fx.kind === "slash" ||
+        fx.kind === "win_mafia" ||
+        fx.kind === "victim" ||
+        fx.kind === "escaped") &&
         fx.peaks.map((p, i) => (
           <div key={i} className="mfx-flash mfx-flash-red" style={{ animationDelay: `${p}s` }} />
         ))}
@@ -177,12 +227,12 @@ function FxScene({ fx }: { fx: ActiveFx }) {
             style={{ animationDelay: `${p}s`, animationDuration: fx.kind === "flash" ? "0.3s" : "0.35s" }}
           />
         ))}
-      {fx.kind === "bomb" && (
+      {(fx.kind === "bomb" || fx.kind === "victim_bomb") && (
         <div className="mfx-flash mfx-flash-white" style={{ animationDelay: `${first}s`, animationDuration: "0.6s" }} />
       )}
 
       {/* ضربة السيف */}
-      {(fx.kind === "slash" || fx.kind === "kill" || fx.kind === "win_mafia") && (
+      {(fx.kind === "slash" || fx.kind === "kill" || fx.kind === "win_mafia" || fx.kind === "victim") && (
         <div className="mfx-slash" style={{ animationDelay: `${Math.max(0, first - 0.15)}s` }} />
       )}
 
@@ -200,7 +250,7 @@ function FxScene({ fx }: { fx: ActiveFx }) {
         ))}
 
       {/* درع النور */}
-      {(fx.kind === "saved" || fx.kind === "shield") && <div className="mfx-ring" style={{ animationDelay: `${first}s` }} />}
+      {(fx.kind === "saved" || fx.kind === "shield" || fx.kind === "escaped") && <div className="mfx-ring" style={{ animationDelay: `${first}s` }} />}
 
       {/* جزيئات */}
       {fx.kind === "saved" &&
@@ -247,7 +297,7 @@ function FxScene({ fx }: { fx: ActiveFx }) {
             }}
           />
         ))}
-      {fx.kind === "bomb" &&
+      {(fx.kind === "bomb" || fx.kind === "victim_bomb") &&
         fx.bits.map((b, i) => (
           <span
             key={i}
@@ -262,8 +312,17 @@ function FxScene({ fx }: { fx: ActiveFx }) {
           />
         ))}
 
+      {/* رسالة الضحية: تغطي الشاشة بلون الدم */}
+      {victim && (
+        <div className="mfx-victim" style={{ animationDelay: `${first}s` }}>
+          <span className="mfx-victim-skull">{VICTIM_ICON[fx.kind]}</span>
+          <span className="mfx-victim-title">{victim.title}</span>
+          <span className="mfx-victim-sub">{victim.sub}</span>
+        </div>
+      )}
+
       {/* الإيموجي الكبير في النص */}
-      {emoji && (
+      {emoji && !victim && (
         <span
           className="mfx-big-emoji"
           style={{ animationDelay: `${first}s`, animationDuration: `${Math.min(2.2, Math.max(1.4, fx.duration))}s` }}

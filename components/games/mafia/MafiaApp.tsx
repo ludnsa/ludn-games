@@ -60,9 +60,13 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
     setSession(s);
   }, []);
 
-  const lost = useCallback(() => {
+  // رسالة تطلع في شاشة الدخول بعد ما يطلع اللاعب (مثل: انطردت)
+  const [notice, setNotice] = useState("");
+
+  const lost = useCallback((message?: string) => {
     writeSession(null);
     setSession(null);
+    setNotice(message ?? "");
   }, []);
 
   if (!mounted) return null;
@@ -75,15 +79,15 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
       {session ? (
         <MafiaInGame session={session} onLost={lost} />
       ) : mode === "host" ? (
-        <MafiaCreate onCreated={start} />
+        <MafiaCreate onCreated={start} notice={notice} />
       ) : (
-        <MafiaJoin onJoined={start} />
+        <MafiaJoin onJoined={start} notice={notice} />
       )}
     </main>
   );
 }
 
-function MafiaInGame({ session, onLost }: { session: MafiaSession; onLost: () => void }) {
+function MafiaInGame({ session, onLost }: { session: MafiaSession; onLost: (notice?: string) => void }) {
   const ctx = useMafiaGame(session, onLost);
   const phase = ctx.room?.phase;
   const isNight = phase === "night_act" || phase === "night_done";
@@ -131,6 +135,15 @@ function Header({ subtitle }: { subtitle: string }) {
   );
 }
 
+function NoticeLine({ notice }: { notice: string }) {
+  if (!notice) return null;
+  return (
+    <p className="mb-4 text-center text-sm font-bold text-amber-200 bg-amber-950/60 border border-amber-800 rounded-xl p-3 animate-in fade-in">
+      {notice}
+    </p>
+  );
+}
+
 function ErrorLine({ error }: { error: string }) {
   if (!error) return null;
   return (
@@ -143,7 +156,7 @@ function ErrorLine({ error }: { error: string }) {
 const inputClass =
   "w-full p-4 bg-slate-900 border-2 border-slate-800 rounded-2xl font-black text-lg focus:border-red-500 outline-none transition-colors";
 
-function MafiaCreate({ onCreated }: { onCreated: (s: MafiaSession) => void }) {
+function MafiaCreate({ onCreated, notice }: { onCreated: (s: MafiaSession) => void; notice: string }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -151,6 +164,7 @@ function MafiaCreate({ onCreated }: { onCreated: (s: MafiaSession) => void }) {
   return (
     <div className="w-full max-w-md mx-auto my-auto">
       <Header subtitle="جهّز الغرفة، اختر الفئات، وخل الشباب يدخلون من جوالاتهم" />
+      <NoticeLine notice={notice} />
       <Panel>
         <MafiaSetupForm
           initial={DEFAULT_MAFIA_SETTINGS}
@@ -187,7 +201,7 @@ function MafiaCreate({ onCreated }: { onCreated: (s: MafiaSession) => void }) {
   );
 }
 
-function MafiaJoin({ onJoined }: { onJoined: (s: MafiaSession) => void }) {
+function MafiaJoin({ onJoined, notice }: { onJoined: (s: MafiaSession) => void; notice: string }) {
   const [roomCode, setRoomCode] = useState(
     () => new URLSearchParams(window.location.search).get("room")?.toUpperCase().slice(0, MAFIA_CONFIG.ROOM_CODE_LENGTH) ?? ""
   );
@@ -233,6 +247,7 @@ function MafiaJoin({ onJoined }: { onJoined: (s: MafiaSession) => void }) {
   return (
     <div className="w-full max-w-md mx-auto my-auto">
       <Header subtitle="ادخل كود الغرفة واسمك، وخل جوالك بعيد عن عيون الباقين 👀" />
+      <NoticeLine notice={notice} />
       <Panel>
         <form onSubmit={join} className="flex flex-col gap-5">
           <label className="flex flex-col gap-2">
