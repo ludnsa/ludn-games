@@ -6,16 +6,19 @@ import {
   addMafiaBots,
   advanceMafiaPhase,
   castMafiaVote,
-  confirmMafiaKill,
   devGetMafiaRoles,
   endMafiaGameNow,
   getMafiaMyView,
   isMafiaDevMode,
   kickMafiaPlayer,
+  newMafiaRoom,
   playMafiaAgain,
+  renameMafiaPlayer,
+  setMafiaDiscussionTime,
   skipMafiaPhase,
   startMafiaGame,
   submitMafiaNightAction,
+  suggestMafiaTarget,
   updateMafiaSettings,
   type MafiaMyView,
 } from "@/actions/mafia";
@@ -40,7 +43,7 @@ export interface MafiaSession {
 type Cue = [MafiaSound, MafiaFxKind?];
 
 const STEP_DONE_CUE: Record<MafiaNightStep, Cue> = {
-  doctor: ["sparkle", "saved"],
+  doctor: ["heal", "saved"],
   mafia: ["horror", "kill"],
   detective: ["dramatic", "investigate"],
   magician: ["magic", "magic"],
@@ -50,7 +53,7 @@ const STEP_DONE_CUE: Record<MafiaNightStep, Cue> = {
 
 const ANNOUNCEMENT_CUE: Partial<Record<MafiaAnnouncementKind, Cue>> = {
   kill: ["horror", "kill"],
-  saved: ["sparkle", "saved"],
+  saved: ["heal", "saved"],
   soldier: ["shield", "shield"],
   bomb: ["bomb", "bomb"],
   investigate_hit: ["dramatic", "reveal_mafia"],
@@ -82,7 +85,12 @@ export function mafiaMorningSchedule(announcements: MafiaAnnouncement[]): number
  * الحالة العامة (المرحلة، المؤقت، مين حي، عدد الأصوات) تجي من البث اللحظي.
  * الحالة الخاصة (دوري، مهمتي، نتيجة تحقيقي) تجي من getMafiaMyView فقط.
  */
-export function useMafiaGame(session: MafiaSession | null, onSessionLost: (notice?: string) => void) {
+export function useMafiaGame(
+  session: MafiaSession | null,
+  onSessionLost: (notice?: string) => void,
+  /** المنشئ فتح غرفة جديدة: ننقل جهازه لها */
+  onSwitchSession?: (next: MafiaSession) => void
+) {
   const supabase = useMemo(() => getSupabaseBrowser(), []);
   const roomCode = session?.roomCode ?? "";
   const token = session?.token ?? "";
@@ -100,9 +108,11 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: (notic
   const [now, setNow] = useState(() => Date.now());
 
   const onLostRef = useRef(onSessionLost);
+  const onSwitchRef = useRef(onSwitchSession);
   useEffect(() => {
     onLostRef.current = onSessionLost;
-  }, [onSessionLost]);
+    onSwitchRef.current = onSwitchSession;
+  }, [onSessionLost, onSwitchSession]);
 
   // -------------------------------------------------------------------
   // الجلب
@@ -349,33 +359,46 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: (notic
     []
   );
 
+  /**
+   * صاحب الدور يختار ويضغط "استمرار" (null = الساحر/الصحفي يعدّي الليلة).
+   * الحركة تطلع على شاشته بس وبدون صوت — أي صوت من جوال واحد يفضح فئته.
+   */
   const act = useCallback(
-    async (targetId: string) => {
+    async (targetId: string | null) => {
       const step = room?.night_step;
       const res = await run(() => submitMafiaNightAction({ roomCode, token, targetId }));
       if (res?.success) {
-        if (step === "mafia") cueMafia("slash", "slash");
-        else if (step === "doctor") cueMafia("sparkle", "saved");
+        const silent = { silent: true };
+        if (step === "mafia") cueMafia("slash", "slash", silent);
+        else if (step === "doctor") cueMafia("heal", "saved", silent);
         else if (step === "detective") {
-          // بدون صوت: لو جوال المحقق طلّع صوت، اللي جنبه بيعرف إنه المحقق
-          if (res.data.detectiveResult?.isMafia) cueMafia("dramatic", "reveal_mafia", { silent: true });
-          else cueMafia("womp", "miss", { silent: true });
-        } else if (step === "magician") cueMafia("magic", "magic");
-        else if (step === "journalist") cueMafia("camera", "flash");
-        else playMafiaSound("vote");
+          if (res.data.detectiveResult?.isMafia) cueMafia("dramatic", "reveal_mafia", silent);
+          else cueMafia("womp", "miss", silent);
+        } else if (step === "magician" && targetId) cueMafia("magic", "magic", silent);
+        else if (step === "journalist" && targetId) cueMafia("camera", "flash", silent);
         await fetchView();
       }
     },
     [run, roomCode, token, room?.night_step, fetchView]
   );
 
-  const confirmKill = useCallback(async () => {
-    const res = await run(() => confirmMafiaKill({ roomCode, token }));
-    if (res?.success) {
-      cueMafia("slash", "slash");
-      await fetchView();
-    }
-  }, [run, roomCode, token, fetchView]);
+  /** مافيا (غير القائد) يقترح على قائده — بدون صوت */
+  const suggest = useCallback(
+    async (targetId: string) => {
+      const res = await run(() => suggestMafiaTarget({ roomCode, token, targetId }));
+      if (res?.success) await fetchView();
+    },
+    [run, roomCode, token, fetchView]
+  );
+
+  const rename = useCallback(
+    async (displayName: string) => {
+      const res = await run(() => renameMafiaPlayer({ roomCode, token, displayName }));
+      if (res?.success) await Promise.all([fetchView(), fetchPublic()]);
+      return Boolean(res?.success);
+    },
+    [run, roomCode, token, fetchView, fetchPublic]
+  );
 
   const vote = useCallback(
     async (targetId: string | null) => {
@@ -400,6 +423,12 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: (notic
       kick: (playerId: string) => run(() => kickMafiaPlayer({ roomCode, playerId })),
       playAgain: () => run(() => playMafiaAgain(roomCode)),
       addBots: () => run(() => addMafiaBots(roomCode)),
+      setDiscussion: (seconds: number) => run(() => setMafiaDiscussionTime({ roomCode, seconds })),
+      newRoom: async () => {
+        const res = await run(() => newMafiaRoom(roomCode));
+        if (res?.success) onSwitchRef.current?.(res.data);
+        return res;
+      },
     }),
     [run, roomCode]
   );
@@ -431,7 +460,8 @@ export function useMafiaGame(session: MafiaSession | null, onSessionLost: (notic
     secondsLeft,
     nameOf,
     act,
-    confirmKill,
+    suggest,
+    rename,
     vote,
     host,
     refresh: fetchView,

@@ -27,16 +27,22 @@ export const MAFIA_CONFIG = {
 
   /** مدد المراحل بالثواني */
   ROLE_REVEAL_SECONDS: 12,
-  NIGHT_ACTION_SECONDS: 10,
+  /** وقت صاحب الدور بالليل — وزر "استمرار" ينهيه قبل */
+  NIGHT_ACTION_SECONDS: 20,
+  /** الدور اللي صاحبه ميت (أو ما يقدر يتصرف) يخلص بعد وقت عشوائي بين هذين، عشان ما ينكشف */
+  DEAD_STEP_MIN_SECONDS: 6,
+  DEAD_STEP_MAX_SECONDS: 10,
   NIGHT_DONE_SECONDS: 5,
   MORNING_SECONDS: 15,
+  /** وقت النقاش الافتراضي، والخيارات اللي يقدر المنشئ يختار منها */
   DISCUSSION_SECONDS: 120,
+  DISCUSSION_OPTIONS: [120, 180, 300] as readonly number[],
   VOTING_SECONDS: 15,
   VOTE_RESULT_SECONDS: 10,
 
   /** سؤال التمويه لباقي اللاعبين أثناء أدوار الليل */
   FUN_QUESTION: "من تتوقع مافيا؟ 🤔",
-  FUN_ANSWER_MAX: 8,
+  FUN_QUESTION_NOTE: "🤫 اختيارك هنا غير معتمد — بس عشان تبعد الشبهات عنك",
 
   DEAD_MESSAGE: "يا حرام طلعت من اللعبة يا زلابة 🤡",
 
@@ -93,7 +99,7 @@ export const MAFIA_ROLES: Record<MafiaRole, MafiaRoleDef> = {
     label: "الساحر",
     emoji: "🎩",
     team: "town",
-    description: "مرة وحدة طول اللعبة تختار لاعب وتاخذ فئته، حتى لو كان مافيا تنضم لهم!",
+    description: "إذا مات المحقق أو الدكتور أو الجندي، تقدر تاخذ مكانه (مرة وحدة طول اللعبة). وأنت من صف المواطنين.",
     accent: "from-purple-500 to-fuchsia-700",
   },
   journalist: {
@@ -155,7 +161,7 @@ export const MAFIA_NIGHT_STEPS: Record<MafiaNightStep, MafiaNightStepDef> = {
     headline: "🩺 الدكتور يختار مين يحمي...",
     prompt: "مين تحمي الليلة؟",
     doneText: "تمت الحماية",
-    doneEmoji: "✨",
+    doneEmoji: "💉",
   },
   mafia: {
     headline: "🔪 المافيا يختارون ضحيتهم...",
@@ -171,7 +177,7 @@ export const MAFIA_NIGHT_STEPS: Record<MafiaNightStep, MafiaNightStepDef> = {
   },
   magician: {
     headline: "🎩 الساحر يجهّز سحره...",
-    prompt: "مين تاخذ فئته؟ (مرة وحدة طول اللعبة)",
+    prompt: "وش تبي تصير؟ (مرة وحدة طول اللعبة)",
     doneText: "الساحر خلّص سحره",
     doneEmoji: "🪄",
   },

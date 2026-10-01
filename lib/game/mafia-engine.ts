@@ -96,10 +96,33 @@ export function mafiaLeaderId(players: EnginePlayer[], night: number): string | 
 }
 
 /** هل هذا اللاعب يملك دوراً يتصرف فيه في خطوة الليل الحالية؟ */
-export function canActOnStep(p: EnginePlayer, step: MafiaNightStep, leaderId: string | null): boolean {
+/** الفئات اللي يقدر الساحر ياخذ مكانها — لما يموت صاحبها */
+export const MAFIA_MAGICIAN_ROLES: readonly MafiaRole[] = ["detective", "doctor", "soldier"] as const;
+
+/**
+ * الفئات الفاضية للساحر: فئة موجودة في اللعبة وكل أصحابها ماتوا.
+ * يرجع لكل فئة لاعب ميت واحد كان عليها — الساحر "ياخذ مكانه".
+ */
+export function magicianVacancies(players: EnginePlayer[]): EnginePlayer[] {
+  return MAFIA_MAGICIAN_ROLES.flatMap((role) => {
+    const holders = players.filter((p) => p.role === role);
+    if (holders.length === 0 || holders.some((p) => p.alive)) return [];
+    return [holders[0]];
+  });
+}
+
+/** هل هذا اللاعب يملك دوراً يتصرف فيه في خطوة الليل الحالية؟ */
+export function canActOnStep(
+  p: EnginePlayer,
+  step: MafiaNightStep,
+  leaderId: string | null,
+  players: EnginePlayer[]
+): boolean {
   if (!p.alive || p.role !== step) return false;
   if (step === "mafia") return p.id === leaderId;
-  if (step === "magician" || step === "journalist") return !p.abilityUsed;
+  if (step === "journalist") return !p.abilityUsed;
+  // الساحر يتصرف بس لو فيه فئة فاضية ياخذ مكانها، وقدرته ما انستخدمت
+  if (step === "magician") return !p.abilityUsed && magicianVacancies(players).length > 0;
   return true;
 }
 
@@ -112,6 +135,9 @@ export function allowedTargets(actor: EnginePlayer, step: MafiaNightStep, player
       return alive.filter((p) => p.id !== actor.lastProtected);
     case "mafia":
       return alive.filter((p) => p.role !== "mafia");
+    case "magician":
+      // الساحر ما يختار لاعب حي — يختار فئة فاضية (ممثلة بصاحبها الميت)
+      return magicianVacancies(players);
     default:
       return alive.filter((p) => p.id !== actor.id);
   }
@@ -160,7 +186,6 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
   // ضحية الذبح تكمل دورها تلك الليلة عادي (المحقق يحقق، الصحفي يكشف، الانتحاري يختار)
   const aliveActor = (a: EngineAction) => byId.get(a.actorId)?.alive === true;
   const acts = (step: MafiaNightStep) => actions.filter((a) => a.step === step && aliveActor(a) && a.targetId);
-  const name = (id: string) => byId.get(id)?.name ?? "لاعب";
 
   const out: NightResolution = {
     deaths: [],
@@ -186,7 +211,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
   if (!victim || !outcome.fate) {
     out.announcements.push({ kind: "quiet", emoji: "🌙", text: "ليلة هادئة… المافيا ما ذبحوا أحد" });
   } else if (outcome.fate === "saved") {
-    out.announcements.push({ kind: "saved", emoji: "✨", text: "حماية ناجحة! الدكتور أنقذ أحد اللاعبين الليلة" });
+    out.announcements.push({ kind: "saved", emoji: "💉", text: "حماية ناجحة! الدكتور أنقذ أحد اللاعبين الليلة" });
   } else if (outcome.fate === "shield") {
     out.shieldUsedBy.push(victim.id);
     // الجندي ينكشف اسمه لما ينجو — مكافأة للمواطنين
@@ -214,17 +239,22 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     }
   }
 
-  // المحقق — النتيجة الخاصة وصلته فوراً، هنا بس الإعلان العام
+  // المحقق — النتيجة الخاصة وصلته فوراً، هنا بس الإعلان العام.
+  // المحقق الحي دايماً يحقق (لو ما اختار، النظام يختار عنه)، فـ"ما فيه تحقيق" معناها إنه ميت.
+  // عشان كذا الحالتين يطلع لهم نفس النص بالضبط: "تحقيق فاشل" — محد يقدر يعرف إنه مات.
+  const failed: MafiaAnnouncement = {
+    kind: "investigate_miss",
+    emoji: "❌",
+    text: "تحقيق فاشل… المحقق ما وصل للمافيا الليلة",
+  };
   const investigations = acts("detective");
   if (investigations.length === 0) {
-    out.announcements.push({ kind: "investigate_none", emoji: "🔍", text: "المحقق ما حقق مع أحد الليلة" });
+    out.announcements.push(failed);
   } else {
     investigations.forEach((a) => {
       const hit = byId.get(a.targetId!)?.role === "mafia";
       out.announcements.push(
-        hit
-          ? { kind: "investigate_hit", emoji: "🎯", text: "تحقيق صحيح! المحقق وصل لواحد من المافيا" }
-          : { kind: "investigate_miss", emoji: "❌", text: "تحقيق خاطئ… اللي حقق معه المحقق مو مافيا" }
+        hit ? { kind: "investigate_hit", emoji: "🎯", text: "تحقيق صحيح! المحقق وصل لواحد من المافيا" } : failed
       );
     });
   }
@@ -242,27 +272,22 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     });
   });
 
-  // الساحر — ياخذ فئة الهدف، بشرط إنه نجا من الليلة
+  // الساحر — ياخذ مكان المحقق أو الدكتور أو الجندي اللي مات، بشرط إنه نجا من الليلة.
+  // ما يطلع أي إعلان للكل: هو يحاول يقنعهم بدوره وقت النقاش.
   acts("magician").forEach((a) => {
     const magician = byId.get(a.actorId);
     const target = byId.get(a.targetId!);
-    if (!magician || !target) return;
+    if (!magician || !target || !MAFIA_MAGICIAN_ROLES.includes(target.role) || target.alive) return;
     out.abilityUsedBy.push(magician.id);
     if (out.deaths.includes(magician.id)) return;
 
     const newRole = target.role;
+    const def = MAFIA_ROLES[newRole];
     out.roleChanges.push({ playerId: magician.id, role: newRole });
-    out.announcements.push({ kind: "magic", emoji: "🎩", text: "الساحر انتحل شخصية وانضم لفئة جديدة!" });
     out.notes.push({
       playerId: magician.id,
-      text: `🎩 سحرك نجح! صرت ${MAFIA_ROLES[newRole].label} ${MAFIA_ROLES[newRole].emoji}`,
+      text: `🎩 جاء دورك! صرت ${def.label} ${def.emoji} — ${def.label} الأصلي ودّع الملاعب`,
     });
-
-    if (newRole === "mafia") {
-      players
-        .filter((p) => p.alive && p.role === "mafia" && !out.deaths.includes(p.id))
-        .forEach((m) => out.notes.push({ playerId: m.id, text: `🎩 ${name(magician.id)} صار معكم في المافيا!` }));
-    }
   });
 
   return out;
@@ -339,9 +364,30 @@ export function mafiaPhaseSeconds(phase: MafiaPhase): number | null {
   }
 }
 
-export function mafiaDeadline(phase: MafiaPhase, from = Date.now()): string | null {
-  const secs = mafiaPhaseSeconds(phase);
+export function mafiaDeadline(phase: MafiaPhase, from = Date.now(), settings?: MafiaSettings): string | null {
+  const secs =
+    phase === "discussion" ? (settings?.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS) : mafiaPhaseSeconds(phase);
   return secs === null ? null : new Date(from + secs * 1000).toISOString();
+}
+
+/** نهاية دور ما فيه أحد يقدر يتصرف (صاحبه ميت مثلاً) — وقت عشوائي عشان ما ينكشف */
+export function mafiaDeadStepDeadline(from = Date.now()): string {
+  const { DEAD_STEP_MIN_SECONDS: min, DEAD_STEP_MAX_SECONDS: max } = MAFIA_CONFIG;
+  return new Date(from + (min + Math.random() * (max - min)) * 1000).toISOString();
+}
+
+/**
+ * لو قائد المافيا ما اختار: الاسم اللي عليه اقتراحات أكثر من زملائه،
+ * وإذا تعادلوا عشوائي بينهم، وإذا ما فيه اقتراح يرجع null (والنظام يختار عشوائي).
+ */
+export function pickMafiaSuggestion(suggestedTargetIds: string[], allowedIds: Set<string>): string | null {
+  const counts = new Map<string, number>();
+  suggestedTargetIds
+    .filter((id) => allowedIds.has(id))
+    .forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
+  if (counts.size === 0) return null;
+  const top = Math.max(...counts.values());
+  return pickRandom([...counts.entries()].filter(([, n]) => n === top).map(([id]) => id));
 }
 
 /** اختيار عشوائي لبوت، وأحياناً ما يختار أحد */

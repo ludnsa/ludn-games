@@ -1,14 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { RotateCcw, Loader2, Home } from "lucide-react";
+import { RotateCcw, Loader2, Home, DoorOpen } from "lucide-react";
 import { MAFIA_ROLES } from "@/constants/mafia";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import { Panel } from "./MafiaParts";
 
 export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
   const { room, players, me, isHost, host, busy } = ctx;
+  const [confirmNew, setConfirmNew] = useState(false);
   if (!room) return null;
   const mafiaWon = room.winner === "mafia";
   const stopped = room.winner === null;
@@ -76,7 +77,23 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
           {busy ? <Loader2 className="animate-spin" size={24} /> : <RotateCcw size={24} />}
           جولة جديدة بنفس اللاعبين
         </button>
-      ) : (
+      ) : null}
+
+      {isHost && (
+        <button
+          type="button"
+          onClick={() => (confirmNew ? host.newRoom() : setConfirmNew(true))}
+          disabled={busy}
+          className={`w-full py-4 font-black text-lg rounded-2xl border-b-4 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2 disabled:opacity-40 ${
+            confirmNew ? "bg-red-600 border-red-800 animate-pulse" : "bg-slate-800 border-slate-950"
+          }`}
+        >
+          <DoorOpen size={22} />
+          {confirmNew ? "متأكد؟ الكل بيطلع ويدخلون بكود جديد" : "غرفة جديدة بكود جديد"}
+        </button>
+      )}
+
+      {isHost ? null : (
         <p className="text-center font-bold text-slate-400">بانتظار المنشئ يبدأ جولة جديدة...</p>
       )}
 

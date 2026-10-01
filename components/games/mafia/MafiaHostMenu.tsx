@@ -2,10 +2,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Crown, X, SkipForward, Square, RotateCcw, Home, Loader2, UserX } from "lucide-react";
+import { Crown, X, SkipForward, Square, RotateCcw, Home, Loader2, UserX, DoorOpen } from "lucide-react";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 
-type Confirmable = "end" | "restart" | null;
+type Confirmable = "end" | "restart" | "newRoom" | null;
 
 /**
  * قائمة صلاحيات منشئ اللعبة — تفتح من زر التاج في الشريط العلوي.
@@ -150,6 +150,16 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
                   disabled={busy}
                 />
               )}
+
+              <MenuButton
+                icon={<DoorOpen size={20} />}
+                label={confirming === "newRoom" ? "متأكد؟ اضغط مرة ثانية للغرفة الجديدة" : "غرفة جديدة (كود جديد)"}
+                hint="الكل يطلع من هالغرفة ويدخلون من جديد بالكود الجديد"
+                tone="danger"
+                armed={confirming === "newRoom"}
+                onClick={() => (confirming === "newRoom" ? runAndClose(host.newRoom) : setConfirming("newRoom"))}
+                disabled={busy}
+              />
 
               <Link
                 href="/"

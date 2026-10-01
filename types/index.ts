@@ -189,7 +189,9 @@ export type MafiaPhase =
   | "discussion"
   | "voting"
   | "vote_result"
-  | "ended";
+  | "ended"
+  /** المنشئ فتح غرفة جديدة بكود جديد — اللاعبين ينتقلون لها */
+  | "closed";
 
 export type MafiaTeam = "mafia" | "town";
 
@@ -197,6 +199,10 @@ export interface MafiaSettings {
   maxPlayers: number;
   mafiaCount: number;
   optionalRoles: MafiaOptionalRole[];
+  /** وقت النقاش بالثواني (120 / 180 / 300) — الغرف القديمة بدونه = 120 */
+  discussionSeconds?: number;
+  /** الغرفة انقفلت والمنشئ فتح غرفة جديدة بهذا الكود */
+  movedTo?: string;
 }
 
 export type MafiaAnnouncementKind =

@@ -5,6 +5,7 @@ import { Loader2, Minus, Plus, AlertCircle } from "lucide-react";
 import { MAFIA_CONFIG, MAFIA_OPTIONAL_ROLES, MAFIA_ROLES } from "@/constants/mafia";
 import { mafiaCitizenCount, mafiaMaxMafia, validateMafiaSettings } from "@/lib/game/mafia-engine";
 import type { MafiaOptionalRole, MafiaSettings } from "@/types";
+import { DiscussionTimePicker } from "./MafiaParts";
 
 export const DEFAULT_MAFIA_SETTINGS: MafiaSettings = {
   maxPlayers: MAFIA_CONFIG.MIN_PLAYERS,
@@ -151,6 +152,14 @@ export default function MafiaSetupForm({
             );
           })}
         </div>
+      </div>
+
+      <div>
+        <p className="font-bold text-sm text-slate-400 mb-2">🗣️ وقت النقاش (تقدر تغيّره بعدين لحظة نتائج الصباح)</p>
+        <DiscussionTimePicker
+          value={settings.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS}
+          onChange={(discussionSeconds) => setSettings((s) => ({ ...s, discussionSeconds }))}
+        />
       </div>
 
       <div className="bg-slate-900/60 border-2 border-dashed border-slate-800 rounded-2xl p-3">

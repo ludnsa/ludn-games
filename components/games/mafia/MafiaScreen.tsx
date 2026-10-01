@@ -46,6 +46,8 @@ function phaseLabel(phase: MafiaPhase, night: number): string {
       return "⚖️ نتيجة التصويت";
     case "ended":
       return "🏁 انتهت اللعبة";
+    case "closed":
+      return "🚪 الغرفة انقفلت";
   }
 }
 
@@ -70,9 +72,9 @@ export default function MafiaScreen({
 
   const phase = room.phase;
   const isNight = NIGHT_PHASES.includes(phase);
-  const isDead = !me.alive && phase !== "lobby" && phase !== "ended";
+  const isDead = !me.alive && phase !== "lobby" && phase !== "ended" && phase !== "closed";
   const showTimer =
-    phase !== "discussion" && phase !== "lobby" && phase !== "ended";
+    phase !== "discussion" && phase !== "lobby" && phase !== "ended" && phase !== "closed";
 
   return (
     <div className="w-full max-w-lg mx-auto flex flex-col gap-4">
@@ -94,7 +96,12 @@ export default function MafiaScreen({
           {showTimer && <TimerBadge seconds={secondsLeft} danger={3} />}
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">
-          {phase !== "lobby" && <RolePeek role={me.role} />}
+          {phase !== "lobby" && (
+            <RolePeek
+              role={me.role}
+              teammates={me.role === "mafia" ? (view?.mafiaTeam ?? []).filter((m) => m.id !== me.id).map((m) => m.name) : []}
+            />
+          )}
           <SoundToggle />
           {me.isHost && <MafiaHostMenu ctx={ctx} />}
           {phase === "lobby" && !me.isHost && (
@@ -152,6 +159,7 @@ export default function MafiaScreen({
       {phase === "voting" && <MafiaVoting ctx={ctx} />}
       {phase === "vote_result" && <MafiaVoteResult ctx={ctx} />}
       {phase === "ended" && <MafiaGameOver ctx={ctx} />}
+      {phase === "closed" && <MafiaClosed newCode={room.settings.movedTo} />}
 
       {/* رسائل خاصة (الساحر، انضمام للمافيا) */}
       {view &&
@@ -193,22 +201,7 @@ function MafiaReveal({ ctx }: { ctx: MafiaGameCtx }) {
       <p className="text-center font-black text-slate-400">
         🤫 غطّ جوالك… هذا دورك
       </p>
-      <RoleCard role={me.role} />
-      {me.role === "mafia" && teammates.length > 0 && (
-        <Panel className="border-red-900 text-center">
-          <p className="font-bold text-slate-400 mb-2">عصابتك 🔪</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {teammates.map((m) => (
-              <span
-                key={m.id}
-                className="px-4 py-2 rounded-xl bg-red-900/60 font-black"
-              >
-                {m.name}
-              </span>
-            ))}
-          </div>
-        </Panel>
-      )}
+      <RoleCard role={me.role} teammates={me.role === "mafia" ? teammates.map((m) => m.name) : []} />
     </div>
   );
 }
@@ -243,7 +236,7 @@ const DEV_CUES: { label: string; sound: MafiaSound; fx?: MafiaFxKind }[] = [
   { label: "🔍 تحقيق", sound: "dramatic", fx: "investigate" },
   { label: "🚨 كشف مافيا", sound: "dramatic", fx: "reveal_mafia" },
   { label: "🤷 تحقيق خاطئ", sound: "womp", fx: "miss" },
-  { label: "✨ حماية", sound: "sparkle", fx: "saved" },
+  { label: "💉 حماية", sound: "heal", fx: "saved" },
   { label: "🛡️ جندي", sound: "shield", fx: "shield" },
   { label: "💣 انتحاري", sound: "bomb", fx: "bomb" },
   { label: "🎩 ساحر", sound: "magic", fx: "magic" },
@@ -279,5 +272,31 @@ function DevFxPanel() {
         ))}
       </div>
     </details>
+  );
+}
+
+/** المنشئ فتح غرفة جديدة: نوجّه اللاعب للكود الجديد */
+function MafiaClosed({ newCode }: { newCode?: string }) {
+  return (
+    <Panel className="text-center">
+      <p className="text-6xl mb-3">🚪</p>
+      <h2 className="text-2xl font-black mb-2">المنشئ سوّى غرفة جديدة</h2>
+      {newCode ? (
+        <>
+          <p className="font-bold text-slate-400 mb-1">الكود الجديد</p>
+          <p className="text-4xl font-black tracking-[0.3em] text-red-400 mb-5" dir="ltr">
+            {newCode}
+          </p>
+          <a
+            href={`${MAFIA_GAME.joinPath}?room=${newCode}`}
+            className="block w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all"
+          >
+            ادخل الغرفة الجديدة
+          </a>
+        </>
+      ) : (
+        <p className="font-bold text-slate-400">اطلب الكود الجديد من المنشئ</p>
+      )}
+    </Panel>
   );
 }

@@ -4,7 +4,8 @@ import React from "react";
 import { FastForward } from "lucide-react";
 import { MAFIA_SKIP_KEY } from "@/lib/game/mafia-engine";
 import { mafiaMorningSchedule, type MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
-import { Panel, PlayerPicker, VoteCount, VoterNames } from "./MafiaParts";
+import { DiscussionTimePicker, Panel, PlayerPicker, VoteCount, VoterNames } from "./MafiaParts";
+import { MAFIA_CONFIG } from "@/constants/mafia";
 import type { MafiaRoom } from "@/types";
 
 /** أسماء اللي صوّتوا على هدف معيّن (لاعب أو "skip") */
@@ -15,8 +16,16 @@ function votersOf(room: MafiaRoom, key: string, nameOf: (id: string) => string):
 export function MafiaMorning({ ctx }: { ctx: MafiaGameCtx }) {
   const announcements = ctx.room?.announcements ?? [];
   const schedule = mafiaMorningSchedule(announcements);
+  const discussion = ctx.room?.settings.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS;
   return (
     <div className="flex flex-col gap-3">
+      {/* المنشئ يحدد وقت النقاش الجاي وهو يشوف النتائج */}
+      {ctx.isHost && (
+        <Panel className="border-amber-700">
+          <p className="font-black mb-2">⏱️ وقت النقاش الجاي</p>
+          <DiscussionTimePicker value={discussion} onChange={(s) => ctx.host.setDiscussion(s)} disabled={ctx.busy} />
+        </Panel>
+      )}
       <p className="text-center text-6xl mb-1 animate-in zoom-in-50 duration-500">🌅</p>
       <h2 className="text-center text-3xl font-black mb-2">صباح الخير! هذا اللي صار بالليل</h2>
       {announcements.map((a, i) => (

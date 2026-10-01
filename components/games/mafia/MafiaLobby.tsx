@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Copy, Check, Crown, X, Play, Loader2, Settings2, Bot, QrCode } from "lucide-react";
+import { Copy, Check, Crown, X, Play, Loader2, Settings2, Bot, QrCode, Pencil } from "lucide-react";
 import { MAFIA_GAME } from "@/constants/mafia";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import MafiaSetupForm from "./MafiaSetupForm";
@@ -15,6 +15,7 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
   const [editing, setEditing] = useState(false);
   // الطرد يحتاج ضغطتين: الأولى تسأل "طرد؟"، والثانية تطرد
   const [kickArmed, setKickArmed] = useState<string | null>(null);
+  const [newName, setNewName] = useState<string | null>(null);
 
   if (!room) return null;
   const max = room.settings.maxPlayers;
@@ -116,6 +117,49 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
             </li>
           ))}
         </ul>
+
+        {/* كل لاعب يقدر يغيّر اسمه قبل ما تبدأ اللعبة */}
+        {newName === null ? (
+          <button
+            type="button"
+            onClick={() => setNewName(me?.name ?? "")}
+            className="mt-4 w-full min-h-11 py-2.5 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm flex items-center justify-center gap-2"
+          >
+            <Pencil size={16} /> غيّر اسمي
+          </button>
+        ) : (
+          <form
+            className="mt-4 flex gap-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (await ctx.rename(newName.trim())) setNewName(null);
+            }}
+          >
+            <input
+              autoFocus
+              value={newName}
+              maxLength={16}
+              onChange={(e) => setNewName(e.target.value)}
+              aria-label="اسمك الجديد"
+              className="flex-1 min-w-0 p-3 bg-slate-950 border-2 border-slate-700 rounded-2xl font-black focus:border-red-500 outline-none"
+            />
+            <button
+              type="submit"
+              disabled={busy || newName.trim().length < 2}
+              className="px-4 bg-red-600 disabled:opacity-40 rounded-2xl border-b-4 border-red-800 font-black"
+            >
+              حفظ
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewName(null)}
+              aria-label="إلغاء"
+              className="w-11 bg-slate-800 rounded-2xl border-b-4 border-slate-950 flex items-center justify-center"
+            >
+              <X size={18} />
+            </button>
+          </form>
+        )}
       </Panel>
 
       {isHost ? (

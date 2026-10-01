@@ -2,7 +2,7 @@
 
 import React, { useState, useSyncExternalStore } from "react";
 import { Volume2, VolumeX, Eye } from "lucide-react";
-import { MAFIA_ROLES } from "@/constants/mafia";
+import { MAFIA_CONFIG, MAFIA_ROLES } from "@/constants/mafia";
 import { isMafiaMuted, setMafiaMuted, subscribeMafiaMuted, unlockMafiaAudio } from "@/lib/game/mafia-sounds";
 import type { MafiaRole } from "@/types";
 
@@ -60,7 +60,16 @@ export function SoundToggle() {
   );
 }
 
-export function RoleCard({ role, compact = false }: { role: MafiaRole; compact?: boolean }) {
+export function RoleCard({
+  role,
+  compact = false,
+  teammates = [],
+}: {
+  role: MafiaRole;
+  compact?: boolean;
+  /** المافيا: أسماء زملائه — تطلع داخل البطاقة نفسها عشان ما تفوته */
+  teammates?: string[];
+}) {
   const def = MAFIA_ROLES[role];
   return (
     <div
@@ -70,13 +79,25 @@ export function RoleCard({ role, compact = false }: { role: MafiaRole; compact?:
     >
       <div className={`${compact ? "text-5xl" : "text-8xl"} mb-2 drop-shadow-lg`}>{def.emoji}</div>
       <p className={`${compact ? "text-2xl" : "text-4xl"} font-black mb-2`}>{def.label}</p>
+      {teammates.length > 0 && (
+        <div className={`${compact ? "mb-3 p-3" : "mb-4 p-4"} rounded-2xl bg-black/35 border border-white/20`}>
+          <p className="font-black text-sm mb-2">🤝 عصابتك</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {teammates.map((n) => (
+              <span key={n} className={`px-3 py-1.5 rounded-xl bg-white text-red-800 font-black ${compact ? "text-base" : "text-lg"}`}>
+                {n}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <p className={`${compact ? "text-xs" : "text-sm"} font-bold opacity-90 leading-relaxed`}>{def.description}</p>
     </div>
   );
 }
 
 /** زر "دوري" — اضغط مطوّل عشان تشوف دورك، وأول ما ترفع إصبعك يختفي */
-export function RolePeek({ role }: { role: MafiaRole | null }) {
+export function RolePeek({ role, teammates = [] }: { role: MafiaRole | null; teammates?: string[] }) {
   const [show, setShow] = useState(false);
   if (!role) return null;
   return (
@@ -94,7 +115,7 @@ export function RolePeek({ role }: { role: MafiaRole | null }) {
       {show && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-slate-950/90 pointer-events-none">
           <div className="w-full max-w-sm">
-            <RoleCard role={role} compact />
+            <RoleCard role={role} compact teammates={teammates} />
           </div>
         </div>
       )}
@@ -191,6 +212,40 @@ export function PlayerPicker({
                 {names.length > 0 && <VoterNames names={names} />}
               </span>
             )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** اختيار وقت النقاش: 2 / 3 / 5 دقائق */
+export function DiscussionTimePicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number;
+  onChange: (seconds: number) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="وقت النقاش">
+      {MAFIA_CONFIG.DISCUSSION_OPTIONS.map((secs) => {
+        const on = secs === value;
+        return (
+          <button
+            key={secs}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={disabled}
+            onClick={() => onChange(secs)}
+            className={`min-h-11 py-2.5 rounded-2xl font-black border-b-4 transition-all disabled:opacity-50 ${
+              on ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950 text-slate-200"
+            }`}
+          >
+            {secs === 120 ? "دقيقتين" : `${secs / 60} دقائق`}
           </button>
         );
       })}

@@ -14,12 +14,15 @@ import { Panel } from "./MafiaParts";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
-/** الجلسة محفوظة لكل تبويب، عشان التحديث ما يطلّعك من اللعبة */
+/**
+ * الجلسة محفوظة على الجهاز (مو التبويب بس): لو اللاعب سكّر المتصفح ورجع،
+ * يرجع تلقائياً لمكانه ودوره بدون ما يعلق اسمه القديم في الغرفة.
+ */
 const SESSION_KEY = "mafia_session";
 
 function readSession(): MafiaSession | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = localStorage.getItem(SESSION_KEY);
     return raw ? (JSON.parse(raw) as MafiaSession) : null;
   } catch {
     return null;
@@ -38,8 +41,8 @@ const noopSubscribe = () => () => {};
 
 function writeSession(session: MafiaSession | null) {
   try {
-    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    else localStorage.removeItem(SESSION_KEY);
   } catch {
     // التخزين مقفل — اللعبة تشتغل بس التحديث بيطلّعك
   }
@@ -77,7 +80,7 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
       dir="rtl"
     >
       {session ? (
-        <MafiaInGame session={session} onLost={lost} />
+        <MafiaInGame key={session.roomCode} session={session} onLost={lost} onSwitch={start} />
       ) : mode === "host" ? (
         <MafiaCreate onCreated={start} notice={notice} />
       ) : (
@@ -87,8 +90,17 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
   );
 }
 
-function MafiaInGame({ session, onLost }: { session: MafiaSession; onLost: (notice?: string) => void }) {
-  const ctx = useMafiaGame(session, onLost);
+function MafiaInGame({
+  session,
+  onLost,
+  onSwitch,
+}: {
+  session: MafiaSession;
+  onLost: (notice?: string) => void;
+  /** المنشئ فتح غرفة جديدة: ننتقل لها */
+  onSwitch: (next: MafiaSession) => void;
+}) {
+  const ctx = useMafiaGame(session, onLost, onSwitch);
   const phase = ctx.room?.phase;
   const isNight = phase === "night_act" || phase === "night_done";
   // الميت يشوف اللعبة باهتة لين تنتهي
@@ -242,7 +254,9 @@ function MafiaJoin({ onJoined, notice }: { onJoined: (s: MafiaSession) => void; 
     else onJoined(res.data);
   };
 
-  const closed = info && (info.phase !== "lobby" || info.joined >= info.maxPlayers);
+  // الغرفة الممتلئة ما تقفل الزر: اللي كان داخل قبل يقدر يرجع بنفس اسمه
+  const closed = info && info.phase !== "lobby";
+  const full = Boolean(info && info.joined >= info.maxPlayers);
 
   return (
     <div className="w-full max-w-md mx-auto my-auto">
@@ -265,10 +279,14 @@ function MafiaJoin({ onJoined, notice }: { onJoined: (s: MafiaSession) => void; 
               <span className="text-xs font-bold text-red-400">لم نجد غرفة بهذا الرمز.</span>
             )}
             {info && (
-              <span className={`text-xs font-bold ${closed ? "text-amber-400" : "text-emerald-400"}`}>
-                {info.phase !== "lobby"
-                  ? "اللعبة بدأت، ما تقدر تدخل الحين."
-                  : `داخلين ${info.joined} من ${info.maxPlayers}${info.joined >= info.maxPlayers ? " — الغرفة ممتلئة" : ""}`}
+              <span className={`text-xs font-bold ${closed || full ? "text-amber-400" : "text-emerald-400"}`}>
+                {info.phase === "closed"
+                  ? "هذي الغرفة انقفلت، اطلب الكود الجديد من المنشئ."
+                  : info.phase !== "lobby"
+                    ? "اللعبة بدأت، ما تقدر تدخل الحين."
+                    : full
+                      ? "الغرفة ممتلئة — إذا كنت داخل قبل، اكتب نفس اسمك وترجع لمكانك"
+                      : `داخلين ${info.joined} من ${info.maxPlayers}`}
               </span>
             )}
           </label>

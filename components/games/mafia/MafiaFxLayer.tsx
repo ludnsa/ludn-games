@@ -71,11 +71,15 @@ function prepare(e: MafiaFxEvent): ActiveFx {
   const bitCount =
     e.kind === "win_town"
       ? 80
-      : e.kind === "saved" || e.kind === "magic"
-        ? 28
-        : e.kind === "bomb" || e.kind === "victim_bomb"
-          ? 7
-          : 0;
+      : e.kind === "saved"
+        ? 42
+        : e.kind === "magic"
+          ? 28
+          : e.kind === "bomb" || e.kind === "victim_bomb"
+            ? 7
+            : 0;
+  // الحماية: علامات ✚ تطلع بشكل متواصل طول "تمت الحماية"، مو دفعة وحدة وتختفي
+  const spread = e.kind === "win_town" ? 2 : e.kind === "saved" ? 2.8 : 0.6;
 
   return {
     ...e,
@@ -91,8 +95,8 @@ function prepare(e: MafiaFxEvent): ActiveFx {
     bits: Array.from({ length: bitCount }, () => ({
       left: rand(0, 100),
       size: rand(4, 12),
-      delay: rand(0, e.kind === "win_town" ? 2 : 0.6),
-      dur: rand(1.2, e.kind === "win_town" ? 3.5 : 2),
+      delay: rand(0, spread),
+      dur: e.kind === "saved" ? rand(1.6, 2.4) : rand(1.2, e.kind === "win_town" ? 3.5 : 2),
       hue: rand(0, 360),
     })),
     bolts: e.peaks.map(() => rand(5, 75)),
@@ -104,7 +108,7 @@ const BIG_EMOJI: Partial<Record<MafiaFxKind, string>> = {
   reveal_mafia: "🚨",
   investigate: "🔍",
   miss: "🤷",
-  saved: "✨",
+  saved: "💉",
   shield: "🛡️",
   bomb: "💥",
   magic: "🎩",
@@ -166,6 +170,8 @@ function sceneSeconds(e: MafiaFxEvent): number {
   const base = Math.max(e.duration, 1.2) + 1;
   if (e.kind === "victim" || e.kind === "escaped") return Math.min(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.6);
   if (e.kind === "victim_bomb") return Math.max(base, 6);
+  // الحماية تملأ شاشة "تمت الحماية" (5 ثواني) بدل ما تخلص بعد ثانيتين
+  if (e.kind === "saved") return Math.max(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.4);
   return base;
 }
 
@@ -250,24 +256,43 @@ function FxScene({ fx }: { fx: ActiveFx }) {
         ))}
 
       {/* درع النور */}
-      {(fx.kind === "saved" || fx.kind === "shield" || fx.kind === "escaped") && <div className="mfx-ring" style={{ animationDelay: `${first}s` }} />}
+      {(fx.kind === "shield" || fx.kind === "escaped") && (
+        <div className="mfx-ring" style={{ animationDelay: `${first}s` }} />
+      )}
+
+      {/* الحماية: الحلقة الخضراء تنبض 3 مرات، وخط نبض القلب يرتسم مرتين */}
+      {fx.kind === "saved" &&
+        [0, 1.2, 2.4].map((d) => (
+          <div key={d} className="mfx-ring mfx-ring-green" style={{ animationDelay: `${first + d}s` }} />
+        ))}
+      {fx.kind === "saved" &&
+        [0, 1.8].map((d) => (
+          <svg
+            key={d}
+            className="mfx-ecg"
+            viewBox="0 0 400 80"
+            preserveAspectRatio="none"
+            style={{ animationDelay: `${first + d}s` }}
+          >
+            <path d="M0 40 H120 L135 40 L145 12 L158 70 L170 22 L180 40 H230 L240 40 L250 18 L262 64 L272 40 H400" />
+          </svg>
+        ))}
 
       {/* جزيئات */}
       {fx.kind === "saved" &&
         fx.bits.map((b, i) => (
           <span
             key={i}
-            className="mfx-particle"
+            className="mfx-particle mfx-plus"
             style={{
               left: `${b.left}%`,
-              width: b.size,
-              height: b.size,
-              background: `hsl(${45 + (b.hue % 20)} 100% 65%)`,
-              boxShadow: "0 0 10px 2px rgba(255, 210, 80, 0.8)",
+              fontSize: `${b.size * 2.4}px`,
               animationDelay: `${b.delay}s`,
               animationDuration: `${b.dur}s`,
             }}
-          />
+          >
+            ✚
+          </span>
         ))}
       {fx.kind === "magic" &&
         fx.bits.map((b, i) => (

@@ -16,6 +16,8 @@ export type MafiaSound =
   | "horror"
   /** حماية: نجوم لامعة */
   | "sparkle"
+  /** حماية الدكتور: نفخة إبرة + "بيب… بيب" جهاز نبض */
+  | "heal"
   /** درع الجندي */
   | "shield"
   /** تحقيق: قرع طبول متسارع ينتهي بضربة */
@@ -51,6 +53,8 @@ const SOUND_FILES: Partial<Record<MafiaSound, string>> = {
   dramatic: "/sounds/mafia/dramatic.mp3",
   // اختياري: إذا الملف مو موجود نستخدم البومة المولّدة
   owl: "/sounds/mafia/owl.mp3",
+  // اختياري: صوت حماية حقيقي (heart monitor / injection)
+  heal: "/sounds/mafia/heal.mp3",
   rooster: "/sounds/mafia/rooster.mp3",
 };
 
@@ -67,6 +71,7 @@ const SYNTH_TIMING: Record<MafiaSound, MafiaSoundTiming> = {
   slash: { duration: 1.2, peaks: [0.33] },
   horror: { duration: 3.9, peaks: [0, 0.22, 0.75, 0.97, 1.5] },
   sparkle: { duration: 1.3, peaks: [0] },
+  heal: { duration: 1.5, peaks: [0.35, 0.85] },
   shield: { duration: 1.2, peaks: [0.1] },
   drumroll: { duration: 3.2, peaks: [2.1] },
   dramatic: { duration: 3.2, peaks: [0, 0.45, 0.95] },
@@ -401,6 +406,18 @@ const SOUNDS: Record<MafiaSound, (ac: AudioContext) => void> = {
     });
     // هبوط عميق في النهاية
     tone(ac, { freq: 70, to: 30, dur: 2.2, at: 1.3, type: "sine", gain: 0.5, attack: 0.3, send: 0.3 });
+  },
+
+  heal: (ac) => {
+    // نفخة الإبرة
+    noise(ac, { dur: 0.22, filter: "highpass", freq: 3500, to: 6000, gain: 0.12, attack: 0.03, send: 0.2 });
+    // جهاز النبض: بيب… بيب
+    [0.35, 0.85].forEach((at) => {
+      tone(ac, { freq: 1046, dur: 0.14, at, type: "sine", gain: 0.22, attack: 0.005, send: 0.35 });
+      tone(ac, { freq: 2093, dur: 0.1, at, type: "sine", gain: 0.03, attack: 0.005, send: 0.35 });
+    });
+    // دفء خفيف تحت يعطي إحساس "نجا"
+    tone(ac, { freq: 523, dur: 0.9, at: 0.85, type: "triangle", gain: 0.05, attack: 0.15, send: 0.8 });
   },
 
   sparkle: (ac) => {
