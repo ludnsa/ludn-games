@@ -122,3 +122,42 @@ export const MafiaSessionSchema = z.object({
   roomCode: MafiaRoomCodeSchema,
   token: MafiaTokenSchema,
 });
+
+// ---------------------------------------------------------------------
+// حاسبة مداقش
+// ---------------------------------------------------------------------
+
+export const MadaqeshRoomCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^D[A-Z0-9]{4}$/, "رمز الغرفة غير صحيح");
+
+export const MadaqeshNameSchema = MafiaNameSchema;
+
+export const MadaqeshSettingsSchema = z.object({
+  startBalance: z.number().int().min(1000, "رصيد البداية قليل").max(100_000_000),
+  targetAmount: z.number().int().min(2000).max(1_000_000_000),
+  maxBankrupts: z.number().int().min(0).max(10),
+});
+
+export const MadaqeshCreateSchema = z.object({
+  displayName: MadaqeshNameSchema,
+  settings: MadaqeshSettingsSchema,
+});
+
+export const MadaqeshJoinSchema = z.object({
+  roomCode: MadaqeshRoomCodeSchema,
+  displayName: MadaqeshNameSchema,
+});
+
+export const MadaqeshSessionSchema = z.object({
+  roomCode: MadaqeshRoomCodeSchema,
+  token: MafiaTokenSchema,
+});
+
+export const MadaqeshDecisionSchema = z.object({
+  mode: z.enum(["distribute", "withdraw", "all_fixed"]),
+  shares: z.record(z.string(), z.number().int().min(0)),
+  fixed: z.array(z.string()).max(20),
+});

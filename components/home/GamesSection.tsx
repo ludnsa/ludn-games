@@ -1,8 +1,9 @@
 import React from "react";
 import Link from "next/link";
-import { Swords, Globe, Gavel, LayoutGrid, Play, Skull } from "lucide-react";
+import { Swords, Globe, Gavel, LayoutGrid, Play, Skull, Calculator } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { MAFIA_GAME } from "@/constants/mafia";
+import { MADAQESH_GAME } from "@/constants/madaqesh";
 
 const GAMES = [
   {
@@ -45,6 +46,14 @@ const GAMES = [
     path: MAFIA_GAME.path,
     color: "from-red-500 to-red-700",
   },
+  {
+    id: MADAQESH_GAME.id,
+    title: MADAQESH_GAME.title,
+    description: MADAQESH_GAME.description,
+    icon: <Calculator className="w-8 h-8 text-amber-500" />,
+    path: MADAQESH_GAME.path,
+    color: "from-amber-400 to-amber-600",
+  },
 ];
 
 const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
@@ -54,6 +63,7 @@ const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
     if (id === "auction") return "bg-amber-500 border-amber-700 hover:bg-amber-400 text-slate-900";
     if (id === QUIZ_GAME.id) return "bg-violet-500 border-violet-700 hover:bg-violet-400";
     if (id === MAFIA_GAME.id) return "bg-red-600 border-red-800 hover:bg-red-500";
+    if (id === MADAQESH_GAME.id) return "bg-amber-500 border-amber-700 hover:bg-amber-400 text-slate-900";
     return "bg-blue-500 border-blue-700 hover:bg-blue-400";
   };
 
@@ -77,6 +87,11 @@ const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
       return {
         card: "border-violet-200 dark:border-violet-900/60 shadow-xl shadow-violet-100 dark:shadow-violet-900/20 hover:shadow-violet-200 dark:hover:shadow-violet-900/40",
         icon: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20",
+      };
+    if (id === MADAQESH_GAME.id)
+      return {
+        card: "border-amber-200 dark:border-amber-900/60 shadow-xl shadow-amber-100 dark:shadow-amber-900/20 hover:shadow-amber-200 dark:hover:shadow-amber-900/40",
+        icon: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20",
       };
     if (id === MAFIA_GAME.id)
       return {

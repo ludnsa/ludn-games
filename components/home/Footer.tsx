@@ -1,8 +1,9 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronDown, Swords, Globe, Gavel, LayoutGrid, Skull } from "lucide-react";
+import { ChevronDown, Swords, Globe, Gavel, LayoutGrid, Skull, Calculator } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { MAFIA_GAME } from "@/constants/mafia";
+import { MADAQESH_GAME } from "@/constants/madaqesh";
 
 export const Footer = ({ scrollToSection }: { scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, id: string) => void }) => {
   return (
@@ -41,6 +42,7 @@ export const Footer = ({ scrollToSection }: { scrollToSection: (e: React.MouseEv
             <li><Link href="/games/auction" className="hover:text-amber-500 transition-colors flex items-center gap-2"><Gavel size={18} className="text-amber-500" /> حرب المزايدات</Link></li>
             <li><Link href={QUIZ_GAME.path} className="hover:text-violet-500 transition-colors flex items-center gap-2"><LayoutGrid size={18} className="text-violet-500" /> {QUIZ_GAME.title}</Link></li>
             <li><Link href={MAFIA_GAME.path} className="hover:text-red-500 transition-colors flex items-center gap-2"><Skull size={18} className="text-red-500" /> {MAFIA_GAME.title}</Link></li>
+            <li><Link href={MADAQESH_GAME.path} className="hover:text-amber-500 transition-colors flex items-center gap-2"><Calculator size={18} className="text-amber-500" /> {MADAQESH_GAME.title}</Link></li>
           </ul>
         </div>
       </div>
