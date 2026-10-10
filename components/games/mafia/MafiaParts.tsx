@@ -219,7 +219,13 @@ export function PlayerPicker({
   );
 }
 
-/** اختيار وقت النقاش: 2 / 3 / 5 دقائق */
+/** اسم وقت النقاش: 0 = مفتوح */
+export function discussionLabel(secs: number): string {
+  if (secs === 0) return "مفتوح";
+  return secs === 120 ? "دقيقتين" : `${secs / 60} دقائق`;
+}
+
+/** اختيار وقت النقاش: 2 / 3 / 5 دقائق / مفتوح */
 export function DiscussionTimePicker({
   value,
   onChange,
@@ -230,7 +236,7 @@ export function DiscussionTimePicker({
   disabled?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="وقت النقاش">
+    <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="وقت النقاش">
       {MAFIA_CONFIG.DISCUSSION_OPTIONS.map((secs) => {
         const on = secs === value;
         return (
@@ -241,11 +247,11 @@ export function DiscussionTimePicker({
             aria-checked={on}
             disabled={disabled}
             onClick={() => onChange(secs)}
-            className={`min-h-11 py-2.5 rounded-2xl font-black border-b-4 transition-all disabled:opacity-50 ${
+            className={`min-h-11 py-2.5 px-1 rounded-2xl font-black text-sm border-b-4 transition-all disabled:opacity-50 ${
               on ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950 text-slate-200"
             }`}
           >
-            {secs === 120 ? "دقيقتين" : `${secs / 60} دقائق`}
+            {discussionLabel(secs)}
           </button>
         );
       })}

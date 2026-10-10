@@ -8,6 +8,7 @@ import {
   castMafiaVote,
   devGetMafiaRoles,
   endMafiaGameNow,
+  closeMafiaRoom,
   getMafiaMyView,
   isMafiaDevMode,
   kickMafiaPlayer,
@@ -16,13 +17,14 @@ import {
   renameMafiaPlayer,
   setMafiaDiscussionTime,
   skipMafiaPhase,
+  startMafiaDiscussion,
   startMafiaGame,
   submitMafiaNightAction,
   suggestMafiaTarget,
   updateMafiaSettings,
   type MafiaMyView,
 } from "@/actions/mafia";
-import { mafiaNightSteps } from "@/lib/game/mafia-engine";
+import { MAFIA_SKIP_KEY, mafiaNightSteps } from "@/lib/game/mafia-engine";
 import { getMafiaSoundTiming, playMafiaSound, unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
 import type {
@@ -38,6 +40,8 @@ import type {
 export interface MafiaSession {
   roomCode: string;
   token: string;
+  /** هذا الجهاز سوّى الغرفة (المنشئ) — اللاعب العادي يتخيّر يرجع لها أو يسوي غرفته */
+  host?: boolean;
 }
 
 type Cue = [MafiaSound, MafiaFxKind?];
@@ -77,6 +81,20 @@ export function mafiaMorningSchedule(announcements: MafiaAnnouncement[]): number
     at += Math.min(4500, Math.max(1800, secs * 850));
   });
   return schedule;
+}
+
+/** صوتي ينحسب على الشاشة فوراً (العداد وأسماء المصوّتين)، والسيرفر يأكده بعدين */
+function withLocalVote(room: MafiaRoom, voterId: string, prev: string | null, next: string): MafiaRoom {
+  const counts = { ...(room.vote_counts ?? {}) };
+  if (prev && counts[prev]) counts[prev] -= 1;
+  counts[next] = (counts[next] ?? 0) + 1;
+
+  const voters: Record<string, string[]> = {};
+  Object.entries(room.vote_voters ?? {}).forEach(([k, ids]) => {
+    voters[k] = ids.filter((id) => id !== voterId);
+  });
+  voters[next] = [...(voters[next] ?? []), voterId];
+  return { ...room, vote_counts: counts, vote_voters: voters };
 }
 
 /**
@@ -147,6 +165,11 @@ export function useMafiaGame(
   // الإقلاع والبث اللحظي
   // -------------------------------------------------------------------
 
+  // قناة إشارات بين الأجهزة (اسمها ثابت للغرفة): "فيه اقتراح جديد" — بدون أي محتوى،
+  // فالقائد يجيب الاقتراح على طول بدل ما ينتظر الاستعلام الدوري
+  const signalRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const mafiaTurnRef = useRef(false);
+
   useEffect(() => {
     if (!roomCode) return;
     fetchPublic();
@@ -179,6 +202,14 @@ export function useMafiaGame(
     };
     document.addEventListener("visibilitychange", onVisible);
 
+    const signals = supabase
+      .channel(`mafia_signal_${roomCode}`)
+      .on("broadcast", { event: "mafia_suggest" }, () => {
+        if (mafiaTurnRef.current) fetchView();
+      })
+      .subscribe();
+    signalRef.current = signals;
+
     // شبكة أمان لو البث اللحظي انقطع بصمت
     const safety = setInterval(fetchPublic, 5000);
 
@@ -186,6 +217,8 @@ export function useMafiaGame(
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(safety);
       supabase.removeChannel(channel);
+      supabase.removeChannel(signals);
+      signalRef.current = null;
     };
   }, [supabase, roomCode, fetchPublic, fetchView]);
 
@@ -198,6 +231,7 @@ export function useMafiaGame(
   // المافيا يتابعون اختيار القائد والمصادقة أول بأول (استعلام خاص، ما يكشف شي للباقين)
   const isMafiaTurn = room?.phase === "night_act" && room.night_step === "mafia" && view?.me.role === "mafia";
   useEffect(() => {
+    mafiaTurnRef.current = isMafiaTurn;
     if (!isMafiaTurn) return;
     const id = setInterval(fetchView, 1500);
     return () => clearInterval(id);
@@ -254,13 +288,19 @@ export function useMafiaGame(
   const pendingKillSeq = useRef<number | null>(null);
 
   const soundSeq = useRef(-1);
+  // مؤقتات أصوات المرحلة: تنلغي بس لما تبدأ مرحلة جديدة (أو نطلع من الصفحة)،
+  // مو مع كل تحديث للغرفة — وإلا تحديث بسيط (لاعب مات، الجلب الدوري) يقطع أصوات الصباح
+  const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => phaseTimers.current.forEach(clearTimeout), []);
   useEffect(() => {
     if (!room || room.phase_seq === soundSeq.current) return;
     const first = soundSeq.current === -1;
     soundSeq.current = room.phase_seq;
+    phaseTimers.current.forEach(clearTimeout);
+    phaseTimers.current = [];
     if (first) return; // لا نشغّل صوت عند فتح الصفحة في منتصف مرحلة
 
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    const timers = phaseTimers.current;
     switch (room.phase) {
       case "reveal":
         // أول ما تبدأ اللعبة: بومة، بعدها موسيقى كشف الأدوار
@@ -301,21 +341,37 @@ export function useMafiaGame(
       case "voting":
         playMafiaSound("vote");
         break;
-      case "vote_result":
-        if (room.vote_result?.eliminatedId) cueMafia("horror", "doom");
+      case "vote_result": {
+        const result = room.vote_result;
+        if (result?.eliminatedId) cueMafia("horror", "doom");
         else cueMafia("womp");
-        break;
-      case "ended":
-        if (room.winner === "mafia") {
-          // نفس رعب الذبح، وبعده الكورد الشرير
-          cueMafia("horror", "win_mafia");
-          timers.push(setTimeout(() => playMafiaSound("evil"), getMafiaSoundTiming("horror").duration * 900));
+        // الانتحاري طلع بالتصويت: ينفجر ويطيّر آخر واحد اختاره
+        const bombId = result?.bombId;
+        if (bombId) {
+          timers.push(
+            setTimeout(() => cueMafia("bomb", bombId === meIdRef.current ? "victim_bomb" : "bomb"), 1800)
+          );
         }
-        else if (room.winner === "town") cueMafia("win", "win_town");
-        else cueMafia("night");
         break;
+      }
+      case "ended": {
+        // انحسمت بالليل بانفجار الانتحاري: الانفجار أول، وبعده الفوز
+        const bomb = (room.announcements ?? []).find((a) => a.kind === "bomb");
+        const delay = bomb ? getMafiaSoundTiming("bomb").duration * 1000 + 600 : 0;
+        if (bomb) cueMafia("bomb", bomb.targetId === meIdRef.current ? "victim_bomb" : "bomb");
+        timers.push(
+          setTimeout(() => {
+            if (room.winner === "mafia") {
+              // نفس رعب الذبح، وبعده الكورد الشرير
+              cueMafia("horror", "win_mafia");
+              timers.push(setTimeout(() => playMafiaSound("evil"), getMafiaSoundTiming("horror").duration * 900));
+            } else if (room.winner === "town") cueMafia("win", "win_town");
+            else cueMafia("night");
+          }, delay)
+        );
+        break;
+      }
     }
-    return () => timers.forEach(clearTimeout);
   }, [room]);
 
   // وصلت حالتي بعد "تم الاغتيال": الضحية تشوف "المافيا ذبحوك"، واللي نجا يشوف "فكك الله".
@@ -366,29 +422,41 @@ export function useMafiaGame(
   const act = useCallback(
     async (targetId: string | null) => {
       const step = room?.night_step;
-      const res = await run(() => submitMafiaNightAction({ roomCode, token, targetId }));
-      if (res?.success) {
-        const silent = { silent: true };
-        if (step === "mafia") cueMafia("slash", "slash", silent);
-        else if (step === "doctor") cueMafia("heal", "saved", silent);
-        else if (step === "detective") {
-          if (res.data.detectiveResult?.isMafia) cueMafia("dramatic", "reveal_mafia", silent);
-          else cueMafia("womp", "miss", silent);
-        } else if (step === "magician" && targetId) cueMafia("magic", "magic", silent);
-        else if (step === "journalist" && targetId) cueMafia("camera", "flash", silent);
-        await fetchView();
+      unlockMafiaAudio();
+      setError("");
+      // الشاشة تتقفل على اختياره فوراً، والسيرفر يحفظ بالخلفية (لو فشل نرجّعها)
+      setView((v) => (v?.task ? { ...v, task: { ...v.task, locked: true, selectedId: targetId } } : v));
+      const silent = { silent: true };
+      if (step === "mafia") cueMafia("slash", "slash", silent);
+      else if (step === "doctor") cueMafia("heal", "saved", silent);
+      else if (step === "magician" && targetId) cueMafia("magic", "magic", silent);
+      else if (step === "journalist" && targetId) cueMafia("camera", "flash", silent);
+
+      const res = await submitMafiaNightAction({ roomCode, token, targetId });
+      if (!res.success) setError(res.error);
+      else if (step === "detective") {
+        if (res.data.detectiveResult?.isMafia) cueMafia("dramatic", "reveal_mafia", silent);
+        else cueMafia("womp", "miss", silent);
       }
+      await fetchView();
     },
-    [run, roomCode, token, room?.night_step, fetchView]
+    [roomCode, token, room?.night_step, fetchView]
   );
 
   /** مافيا (غير القائد) يقترح على قائده — بدون صوت */
   const suggest = useCallback(
     async (targetId: string) => {
-      const res = await run(() => suggestMafiaTarget({ roomCode, token, targetId }));
-      if (res?.success) await fetchView();
+      setError("");
+      setView((v) => (v?.task ? { ...v, task: { ...v.task, selectedId: targetId } } : v));
+      const res = await suggestMafiaTarget({ roomCode, token, targetId });
+      if (!res.success) {
+        setError(res.error);
+        fetchView();
+        return;
+      }
+      signalRef.current?.send({ type: "broadcast", event: "mafia_suggest", payload: {} });
     },
-    [run, roomCode, token, fetchView]
+    [roomCode, token, fetchView]
   );
 
   const rename = useCallback(
@@ -402,12 +470,23 @@ export function useMafiaGame(
 
   const vote = useCallback(
     async (targetId: string | null) => {
-      setView((v) => (v ? { ...v, myVote: targetId ?? "skip" } : v));
+      const myId = view?.me.id;
+      const prev = view?.myVote ?? null;
+      const next = targetId ?? MAFIA_SKIP_KEY;
+      if (prev === next) return;
+      unlockMafiaAudio();
+      setError("");
+      setView((v) => (v ? { ...v, myVote: next } : v));
+      if (myId) setRoom((r) => (r ? withLocalVote(r, myId, prev, next) : r));
       playMafiaSound("vote");
-      const res = await run(() => castMafiaVote({ roomCode, token, targetId }));
-      if (!res?.success) fetchView();
+      const res = await castMafiaVote({ roomCode, token, targetId });
+      if (!res.success) {
+        setError(res.error);
+        fetchView();
+        fetchPublic();
+      }
     },
-    [run, roomCode, token, fetchView]
+    [view?.me.id, view?.myVote, roomCode, token, fetchView, fetchPublic]
   );
 
   // -------------------------------------------------------------------
@@ -424,11 +503,13 @@ export function useMafiaGame(
       playAgain: () => run(() => playMafiaAgain(roomCode)),
       addBots: () => run(() => addMafiaBots(roomCode)),
       setDiscussion: (seconds: number) => run(() => setMafiaDiscussionTime({ roomCode, seconds })),
+      startDiscussion: (seconds: number) => run(() => startMafiaDiscussion({ roomCode, seconds })),
       newRoom: async () => {
         const res = await run(() => newMafiaRoom(roomCode));
-        if (res?.success) onSwitchRef.current?.(res.data);
+        if (res?.success) onSwitchRef.current?.({ ...res.data, host: true });
         return res;
       },
+      closeRoom: () => run(() => closeMafiaRoom(roomCode)),
     }),
     [run, roomCode]
   );

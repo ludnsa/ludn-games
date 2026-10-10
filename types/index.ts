@@ -228,6 +228,8 @@ export interface MafiaAnnouncement {
 export interface MafiaVoteResult {
   eliminatedId: string | null;
   reason: "player" | "skip" | "tie" | "none";
+  /** اللي طلع بالتصويت انتحاري: يطير معه آخر واحد اختاره */
+  bombId?: string | null;
 }
 
 export interface MafiaFinalRole {

@@ -22,12 +22,14 @@ import {
   mafiaDeadStepDeadline,
   mafiaKillOutcome,
   mafiaLeaderId,
+  mafiaNightShortcut,
   mafiaNightSteps,
   pickMafiaSuggestion,
   pickRandom,
   resolveNight,
   resolveVotes,
   validateMafiaSettings,
+  voteBombTarget,
   MAFIA_SKIP_KEY,
   type EnginePlayer,
   type NightResolution,
@@ -899,14 +901,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
 
     case "night_done": {
       const idx = room.night_step ? steps.indexOf(room.night_step) : -1;
-      if (idx >= 0 && idx < steps.length - 1) {
-        await guardedRoomUpdate(admin, room, {
-          phase: "night_act",
-          night_step: steps[idx + 1],
-          phase_ends_at: await stepDeadline(admin, room.room_code, steps[idx + 1], room.night_number),
-        });
-        return;
-      }
+      const remaining = idx >= 0 ? steps.slice(idx + 1) : [];
 
       const { engine, secretOf } = await loadEngine(admin, room.room_code);
       const { data: acts } = await admin
@@ -914,12 +909,28 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         .select("*")
         .eq("room_code", room.room_code)
         .eq("night", room.night_number);
-      const resolution = resolveNight(
-        engine,
-        ((acts as ActionRow[]) ?? [])
-          .filter((a) => a.step !== MAFIA_SUGGEST_STEP)
-          .map((a) => ({ step: a.step as MafiaNightStep, actorId: a.actor_id, targetId: a.target_id }))
-      );
+      const actions = ((acts as ActionRow[]) ?? [])
+        .filter((a) => a.step !== MAFIA_SUGGEST_STEP)
+        .map((a) => ({ step: a.step as MafiaNightStep, actorId: a.actor_id, targetId: a.target_id }));
+
+      // بعد دور المافيا: لو الليلة حسمت اللعبة ننهيها على طول
+      const shortcut = idx >= steps.indexOf("mafia") ? mafiaNightShortcut(engine, actions, remaining) : null;
+      if (shortcut) {
+        await endGame(admin, room, shortcut.winner, { resolution: shortcut.resolution, secretOf });
+        return;
+      }
+
+      const nextStep = remaining[0];
+      if (nextStep) {
+        await guardedRoomUpdate(admin, room, {
+          phase: "night_act",
+          night_step: nextStep,
+          phase_ends_at: await stepDeadline(admin, room.room_code, nextStep, room.night_number),
+        });
+        return;
+      }
+
+      const resolution = resolveNight(engine, actions);
 
       const won = await guardedRoomUpdate(admin, room, {
         phase: "morning",
@@ -960,16 +971,19 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
     }
 
     case "voting": {
-      const counts = await recountVotes(admin, room);
+      const [counts, { engine }] = await Promise.all([recountVotes(admin, room), loadEngine(admin, room.room_code)]);
       const result = resolveVotes(counts);
+      const bombId = voteBombTarget(engine, result.eliminatedId);
+      if (bombId) result.bombId = bombId;
       const won = await guardedRoomUpdate(admin, room, {
         phase: "vote_result",
         vote_counts: counts,
         vote_result: result,
         phase_ends_at: mafiaDeadline("vote_result"),
       });
-      if (won && result.eliminatedId) {
-        await admin.from("mafia_players").update({ is_alive: false }).eq("id", result.eliminatedId);
+      const out = [result.eliminatedId, bombId].filter((id): id is string => Boolean(id));
+      if (won && out.length > 0) {
+        await admin.from("mafia_players").update({ is_alive: false }).in("id", out);
       }
       return;
     }
@@ -1045,21 +1059,32 @@ async function currentWinner(admin: Admin, roomCode: string): Promise<MafiaTeam 
   return checkWinner(engine);
 }
 
-/** winner = null يعني المنشئ أنهى اللعبة قبل ما يفوز أحد */
-async function endGame(admin: Admin, room: MafiaRoom, winner: MafiaTeam | null): Promise<void> {
+/**
+ * winner = null يعني المنشئ أنهى اللعبة قبل ما يفوز أحد.
+ * night = اللعبة انحسمت بالليل: نطبّق نتائجها ونعرض مين مات على شاشة النهاية.
+ */
+async function endGame(
+  admin: Admin,
+  room: MafiaRoom,
+  winner: MafiaTeam | null,
+  night?: { resolution: NightResolution; secretOf: Map<string, SecretRow> }
+): Promise<void> {
   const secrets = await loadSecrets(admin, room.room_code);
+  const changedRole = new Map((night?.resolution.roleChanges ?? []).map((c) => [c.playerId, c.role]));
   const finalRoles: MafiaFinalRole[] = secrets.map((s) => ({
     playerId: s.player_id,
-    role: (s.role ?? "citizen") as MafiaRole,
+    role: (changedRole.get(s.player_id) ?? s.role ?? "citizen") as MafiaRole,
     originalRole: (s.original_role ?? s.role ?? "citizen") as MafiaRole,
   }));
-  await guardedRoomUpdate(admin, room, {
+  const won = await guardedRoomUpdate(admin, room, {
     phase: "ended",
     night_step: null,
     phase_ends_at: null,
     winner,
     final_roles: finalRoles,
+    announcements: (night?.resolution.announcements ?? []).filter((a) => a.kind === "kill" || a.kind === "bomb"),
   });
+  if (won && night) await applyNight(admin, night.resolution, night.secretOf);
 }
 
 // ---------------------------------------------------------------------
@@ -1208,7 +1233,21 @@ export async function startMafiaGame(roomCode: string): Promise<ActionResult> {
   return ok ? { success: true } : fail("تعذّر بدء اللعبة، حاول مرة ثانية.");
 }
 
-/** المنشئ يحدد وقت النقاش (2/3/5 دقائق). لو النقاش شغّال، المؤقت يبدأ من جديد بالوقت الجديد. */
+/** المنشئ اختار وقت النقاش وضغط "ابدأ النقاش" (الصباح ما له مؤقت — يظل لين يضغط) */
+export async function startMafiaDiscussion(input: { roomCode: string; seconds: number }): Promise<ActionResult> {
+  const ctx = await requireHost(input.roomCode);
+  if (!ctx.ok) return fail(ctx.error);
+  const { admin, room } = ctx;
+  if (!MAFIA_CONFIG.DISCUSSION_OPTIONS.includes(input.seconds)) return fail("وقت النقاش غير صحيح.");
+  if (room.phase !== "morning") return { success: true };
+
+  const settings = { ...room.settings, discussionSeconds: input.seconds };
+  await admin.from("mafia_rooms").update({ settings }).eq("room_code", room.room_code);
+  await runTransition(admin, { ...room, settings });
+  return { success: true };
+}
+
+/** المنشئ يحدد وقت النقاش (2/3/5 دقائق أو مفتوح). لو النقاش شغّال، المؤقت يبدأ من جديد بالوقت الجديد. */
 export async function setMafiaDiscussionTime(input: { roomCode: string; seconds: number }): Promise<ActionResult> {
   const ctx = await requireHost(input.roomCode);
   if (!ctx.ok) return fail(ctx.error);
@@ -1217,7 +1256,7 @@ export async function setMafiaDiscussionTime(input: { roomCode: string; seconds:
   if (room.phase === "ended" || room.phase === "closed") return fail("اللعبة خلصت.");
 
   const patch: Partial<MafiaRoom> = { settings: { ...room.settings, discussionSeconds: input.seconds } };
-  if (room.phase === "discussion") patch.phase_ends_at = new Date(Date.now() + input.seconds * 1000).toISOString();
+  if (room.phase === "discussion") patch.phase_ends_at = mafiaDeadline("discussion", Date.now(), patch.settings);
 
   await admin.from("mafia_rooms").update(patch).eq("room_code", room.room_code);
   return { success: true };
@@ -1277,6 +1316,27 @@ export async function endMafiaGameNow(roomCode: string): Promise<ActionResult> {
   if (room.phase === "lobby" || room.phase === "ended") return fail("ما فيه لعبة شغالة الحين.");
 
   await endGame(admin, room, null);
+  return { success: true };
+}
+
+/**
+ * المنشئ طالع ويقفل الغرفة: تنتهي عند الكل، وأجهزتهم تنسى الغرفة،
+ * فأي واحد منهم يقدر يسجّل دخول ويسوي غرفة جديدة.
+ */
+export async function closeMafiaRoom(roomCode: string): Promise<ActionResult> {
+  const ctx = await requireHost(roomCode);
+  if (!ctx.ok) return fail(ctx.error);
+  const { admin, room } = ctx;
+  if (room.phase === "closed") return { success: true };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { movedTo, ...settings } = room.settings;
+  await guardedRoomUpdate(admin, room, {
+    phase: "closed",
+    night_step: null,
+    phase_ends_at: null,
+    settings,
+  });
   return { success: true };
 }
 

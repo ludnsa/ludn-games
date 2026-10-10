@@ -6,6 +6,7 @@ import { RotateCcw, Loader2, Home, DoorOpen } from "lucide-react";
 import { MAFIA_ROLES } from "@/constants/mafia";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import { Panel } from "./MafiaParts";
+import MafiaHomeButton from "./MafiaHomeButton";
 
 export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
   const { room, players, me, isHost, host, busy } = ctx;
@@ -35,6 +36,21 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
               : "طلّعوا كل المافيا والمدينة بأمان 🎉"}
         </p>
       </div>
+
+      {/* اللعبة انحسمت بالليل: مين مات في ليلة الحسم */}
+      {(room.announcements ?? []).length > 0 && (
+        <Panel className="border-red-900">
+          <h3 className="font-black text-xl mb-3">🌙 ليلة الحسم</h3>
+          <ul className="flex flex-col gap-2">
+            {room.announcements.map((a, i) => (
+              <li key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-red-950/60 font-black">
+                <span className="text-3xl shrink-0">{a.emoji}</span>
+                <span className="flex-1 min-w-0 break-words leading-snug">{a.text}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
 
       <Panel>
         <h3 className="font-black text-xl mb-3">🎭 كشف كل الأدوار</h3>
@@ -97,12 +113,21 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
         <p className="text-center font-bold text-slate-400">بانتظار المنشئ يبدأ جولة جديدة...</p>
       )}
 
-      <Link
-        href="/"
-        className="w-full py-3 bg-slate-800 rounded-2xl border-b-4 border-slate-950 font-black flex items-center justify-center gap-2"
-      >
-        <Home size={18} /> الصفحة الرئيسية
-      </Link>
+      {isHost ? (
+        <MafiaHomeButton
+          ctx={ctx}
+          className="w-full py-3 bg-slate-800 rounded-2xl border-b-4 border-slate-950 font-black flex items-center justify-center gap-2"
+        >
+          <Home size={18} /> الصفحة الرئيسية
+        </MafiaHomeButton>
+      ) : (
+        <Link
+          href="/"
+          className="w-full py-3 bg-slate-800 rounded-2xl border-b-4 border-slate-950 font-black flex items-center justify-center gap-2"
+        >
+          <Home size={18} /> الصفحة الرئيسية
+        </Link>
+      )}
     </div>
   );
 }

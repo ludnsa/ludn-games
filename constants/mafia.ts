@@ -26,17 +26,17 @@ export const MAFIA_CONFIG = {
   MIN_CITIZENS: 3,
 
   /** مدد المراحل بالثواني */
-  ROLE_REVEAL_SECONDS: 12,
+  ROLE_REVEAL_SECONDS: 3,
   /** وقت صاحب الدور بالليل — وزر "استمرار" ينهيه قبل */
   NIGHT_ACTION_SECONDS: 20,
   /** الدور اللي صاحبه ميت (أو ما يقدر يتصرف) يخلص بعد وقت عشوائي بين هذين، عشان ما ينكشف */
   DEAD_STEP_MIN_SECONDS: 6,
   DEAD_STEP_MAX_SECONDS: 10,
   NIGHT_DONE_SECONDS: 5,
-  MORNING_SECONDS: 15,
-  /** وقت النقاش الافتراضي، والخيارات اللي يقدر المنشئ يختار منها */
+  /** الصباح ما له وقت: النتائج تظل لين المنشئ يختار وقت النقاش ويضغط "ابدأ النقاش" */
+  /** وقت النقاش الافتراضي، والخيارات اللي يقدر المنشئ يختار منها (0 = مفتوح، ينتهي بزر المنشئ) */
   DISCUSSION_SECONDS: 120,
-  DISCUSSION_OPTIONS: [120, 180, 300] as readonly number[],
+  DISCUSSION_OPTIONS: [120, 180, 300, 0] as readonly number[],
   VOTING_SECONDS: 15,
   VOTE_RESULT_SECONDS: 10,
 
@@ -140,10 +140,10 @@ export const MAFIA_OPTIONAL_ROLES: readonly MafiaOptionalRole[] = [
 export const MAFIA_NIGHT_ORDER: readonly MafiaNightStep[] = [
   "doctor",
   "mafia",
-  "detective",
-  "magician",
-  "journalist",
   "suicide",
+  "detective",
+  "journalist",
+  "magician",
 ] as const;
 
 export interface MafiaNightStepDef {

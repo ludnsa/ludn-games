@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { Crown, X, SkipForward, Square, RotateCcw, Home, Loader2, UserX, DoorOpen } from "lucide-react";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
+import MafiaHomeButton from "./MafiaHomeButton";
 
 type Confirmable = "end" | "restart" | "newRoom" | null;
 
@@ -161,18 +161,18 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
                 disabled={busy}
               />
 
-              <Link
-                href="/"
-                className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black"
+              <MafiaHomeButton
+                ctx={ctx}
+                className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black text-start"
               >
                 <Home size={20} />
                 <span className="flex-1">
                   الصفحة الرئيسية
                   <span className="block text-xs font-bold text-slate-400">
-                    اللعبة تكمل، وتقدر ترجع لها من صفحة المافيا
+                    تقدر تقفل الغرفة أو تخليها شغالة
                   </span>
                 </span>
-              </Link>
+              </MafiaHomeButton>
             </div>
 
             {busy && (

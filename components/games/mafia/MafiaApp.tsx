@@ -2,11 +2,12 @@
 
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Cairo } from "next/font/google";
-import { LogIn, Loader2, AlertCircle } from "lucide-react";
+import { LogIn, Loader2, AlertCircle, DoorOpen, Undo2 } from "lucide-react";
 import { createMafiaRoom, getMafiaRoomPublicInfo, joinMafiaRoom, leaveMafiaRoom } from "@/actions/mafia";
 import { MAFIA_CONFIG, MAFIA_GAME } from "@/constants/mafia";
 import { useMafiaGame, type MafiaSession } from "@/hooks/games/mafia/useMafiaGame";
 import { unlockMafiaAudio } from "@/lib/game/mafia-sounds";
+import { readMafiaSession, writeMafiaSession } from "@/lib/game/mafia-session";
 import MafiaSetupForm, { DEFAULT_MAFIA_SETTINGS } from "./MafiaSetupForm";
 import MafiaScreen from "./MafiaScreen";
 import MafiaFxLayer, { MafiaNightSky, MAFIA_STAGE_ID } from "./MafiaFxLayer";
@@ -14,39 +15,15 @@ import { Panel } from "./MafiaParts";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
-/**
- * الجلسة محفوظة على الجهاز (مو التبويب بس): لو اللاعب سكّر المتصفح ورجع،
- * يرجع تلقائياً لمكانه ودوره بدون ما يعلق اسمه القديم في الغرفة.
- */
-const SESSION_KEY = "mafia_session";
-
-function readSession(): MafiaSession | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as MafiaSession) : null;
-  } catch {
-    return null;
-  }
-}
-
 /** الجلسة المحفوظة، إلا لو فتح رابط غرفة ثانية فنتجاهلها */
 function initialSession(): MafiaSession | null {
   if (typeof window === "undefined") return null;
-  const saved = readSession();
+  const saved = readMafiaSession();
   const fromUrl = new URLSearchParams(window.location.search).get("room")?.toUpperCase();
   return saved && (!fromUrl || fromUrl === saved.roomCode) ? saved : null;
 }
 
 const noopSubscribe = () => () => {};
-
-function writeSession(session: MafiaSession | null) {
-  try {
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else localStorage.removeItem(SESSION_KEY);
-  } catch {
-    // التخزين مقفل — اللعبة تشتغل بس التحديث بيطلّعك
-  }
-}
 
 /**
  * نقطة الدخول للعبة المافيا.
@@ -59,15 +36,20 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
   const [session, setSession] = useState<MafiaSession | null>(initialSession);
 
   const start = useCallback((s: MafiaSession) => {
-    writeSession(s);
+    writeMafiaSession(s);
     setSession(s);
   }, []);
+
+  // صفحة المنشئ وهذا الجهاز داخل غرفة غيره كلاعب (مثلاً المنشئ القديم طلع):
+  // نخيّره يرجع لها أو يسوي غرفته — بدل ما نرجّعه لها غصب
+  const [resumeChosen, setResumeChosen] = useState(false);
+  const askResume = mode === "host" && session !== null && !session.host && !resumeChosen;
 
   // رسالة تطلع في شاشة الدخول بعد ما يطلع اللاعب (مثل: انطردت)
   const [notice, setNotice] = useState("");
 
   const lost = useCallback((message?: string) => {
-    writeSession(null);
+    writeMafiaSession(null);
     setSession(null);
     setNotice(message ?? "");
   }, []);
@@ -79,7 +61,16 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
       className={`min-h-[100dvh] bg-slate-950 text-white p-4 md:p-6 flex flex-col relative z-10 ${cairo.className}`}
       dir="rtl"
     >
-      {session ? (
+      {session && askResume ? (
+        <MafiaResumeOrNew
+          roomCode={session.roomCode}
+          onResume={() => setResumeChosen(true)}
+          onNew={() => {
+            leaveMafiaRoom(session);
+            lost();
+          }}
+        />
+      ) : session ? (
         <MafiaInGame key={session.roomCode} session={session} onLost={lost} onSwitch={start} />
       ) : mode === "host" ? (
         <MafiaCreate onCreated={start} notice={notice} />
@@ -102,6 +93,17 @@ function MafiaInGame({
 }) {
   const ctx = useMafiaGame(session, onLost, onSwitch);
   const phase = ctx.room?.phase;
+
+  // الغرفة انقفلت: الجهاز ينساها، فأي صفحة مافيا يفتحها بعدين تبدأ من جديد
+  useEffect(() => {
+    if (phase === "closed") writeMafiaSession(null);
+  }, [phase]);
+
+  // جلسة منشئ محفوظة قبل علامة host: نعلّمها، عشان ما يطلع له سؤال "ترجع ولا غرفة جديدة"
+  const isHost = Boolean(ctx.me?.isHost);
+  useEffect(() => {
+    if (isHost && !session.host && phase !== "closed") writeMafiaSession({ ...session, host: true });
+  }, [isHost, session, phase]);
   const isNight = phase === "night_act" || phase === "night_done";
   // الميت يشوف اللعبة باهتة لين تنتهي
   const isGhost = Boolean(ctx.me && !ctx.me.alive && phase !== "lobby" && phase !== "ended");
@@ -134,6 +136,45 @@ function MafiaInGame({
       </div>
       <MafiaFxLayer />
     </>
+  );
+}
+
+/** هذا الجهاز داخل غرفة ثانية كلاعب — يرجع لها أو يسوي غرفة جديدة */
+function MafiaResumeOrNew({
+  roomCode,
+  onResume,
+  onNew,
+}: {
+  roomCode: string;
+  onResume: () => void;
+  onNew: () => void;
+}) {
+  return (
+    <div className="w-full max-w-md mx-auto my-auto">
+      <Header subtitle="جوالك داخل غرفة ثانية كلاعب" />
+      <Panel className="text-center">
+        <p className="font-bold text-slate-400 mb-1">أنت داخل الغرفة</p>
+        <p className="text-4xl font-black tracking-[0.3em] text-red-400 mb-5" dir="ltr">
+          {roomCode}
+        </p>
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={onNew}
+            className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
+          >
+            <DoorOpen size={22} /> سوّ غرفة جديدة
+          </button>
+          <button
+            type="button"
+            onClick={onResume}
+            className="w-full py-4 bg-slate-800 rounded-2xl border-b-4 border-slate-950 font-black text-lg active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
+          >
+            <Undo2 size={22} /> ارجع للغرفة {roomCode}
+          </button>
+        </div>
+      </Panel>
+    </div>
   );
 }
 
@@ -193,7 +234,7 @@ function MafiaCreate({ onCreated, notice }: { onCreated: (s: MafiaSession) => vo
             const res = await createMafiaRoom({ displayName: name.trim(), settings });
             setBusy(false);
             if (!res.success) setError(res.error);
-            else onCreated(res.data);
+            else onCreated({ ...res.data, host: true });
           }}
         >
           <label className="flex flex-col gap-2">

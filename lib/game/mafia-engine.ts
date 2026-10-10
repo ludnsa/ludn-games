@@ -318,6 +318,14 @@ export function groupVoters(votes: { voterId: string; targetId: string | null }[
   return voters;
 }
 
+/** طلع بالتصويت وهو انتحاري: يطير معه آخر واحد اختاره (لو للحين حي)، وإلا يطلع لحاله */
+export function voteBombTarget(players: EnginePlayer[], eliminatedId: string | null): string | null {
+  const out = players.find((p) => p.id === eliminatedId);
+  if (!out || out.role !== "suicide" || !out.suicideTarget) return null;
+  const boom = players.find((p) => p.id === out.suicideTarget);
+  return boom && boom.alive && boom.id !== out.id ? boom.id : null;
+}
+
 /** الأكثر أصواتاً يعتمد (لاعب أو تخطي). التعادل = محد يطلع. */
 export function resolveVotes(counts: Record<string, number>): MafiaVoteResult {
   const entries = Object.entries(counts).filter(([, n]) => n > 0);
@@ -330,13 +338,60 @@ export function resolveVotes(counts: Record<string, number>): MafiaVoteResult {
   return { eliminatedId: leaders[0][0], reason: "player" };
 }
 
-/** المواطنين يفوزون إذا ما بقى مافيا، والمافيا يفوزون إذا صاروا نفس عدد الباقين أو أكثر */
+/**
+ * المواطنين يفوزون إذا ما بقى مافيا، والمافيا يفوزون إذا صاروا أكثر من الباقين،
+ * أو نفس عددهم بشرط ما فيه دكتور حي — الدكتور يقدر يكسر التعادل بحماية ناجحة، فتكمل اللعبة.
+ */
 export function checkWinner(players: { alive: boolean; role: MafiaRole }[]): MafiaTeam | null {
   const alive = players.filter((p) => p.alive);
   const mafia = alive.filter((p) => p.role === "mafia").length;
+  const rest = alive.length - mafia;
   if (mafia === 0) return "town";
-  if (mafia >= alive.length - mafia) return "mafia";
+  if (mafia > rest) return "mafia";
+  if (mafia === rest && !alive.some((p) => p.role === "doctor")) return "mafia";
   return null;
+}
+
+/** حالة اللاعبين لو انطبقت نتائج الليل الحين (الموتى + الساحر اللي أخذ فئة) */
+export function playersAfterNight(players: EnginePlayer[], res: NightResolution): { alive: boolean; role: MafiaRole }[] {
+  return players.map((p) => ({
+    alive: p.alive && !res.deaths.includes(p.id),
+    role: res.roleChanges.find((c) => c.playerId === p.id)?.role ?? p.role,
+  }));
+}
+
+export type MafiaNightShortcut = { kind: "end"; winner: MafiaTeam; resolution: NightResolution } | null;
+
+/**
+ * الحسم بالليل (يُستدعى بعد ما يخلص دور المافيا أو أي دور بعده):
+ * لو نتيجة الليل تحسم اللعبة، ننهيها على طول بدون باقي الأدوار وبدون صباح.
+ * إلا لو فيه دور باقي ممكن يغيّر النتيجة — نكمل الليل بترتيبه العادي (ولا نتخطى أي دور،
+ * حتى أدوار الموتى، عشان محد يعرف مين حي)، ونفحص من جديد بعد كل دور:
+ * - الانتحاري المذبوح: يختار هدفه الليلة (الضحية يكمل دوره)، وانفجاره ممكن يطلّع آخر مافيا.
+ * - الساحر: لو المافيا فايزين بالتعادل، ممكن يصير دكتور ويكسره.
+ */
+export function mafiaNightShortcut(
+  players: EnginePlayer[],
+  actions: EngineAction[],
+  remaining: MafiaNightStep[]
+): MafiaNightShortcut {
+  const resolution = resolveNight(players, actions);
+  const winner = checkWinner(playersAfterNight(players, resolution));
+  if (!winner) return null;
+
+  const pending = new Set<MafiaNightStep>();
+  const outcome = mafiaKillOutcome(players, actions);
+  const victim = players.find((p) => p.id === outcome.victimId);
+  if (outcome.fate === "killed" && victim?.role === "suicide") pending.add("suicide");
+  if (
+    winner === "mafia" &&
+    players.some((p) => p.alive && p.role === "magician" && !p.abilityUsed && !resolution.deaths.includes(p.id)) &&
+    magicianVacancies(players).some((v) => v.role === "doctor")
+  ) {
+    pending.add("magician");
+  }
+
+  return remaining.some((s) => pending.has(s)) ? null : { kind: "end", winner, resolution };
 }
 
 // ---------------------------------------------------------------------
@@ -351,8 +406,6 @@ export function mafiaPhaseSeconds(phase: MafiaPhase): number | null {
       return MAFIA_CONFIG.NIGHT_ACTION_SECONDS;
     case "night_done":
       return MAFIA_CONFIG.NIGHT_DONE_SECONDS;
-    case "morning":
-      return MAFIA_CONFIG.MORNING_SECONDS;
     case "discussion":
       return MAFIA_CONFIG.DISCUSSION_SECONDS;
     case "voting":
@@ -367,7 +420,8 @@ export function mafiaPhaseSeconds(phase: MafiaPhase): number | null {
 export function mafiaDeadline(phase: MafiaPhase, from = Date.now(), settings?: MafiaSettings): string | null {
   const secs =
     phase === "discussion" ? (settings?.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS) : mafiaPhaseSeconds(phase);
-  return secs === null ? null : new Date(from + secs * 1000).toISOString();
+  // null أو 0 = بدون مؤقت (الصباح، والنقاش المفتوح) — المنشئ هو اللي يكمّل
+  return !secs ? null : new Date(from + secs * 1000).toISOString();
 }
 
 /** نهاية دور ما فيه أحد يقدر يتصرف (صاحبه ميت مثلاً) — وقت عشوائي عشان ما ينكشف */

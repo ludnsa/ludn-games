@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { FastForward } from "lucide-react";
+import React, { useState } from "react";
+import { FastForward, Loader2, MessagesSquare } from "lucide-react";
 import { MAFIA_SKIP_KEY } from "@/lib/game/mafia-engine";
 import { mafiaMorningSchedule, type MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import { DiscussionTimePicker, Panel, PlayerPicker, VoteCount, VoterNames } from "./MafiaParts";
@@ -16,15 +16,31 @@ function votersOf(room: MafiaRoom, key: string, nameOf: (id: string) => string):
 export function MafiaMorning({ ctx }: { ctx: MafiaGameCtx }) {
   const announcements = ctx.room?.announcements ?? [];
   const schedule = mafiaMorningSchedule(announcements);
-  const discussion = ctx.room?.settings.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS;
+  // الاختيار محلي (فوري)، وينحفظ مع ضغطة "ابدأ النقاش"
+  const [discussion, setDiscussion] = useState(
+    () => ctx.room?.settings.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS
+  );
   return (
     <div className="flex flex-col gap-3">
-      {/* المنشئ يحدد وقت النقاش الجاي وهو يشوف النتائج */}
-      {ctx.isHost && (
+      {/* النتائج تظل بدون وقت، لين المنشئ يختار وقت النقاش ويبدأه */}
+      {ctx.isHost ? (
         <Panel className="border-amber-700">
-          <p className="font-black mb-2">⏱️ وقت النقاش الجاي</p>
-          <DiscussionTimePicker value={discussion} onChange={(s) => ctx.host.setDiscussion(s)} disabled={ctx.busy} />
+          <p className="font-black mb-2">⏱️ وقت النقاش</p>
+          <DiscussionTimePicker value={discussion} onChange={setDiscussion} disabled={ctx.busy} />
+          <button
+            type="button"
+            onClick={() => ctx.host.startDiscussion(discussion)}
+            disabled={ctx.busy}
+            className="w-full mt-3 py-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-black text-lg rounded-2xl border-b-4 border-amber-700 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
+          >
+            {ctx.busy ? <Loader2 className="animate-spin" size={22} /> : <MessagesSquare size={22} />}
+            ابدأ النقاش
+          </button>
         </Panel>
+      ) : (
+        <p className="text-center text-sm font-bold text-amber-200 bg-amber-950/50 border border-amber-900 rounded-2xl p-3">
+          ⏳ اقروا النتائج… النقاش يبدأ لما يضغط المنشئ
+        </p>
       )}
       <p className="text-center text-6xl mb-1 animate-in zoom-in-50 duration-500">🌅</p>
       <h2 className="text-center text-3xl font-black mb-2">صباح الخير! هذا اللي صار بالليل</h2>
@@ -52,11 +68,16 @@ export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
         <p className="text-6xl mb-2">🗣️</p>
         <h2 className="text-3xl font-black mb-1">وقت النقاش</h2>
         <p className="font-bold text-slate-400">تناقشوا مين تشكّون فيه… بعدها التصويت</p>
-        <p className="text-6xl font-black tabular-nums mt-4" dir="ltr">
-          {secondsLeft !== null
-            ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
-            : "--"}
-        </p>
+        {secondsLeft !== null ? (
+          <p className="text-6xl font-black tabular-nums mt-4" dir="ltr">
+            {`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`}
+          </p>
+        ) : (
+          <p className="text-3xl font-black mt-4 text-amber-300">
+            ♾️ نقاش مفتوح
+            <span className="block text-sm font-bold text-slate-400 mt-1">التصويت يبدأ لما يضغط المنشئ</span>
+          </p>
+        )}
       </Panel>
 
       {/* نتائج الليل تظل قدامهم طول النقاش عشان يحللون */}
@@ -104,7 +125,7 @@ export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
           disabled={busy}
           className="w-full py-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-black text-lg rounded-2xl border-b-4 border-amber-700 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
         >
-          <FastForward size={22} /> إنهاء النقاش والتصويت الحين
+          <FastForward size={22} /> {secondsLeft === null ? "ابدأ التصويت 🗳️" : "إنهاء النقاش والتصويت الحين"}
         </button>
       )}
     </div>
@@ -178,8 +199,16 @@ export function MafiaVoteResult({ ctx }: { ctx: MafiaGameCtx }) {
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <p className="text-9xl mb-6 animate-in zoom-in-50 duration-500">{emoji}</p>
       <p className="text-3xl font-black animate-in fade-in slide-in-from-bottom-4 duration-700">{text}</p>
-      {result.reason === "player" && (
+      {result.reason === "player" && !result.bombId && (
         <p className="mt-3 font-bold text-slate-400">وش كانت فئته؟ ما راح نقول 🤐</p>
+      )}
+      {result.bombId && (
+        <p
+          className="mt-5 p-4 rounded-2xl bg-orange-950/70 border-2 border-orange-700 text-2xl font-black animate-in zoom-in-95 duration-500"
+          style={{ animationDelay: "1800ms", animationFillMode: "both" }}
+        >
+          💣 طلع انتحاري! فجّر نفسه وأخذ معه {ctx.nameOf(result.bombId)}
+        </p>
       )}
       {ctx.room && <VoteBreakdown ctx={ctx} room={ctx.room} />}
     </div>

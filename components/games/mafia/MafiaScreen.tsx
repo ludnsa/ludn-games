@@ -74,7 +74,7 @@ export default function MafiaScreen({
   const isNight = NIGHT_PHASES.includes(phase);
   const isDead = !me.alive && phase !== "lobby" && phase !== "ended" && phase !== "closed";
   const showTimer =
-    phase !== "discussion" && phase !== "lobby" && phase !== "ended" && phase !== "closed";
+    phase !== "discussion" && phase !== "morning" && phase !== "lobby" && phase !== "ended" && phase !== "closed";
 
   return (
     <div className="w-full max-w-lg mx-auto flex flex-col gap-4">
@@ -275,12 +275,12 @@ function DevFxPanel() {
   );
 }
 
-/** المنشئ فتح غرفة جديدة: نوجّه اللاعب للكود الجديد */
+/** الغرفة انقفلت: لو المنشئ سوّى غرفة جديدة نوجّه للكود الجديد، وإلا أي واحد يقدر يسوي غرفته */
 function MafiaClosed({ newCode }: { newCode?: string }) {
   return (
     <Panel className="text-center">
       <p className="text-6xl mb-3">🚪</p>
-      <h2 className="text-2xl font-black mb-2">المنشئ سوّى غرفة جديدة</h2>
+      <h2 className="text-2xl font-black mb-2">{newCode ? "المنشئ سوّى غرفة جديدة" : "المنشئ قفل الغرفة"}</h2>
       {newCode ? (
         <>
           <p className="font-bold text-slate-400 mb-1">الكود الجديد</p>
@@ -295,7 +295,25 @@ function MafiaClosed({ newCode }: { newCode?: string }) {
           </a>
         </>
       ) : (
-        <p className="font-bold text-slate-400">اطلب الكود الجديد من المنشئ</p>
+        <>
+          <p className="font-bold text-slate-400 mb-5 leading-relaxed">
+            تبون تكملون؟ واحد منكم يسجّل دخول ويسوي غرفة جديدة، ويرسل الكود للباقين 🔥
+          </p>
+          <div className="flex flex-col gap-3">
+            <a
+              href={MAFIA_GAME.path}
+              className="block w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all"
+            >
+              سوّ غرفة جديدة
+            </a>
+            <a
+              href={MAFIA_GAME.joinPath}
+              className="block w-full py-4 bg-slate-800 rounded-2xl border-b-4 border-slate-950 font-black text-lg active:border-b-0 active:translate-y-[4px] transition-all"
+            >
+              ادخل غرفة بكود
+            </a>
+          </div>
+        </>
       )}
     </Panel>
   );
