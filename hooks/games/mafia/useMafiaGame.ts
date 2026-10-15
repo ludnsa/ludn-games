@@ -285,9 +285,6 @@ export function useMafiaGame(
     meIdRef.current = view?.me.id ?? null;
   }, [view?.me.id]);
 
-  // "تم الاغتيال": ننتظر حالتي الخاصة (هل أنا الضحية؟) قبل ما نشغّل الحركة
-  const pendingKillSeq = useRef<number | null>(null);
-
   const soundSeq = useRef(-1);
   // مؤقتات أصوات المرحلة: تنلغي بس لما تبدأ مرحلة جديدة (أو نطلع من الصفحة)،
   // مو مع كل تحديث للغرفة — وإلا تحديث بسيط (لاعب مات، الجلب الدوري) يقطع أصوات الصباح
@@ -312,29 +309,21 @@ export function useMafiaGame(
         if (room.night_step === mafiaNightSteps(room.settings)[0]) playMafiaSound("owl");
         break;
       case "night_done":
-        if (room.night_step === "mafia") {
-          // الحركة تنحدد لما توصل حالتي (شوف التأثير اللي تحت)، ولو تأخرت نشغّل العادية
-          pendingKillSeq.current = room.phase_seq;
-          const seqAtStart = room.phase_seq;
-          timers.push(
-            setTimeout(() => {
-              if (pendingKillSeq.current !== seqAtStart) return;
-              pendingKillSeq.current = null;
-              cueMafia(...STEP_DONE_CUE.mafia);
-            }, 1500)
-          );
-        } else if (room.night_step) {
-          cueMafia(...STEP_DONE_CUE[room.night_step]);
-        }
+        // "تم الاغتيال" نفسها عند الكل — حتى الضحية ما تعرف إلا مع نتائج الصباح
+        if (room.night_step) cueMafia(...STEP_DONE_CUE[room.night_step]);
         break;
       case "morning": {
         playMafiaSound("rooster");
         const schedule = mafiaMorningSchedule(room.announcements);
         room.announcements.forEach((a, i) => {
-          // ضحية الذبح شافت حركتها بالليل؛ هدف الانتحاري يشوف حركته الخاصة هنا
+          // ضحية الذبح وهدف الانتحاري يشوفون رسالتهم الخاصة هنا (نفس الصوت اللي عند الكل)
           const mine = Boolean(a.targetId && a.targetId === meIdRef.current);
           const cue: Cue | undefined =
-            mine && a.kind === "bomb" ? ["bomb", "victim_bomb"] : ANNOUNCEMENT_CUE[a.kind];
+            mine && a.kind === "bomb"
+              ? ["bomb", "victim_bomb"]
+              : mine && a.kind === "kill"
+                ? ["horror", "victim"]
+                : ANNOUNCEMENT_CUE[a.kind];
           if (cue) timers.push(setTimeout(() => cueMafia(...cue), schedule[i]));
         });
         break;
@@ -374,16 +363,6 @@ export function useMafiaGame(
       }
     }
   }, [room]);
-
-  // وصلت حالتي بعد "تم الاغتيال": الضحية تشوف "المافيا ذبحوك"، واللي نجا يشوف "فكك الله".
-  // الصوت نفسه عند الكل، عشان محد يعرف مين الضحية من صوت جواله.
-  useEffect(() => {
-    if (!view || pendingKillSeq.current === null || view.phaseSeq !== pendingKillSeq.current) return;
-    pendingKillSeq.current = null;
-    if (view.nightFate === "killed") cueMafia("horror", "victim");
-    else if (view.nightFate === "escaped") cueMafia("horror", "escaped");
-    else cueMafia(...STEP_DONE_CUE.mafia);
-  }, [view]);
 
   // تكتكة آخر 3 ثواني في أدوار الليل والتصويت
   const lastTick = useRef<number | null>(null);

@@ -162,14 +162,12 @@ export default function MafiaFxLayer() {
 
 /**
  * مدة ظهور الحركة كاملة.
- * حركة الضحية بالليل لازم تخلص داخل ثواني "تم الاغتيال"، عشان لو الضحية محقق
- * (أو أي دور بعد المافيا) يلقى شاشته نظيفة أول ما يبدأ دوره.
- * رسالة الانتحاري بالصباح تظل أطول عشان تنقرا.
+ * رسايل الضحية (الذبح والانتحاري) تطلع بالصباح، فتظل أطول عشان تنقرا.
  */
 function sceneSeconds(e: MafiaFxEvent): number {
   const base = Math.max(e.duration, 1.2) + 1;
-  if (e.kind === "victim" || e.kind === "escaped") return Math.min(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.6);
-  if (e.kind === "victim_bomb") return Math.max(base, 6);
+  if (e.kind === "escaped") return Math.min(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.6);
+  if (e.kind === "victim" || e.kind === "victim_bomb") return Math.max(base, 6);
   // الحماية تملأ شاشة "تمت الحماية" (5 ثواني) بدل ما تخلص بعد ثانيتين
   if (e.kind === "saved") return Math.max(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.4);
   return base;

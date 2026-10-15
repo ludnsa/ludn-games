@@ -1,11 +1,47 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Crown, X, SkipForward, Square, RotateCcw, Home, Loader2, UserX, DoorOpen } from "lucide-react";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import MafiaHomeButton from "./MafiaHomeButton";
 
 type Confirmable = "end" | "restart" | "newRoom" | null;
+
+/**
+ * زر التخطي تحت الشاشة (للمنشئ بس) — لو أحد تأخر بالليل أو بالتصويت.
+ * ضغطتين عشان ما ينضغط بالغلط وهو يختار.
+ */
+export function MafiaHostSkip({ ctx }: { ctx: MafiaGameCtx }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const id = setTimeout(() => setArmed(false), 3000);
+    return () => clearTimeout(id);
+  }, [armed]);
+  const night = ctx.room?.phase === "night_act";
+
+  return (
+    <button
+      type="button"
+      disabled={ctx.busy}
+      onClick={() => {
+        if (!armed) return setArmed(true);
+        setArmed(false);
+        ctx.host.skipPhase();
+      }}
+      className={`w-full mt-2 py-3 rounded-2xl border-b-4 font-black flex items-center justify-center gap-2 transition-colors disabled:opacity-40 ${
+        armed ? "bg-amber-500 border-amber-700 text-slate-950 animate-pulse" : "bg-slate-800 border-slate-950 text-amber-300"
+      }`}
+    >
+      {ctx.busy ? <Loader2 size={18} className="animate-spin" /> : <SkipForward size={18} />}
+      {armed
+        ? "متأكد؟ اضغط مرة ثانية"
+        : night
+          ? "👑 تخطي الدور (اللي ما اختار يختار له النظام)"
+          : "👑 إنهاء التصويت الحين"}
+    </button>
+  );
+}
 
 /**
  * قائمة صلاحيات منشئ اللعبة — تفتح من زر التاج في الشريط العلوي.

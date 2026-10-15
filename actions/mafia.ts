@@ -19,7 +19,6 @@ import {
   countVotes,
   groupVoters,
   mafiaDeadline,
-  mafiaKillOutcome,
   mafiaLeaderId,
   mafiaNightShortcut,
   mafiaNightSteps,
@@ -452,8 +451,9 @@ export interface MafiaTask {
   /** اخترت وضغطت "استمرار" — ما يتغير */
   locked: boolean;
   leaderName?: string;
-  /** للمقترح: اسم اللي حسمه القائد */
+  /** للمقترح: اللي حسمه القائد (اسمه، ومعرّفه عشان يضغط "استمرار" عليه) */
   leaderPickName?: string;
+  leaderPickId?: string;
   /** للقائد: اقتراحات زملائه */
   suggestions?: { targetId: string; targetName: string; by: string[] }[];
 }
@@ -462,11 +462,6 @@ export interface MafiaMyView {
   serverNow: number;
   /** رقم المرحلة وقت ما انحسبت هذي الحالة — الجهاز يربط فيه المؤثرات بالمرحلة الصحيحة */
   phaseSeq: number;
-  /**
-   * مصيري من المافيا الليلة — يوصلني أنا بس لحظة "تم الاغتيال":
-   * killed = انذبحت، escaped = حاولوا بس الدكتور أو درع الجندي أنقذني
-   */
-  nightFate: "killed" | "escaped" | null;
   me: {
     id: string;
     name: string;
@@ -500,7 +495,6 @@ export async function getMafiaMyView(input: {
   const view: MafiaMyView = {
     serverNow: Date.now(),
     phaseSeq: room.phase_seq,
-    nightFate: null,
     me: {
       id: player.id,
       name: player.display_name,
@@ -561,30 +555,6 @@ export async function getMafiaMyView(input: {
     }
   }
 
-  // لحظة "تم الاغتيال": الدكتور قبل المافيا، فمصير الضحية معروف الحين
-  if (room.phase === "night_done" && room.night_step === "mafia" && player.is_alive) {
-    const [{ engine }, { data: acts }] = await Promise.all([
-      loadEngine(admin, room.room_code),
-      admin
-        .from("mafia_actions")
-        .select("step, actor_id, target_id")
-        .eq("room_code", room.room_code)
-        .eq("night", room.night_number)
-        .in("step", ["doctor", "mafia"]),
-    ]);
-    const outcome = mafiaKillOutcome(
-      engine,
-      ((acts as Pick<ActionRow, "step" | "actor_id" | "target_id">[]) ?? []).map((a) => ({
-        step: a.step as MafiaNightStep,
-        actorId: a.actor_id,
-        targetId: a.target_id,
-      }))
-    );
-    if (outcome.victimId === player.id && outcome.fate) {
-      view.nightFate = outcome.fate === "killed" ? "killed" : "escaped";
-    }
-  }
-
   if (room.phase === "voting") {
     const { data: vote } = await admin
       .from("mafia_votes")
@@ -637,6 +607,7 @@ async function buildTask(
       locked: Boolean(leaderRow),
       leaderName: nameOf(leaderId),
       leaderPickName: leaderRow?.target_id ? nameOf(leaderRow.target_id) : undefined,
+      leaderPickId: leaderRow?.target_id ?? undefined,
     };
   }
 

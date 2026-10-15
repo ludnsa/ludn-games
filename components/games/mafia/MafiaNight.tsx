@@ -181,8 +181,13 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
   );
 }
 
-/** مافيا مو قائد الليلة: يقترح، والقائد يشوف الاقتراح ويقرر */
+/**
+ * مافيا مو قائد الليلة: يقترح، والقائد يشوف الاقتراح ويقرر.
+ * لو القائد حسم قبل ما يقترح، يضغط "استمرار" — لازم يختار مثل الكل عشان الدور يمشي.
+ */
 function MafiaSuggestCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
+  const leaderPick = task.leaderPickId;
+  const needsAck = task.locked && !task.selectedId && Boolean(leaderPick);
   return (
     <Panel className="border-red-900">
       <h2 className="text-2xl font-black text-center mb-1">🔪 اقترح ضحية</h2>
@@ -209,6 +214,17 @@ function MafiaSuggestCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask })
           {task.selectedId ? "✅ وصل اقتراحك — تقدر تغيّره لين القائد يحسم" : "اضغط على اسم عشان تقترحه"}
         </p>
       )}
+      {needsAck && (
+        <button
+          type="button"
+          onClick={() => leaderPick && ctx.suggest(leaderPick)}
+          className="w-full mt-4 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg rounded-2xl border-b-4 border-indigo-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
+        >
+          <Check size={22} />
+          استمرار
+        </button>
+      )}
+      {task.locked && task.selectedId && <p className="mt-4 text-center font-black text-emerald-300">✅ تم</p>}
     </Panel>
   );
 }

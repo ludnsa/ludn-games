@@ -21,7 +21,7 @@ import {
   MafiaVoting,
 } from "./MafiaDay";
 import MafiaGameOver from "./MafiaGameOver";
-import MafiaHostMenu from "./MafiaHostMenu";
+import MafiaHostMenu, { MafiaHostSkip } from "./MafiaHostMenu";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
 import { unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 
@@ -163,6 +163,9 @@ export default function MafiaScreen({
       {phase === "vote_result" && <MafiaVoteResult ctx={ctx} />}
       {phase === "ended" && <MafiaGameOver ctx={ctx} />}
       {phase === "closed" && <MafiaClosed newCode={room.settings.movedTo} />}
+
+      {/* المنشئ: تخطي سريع تحت الشاشة لو أحد تأخر */}
+      {me.isHost && (phase === "night_act" || phase === "voting") && <MafiaHostSkip ctx={ctx} />}
 
       {/* رسائل خاصة (الساحر، انضمام للمافيا) */}
       {view &&
