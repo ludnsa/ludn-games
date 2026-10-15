@@ -13,7 +13,7 @@ import {
   TimerBadge,
 } from "./MafiaParts";
 import MafiaLobby from "./MafiaLobby";
-import { MafiaNightAct, MafiaNightDone } from "./MafiaNight";
+import { MafiaNightAct, MafiaNightDone, NightWaiting } from "./MafiaNight";
 import {
   MafiaDiscussion,
   MafiaMorning,
@@ -149,9 +149,12 @@ export default function MafiaScreen({
       {phase === "reveal" && <MafiaReveal ctx={ctx} />}
       {phase === "night_act" && !isDead && <MafiaNightAct ctx={ctx} />}
       {phase === "night_act" && isDead && (
-        <p className="text-center font-black text-indigo-300 py-10 animate-pulse">
-          🌙 الليل شغال… نام وارتاح
-        </p>
+        <>
+          <p className="text-center font-black text-indigo-300 py-10 animate-pulse">
+            🌙 الليل شغال… نام وارتاح
+          </p>
+          <NightWaiting ctx={ctx} />
+        </>
       )}
       {phase === "night_done" && <MafiaNightDone ctx={ctx} />}
       {phase === "morning" && <MafiaMorning ctx={ctx} />}

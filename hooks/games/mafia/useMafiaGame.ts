@@ -21,6 +21,7 @@ import {
   startMafiaGame,
   submitMafiaNightAction,
   suggestMafiaTarget,
+  submitMafiaDecoy,
   updateMafiaSettings,
   type MafiaMyView,
 } from "@/actions/mafia";
@@ -459,6 +460,20 @@ export function useMafiaGame(
     [roomCode, token, fetchView]
   );
 
+  /** سؤال التمويه: لازم كل الأحياء يجاوبون عشان يمشي الدور — يتقفل فوراً على الشاشة */
+  const decoy = useCallback(
+    async (targetId: string) => {
+      setError("");
+      setView((v) => (v ? { ...v, decoyId: targetId } : v));
+      const res = await submitMafiaDecoy({ roomCode, token, targetId });
+      if (!res.success) {
+        setError(res.error);
+        fetchView();
+      }
+    },
+    [roomCode, token, fetchView]
+  );
+
   const rename = useCallback(
     async (displayName: string) => {
       const res = await run(() => renameMafiaPlayer({ roomCode, token, displayName }));
@@ -542,6 +557,7 @@ export function useMafiaGame(
     nameOf,
     act,
     suggest,
+    decoy,
     rename,
     vote,
     host,

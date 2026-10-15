@@ -17,7 +17,7 @@ const STEP_ACCENT: Record<MafiaNightStep, "red" | "emerald" | "sky" | "purple" |
   suicide: "orange",
 };
 
-/** قدرة مرة وحدة طول اللعبة — يقدر يعدّي الليلة، ولو خلص الوقت ما نضيعها عليه */
+/** قدرة مرة وحدة طول اللعبة — يقدر يعدّي الليلة ويحتفظ بقدرته */
 const OPTIONAL_STEPS: MafiaNightStep[] = ["magician", "journalist"];
 
 export function MafiaNightAct({ ctx }: { ctx: MafiaGameCtx }) {
@@ -38,7 +38,25 @@ export function MafiaNightAct({ ctx }: { ctx: MafiaGameCtx }) {
       ) : (
         <FunQuestion key={`${room.phase_seq}`} ctx={ctx} />
       )}
+      <NightWaiting ctx={ctx} />
     </div>
+  );
+}
+
+/**
+ * كم باقي ما اختاروا — الدور ما يمشي إلا لما الكل يختارون.
+ * عدد بس بدون أسماء: آخر واحد باقي غالباً صاحب الدور، فاسمه يفضحه.
+ */
+export function NightWaiting({ ctx }: { ctx: MafiaGameCtx }) {
+  const room = ctx.room;
+  const r = room?.night_ready;
+  if (!room || !r || r.night !== room.night_number || r.step !== room.night_step) return null;
+  const left = Math.max(0, r.total - r.done);
+  if (left === 0) return null;
+  return (
+    <p className="text-center font-black text-amber-200 bg-amber-950/40 border border-amber-900 rounded-2xl p-3 animate-in fade-in">
+      ⏳ باقي {left === 1 ? "واحد ما اختار" : `${left} ما اختاروا`} — الدور ما يمشي إلا لما الكل يختارون
+    </p>
   );
 }
 
@@ -58,7 +76,7 @@ function DetectiveResult({ result }: { result: { targetName: string; isMafia: bo
 
 /**
  * صاحب الدور: يختار لاعب ويضغط "استمرار". الاختيار نهائي، والدور يخلص للكل
- * أول ما يخلّص كل أصحابه. لو خلص الوقت يختار النظام عنه.
+ * لما كل الأحياء يختارون (صاحب الدور + سؤال التمويه للباقين).
  */
 function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
   // الانتحاري يبدأ من آخر هدف اختاره، فيقدر يضغط استمرار على طول
@@ -152,11 +170,11 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
             </button>
           )}
 
-          <p className="mt-3 text-center text-xs font-bold text-slate-400">
-            {optional
-              ? "⏱️ إذا خلص الوقت يعدّي دورك، وقدرتك تظل لليلة الجاية"
-              : "⏱️ إذا خلص الوقت بيختار لك النظام عشوائي"}
-          </p>
+          {optional && (
+            <p className="mt-3 text-center text-xs font-bold text-slate-400">
+              إذا عدّيت، قدرتك تظل لليلة الجاية
+            </p>
+          )}
         </>
       )}
     </Panel>
@@ -196,20 +214,37 @@ function MafiaSuggestCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask })
 }
 
 /**
- * سؤال التمويه: الكل مشغول بجواله، فمحد يعرف مين صاحب الدور.
- * الاختيار هنا ما ينحفظ ولا ينحسب.
+ * سؤال التمويه: كل اللي مو عليهم الدور لازم يجاوبون ويضغطون "استمرار" —
+ * نفس حركة صاحب الدور بالضبط، فالكل ماسك جواله ومحد يعرف مين صاحب الدور.
+ * الاختيار ينحفظ (عشان الدور يمشي لما الكل يختارون) بس ما ينحسب بشي.
  */
 function FunQuestion({ ctx }: { ctx: MafiaGameCtx }) {
+  const locked = ctx.view?.decoyId ?? null;
   const [picked, setPicked] = useState<string | null>(null);
   const options = ctx.alivePlayers
     .filter((p) => p.id !== ctx.me?.id)
     .map((p) => ({ id: p.id, name: p.display_name }));
+  const chosen = locked ?? picked;
+  const chosenName = options.find((o) => o.id === chosen)?.name;
 
   return (
-    <Panel className="border-indigo-900">
+    <Panel className="border-indigo-800">
       <h2 className="text-2xl font-black text-center mb-1">{MAFIA_CONFIG.FUN_QUESTION}</h2>
       <p className="text-center text-xs font-bold text-slate-400 mb-4">{MAFIA_CONFIG.FUN_QUESTION_NOTE}</p>
-      <PlayerPicker options={options} selectedId={picked} onPick={setPicked} accent="purple" />
+      <PlayerPicker options={options} selectedId={chosen} disabled={Boolean(locked)} onPick={setPicked} accent="purple" />
+      {locked ? (
+        <p className="mt-4 text-center font-black text-emerald-300">✅ تم{chosenName ? `: ${chosenName}` : ""}</p>
+      ) : (
+        <button
+          type="button"
+          disabled={!picked}
+          onClick={() => picked && ctx.decoy(picked)}
+          className="w-full mt-4 py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-lg rounded-2xl border-b-4 border-indigo-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
+        >
+          <Check size={22} />
+          استمرار{chosenName ? ` — ${chosenName}` : ""}
+        </button>
+      )}
     </Panel>
   );
 }

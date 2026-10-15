@@ -402,8 +402,6 @@ export function mafiaPhaseSeconds(phase: MafiaPhase): number | null {
   switch (phase) {
     case "reveal":
       return MAFIA_CONFIG.ROLE_REVEAL_SECONDS;
-    case "night_act":
-      return MAFIA_CONFIG.NIGHT_ACTION_SECONDS;
     case "night_done":
       return MAFIA_CONFIG.NIGHT_DONE_SECONDS;
     case "discussion":
@@ -422,12 +420,6 @@ export function mafiaDeadline(phase: MafiaPhase, from = Date.now(), settings?: M
     phase === "discussion" ? (settings?.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS) : mafiaPhaseSeconds(phase);
   // null أو 0 = بدون مؤقت (الصباح، والنقاش المفتوح) — المنشئ هو اللي يكمّل
   return !secs ? null : new Date(from + secs * 1000).toISOString();
-}
-
-/** نهاية دور ما فيه أحد يقدر يتصرف (صاحبه ميت مثلاً) — وقت عشوائي عشان ما ينكشف */
-export function mafiaDeadStepDeadline(from = Date.now()): string {
-  const { DEAD_STEP_MIN_SECONDS: min, DEAD_STEP_MAX_SECONDS: max } = MAFIA_CONFIG;
-  return new Date(from + (min + Math.random() * (max - min)) * 1000).toISOString();
 }
 
 /**

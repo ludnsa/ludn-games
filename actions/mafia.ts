@@ -2,7 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
-import { MAFIA_BOT_NAMES, MAFIA_CONFIG, MAFIA_ROLES } from "@/constants/mafia";
+import { MAFIA_BOT_NAMES, MAFIA_CONFIG, MAFIA_NIGHT_ORDER, MAFIA_ROLES } from "@/constants/mafia";
 import {
   MafiaCreateSchema,
   MafiaJoinSchema,
@@ -19,7 +19,6 @@ import {
   countVotes,
   groupVoters,
   mafiaDeadline,
-  mafiaDeadStepDeadline,
   mafiaKillOutcome,
   mafiaLeaderId,
   mafiaNightShortcut,
@@ -100,7 +99,12 @@ interface SecretRow {
 
 /** صف في mafia_actions: فعل دور، أو اقتراح مافيا لزميله القائد */
 const MAFIA_SUGGEST_STEP = "mafia_suggest";
-type ActionStep = MafiaNightStep | typeof MAFIA_SUGGEST_STEP;
+/** اختيار سؤال التمويه لباقي اللاعبين — ينحفظ عشان الدور ما يمشي إلا لما الكل يختارون */
+type DecoyStep = `decoy:${MafiaNightStep}`;
+const decoyStep = (step: MafiaNightStep): DecoyStep => `decoy:${step}`;
+type ActionStep = MafiaNightStep | typeof MAFIA_SUGGEST_STEP | DecoyStep;
+/** أفعال الأدوار الحقيقية بس (بدون الاقتراحات واختيارات التمويه) */
+const isRoleStep = (step: string): step is MafiaNightStep => (MAFIA_NIGHT_ORDER as readonly string[]).includes(step);
 
 interface ActionRow {
   id: string;
@@ -479,6 +483,8 @@ export interface MafiaMyView {
   detectiveResult: { targetName: string; isMafia: boolean } | null;
   /** صوتي في التصويت الحالي: معرّف لاعب، أو "skip"، أو null */
   myVote: string | null;
+  /** اختياري في سؤال التمويه لدور الليل الحالي (null = ما اخترت للحين) */
+  decoyId: string | null;
   notes: string[];
 }
 
@@ -508,8 +514,21 @@ export async function getMafiaMyView(input: {
     task: null,
     detectiveResult: null,
     myVote: null,
+    decoyId: null,
     notes: Array.isArray(secret.notes) ? secret.notes : [],
   };
+
+  if (room.phase === "night_act" && room.night_step && player.is_alive) {
+    const { data: decoy } = await admin
+      .from("mafia_actions")
+      .select("target_id")
+      .eq("room_code", room.room_code)
+      .eq("night", room.night_number)
+      .eq("step", decoyStep(room.night_step))
+      .eq("actor_id", player.id)
+      .maybeSingle();
+    view.decoyId = decoy?.target_id ?? null;
+  }
 
   if (!role) return { success: true, data: view };
 
@@ -708,25 +727,85 @@ export async function submitMafiaNightAction(input: {
   };
 }
 
-/** لو كل اللي يقدرون يتصرفون في هالدور خلّصوا، نخلّص الدور الحين بدل ما ننتظر المؤقت */
+/**
+ * دور الليل يخلص بس لما **كل الأحياء** يختارون — عشان الكل ماسكين جوالاتهم
+ * ومحد يعرف مين صاحب الدور من اللي ماسك جواله:
+ * - صاحب الدور: يختار ويضغط "استمرار" (أو يعدّي: الساحر والصحفي)
+ * - المافيا غير القائد (دور المافيا): يقترح على قائده
+ * - الباقين: يجاوبون سؤال التمويه
+ * ما فيه مؤقت — لو أحد غايب، المنشئ يتخطى.
+ */
+async function nightProgress(admin: Admin, room: MafiaRoom): Promise<{ done: number; total: number }> {
+  const step = room.night_step!;
+  const [{ engine }, { data }] = await Promise.all([
+    loadEngine(admin, room.room_code),
+    admin
+      .from("mafia_actions")
+      .select("actor_id, step")
+      .eq("room_code", room.room_code)
+      .eq("night", room.night_number)
+      .in("step", [step, MAFIA_SUGGEST_STEP, decoyStep(step)]),
+  ]);
+  const rows = (data ?? []) as { actor_id: string; step: string }[];
+  const has = (id: string, s: string) => rows.some((r) => r.actor_id === id && r.step === s);
+  const leaderId = mafiaLeaderId(engine, room.night_number);
+  const alive = engine.filter((p) => p.alive);
+  const done = alive.filter((p) => {
+    if (canActOnStep(p, step, leaderId, engine)) return has(p.id, step);
+    if (step === "mafia" && p.role === "mafia") return has(p.id, MAFIA_SUGGEST_STEP);
+    return has(p.id, decoyStep(step));
+  });
+  return { done: done.length, total: alive.length };
+}
+
 async function finishStepIfAllDone(admin: Admin, roomCode: string, seq: number): Promise<void> {
   const room = await loadRoom(admin, roomCode);
   if (!room || room.phase_seq !== seq || room.phase !== "night_act" || !room.night_step) return;
+
+  const progress = await nightProgress(admin, room);
+  if (progress.done >= progress.total) {
+    await runTransition(admin, room);
+    return;
+  }
+  // كم باقي — عدد بس (تحديث مستقل: لو ملف 0007 ما انشغّل، اللعبة تمشي عادي بدون العداد)
+  const { error } = await admin
+    .from("mafia_rooms")
+    .update({ night_ready: { night: room.night_number, step: room.night_step, ...progress } })
+    .eq("room_code", roomCode)
+    .eq("phase_seq", seq);
+  if (error) console.warn("mafia night_ready (شغّل supabase/migrations/0007_mafia_night_ready.sql):", error.message);
+}
+
+/** باقي اللاعبين: يجاوبون سؤال التمويه — ينحفظ بس ما ينحسب بشي */
+export async function submitMafiaDecoy(input: {
+  roomCode: string;
+  token: string;
+  targetId: string;
+}): Promise<ActionResult> {
+  const ctx = await requirePlayer(input);
+  if (!ctx.ok) return fail(ctx.error);
+  const { admin, room, player } = ctx;
+  if (room.phase !== "night_act" || !room.night_step) return fail("انتهى هذا الدور.");
   const step = room.night_step;
 
-  const [{ engine }, { data }] = await Promise.all([
-    loadEngine(admin, roomCode),
-    admin
-      .from("mafia_actions")
-      .select("actor_id")
-      .eq("room_code", roomCode)
-      .eq("night", room.night_number)
-      .eq("step", step),
-  ]);
-  const done = new Set((data ?? []).map((r: { actor_id: string }) => r.actor_id));
+  const { engine } = await loadEngine(admin, room.room_code);
+  const me = engine.find((p) => p.id === player.id);
+  if (!me || !me.alive) return fail("الموتى ما يختارون 👻");
   const leaderId = mafiaLeaderId(engine, room.night_number);
-  const actors = engine.filter((p) => canActOnStep(p, step, leaderId, engine));
-  if (actors.length > 0 && actors.every((p) => done.has(p.id))) await runTransition(admin, room);
+  if (canActOnStep(me, step, leaderId, engine)) return fail("اختر من مهمتك.");
+  if (step === "mafia" && me.role === "mafia") return fail("اقترح على قائدك.");
+  if (!engine.some((p) => p.alive && p.id === input.targetId && p.id !== me.id)) return fail("اختر لاعب ثاني.");
+
+  const { error } = await admin.from("mafia_actions").upsert(
+    { room_code: room.room_code, night: room.night_number, step: decoyStep(step), actor_id: me.id, target_id: input.targetId },
+    { onConflict: "room_code,night,step,actor_id", ignoreDuplicates: true }
+  );
+  if (error) {
+    console.error("submitMafiaDecoy error:", error);
+    return fail("تعذّر حفظ اختيارك.");
+  }
+  await finishStepIfAllDone(admin, room.room_code, room.phase_seq);
+  return { success: true };
 }
 
 /** مافيا (غير القائد) يقترح ضحية — يقدر يغيّر اقتراحه لين القائد يحسم */
@@ -763,6 +842,7 @@ export async function suggestMafiaTarget(input: {
     console.error("suggestMafiaTarget error:", error);
     return fail("تعذّر حفظ اقتراحك.");
   }
+  await finishStepIfAllDone(admin, room.room_code, room.phase_seq);
   return { success: true };
 }
 
@@ -857,27 +937,24 @@ export async function advanceMafiaPhase(input: {
   return { success: true };
 }
 
-/**
- * نهاية دور الليل: 20 ثانية لو فيه أحد يقدر يتصرف، وإلا وقت عشوائي قصير
- * (6-10 ثواني) عشان محد يعرف إن صاحب الدور مات من طول الدور.
- */
-async function stepDeadline(admin: Admin, roomCode: string, step: MafiaNightStep, night: number): Promise<string> {
-  const { engine } = await loadEngine(admin, roomCode);
-  const leaderId = mafiaLeaderId(engine, night);
-  const someoneCanAct = engine.some((p) => canActOnStep(p, step, leaderId, engine));
-  return someoneCanAct ? mafiaDeadline("night_act")! : mafiaDeadStepDeadline();
-}
-
-async function enterNight(admin: Admin, room: MafiaRoom, night: number): Promise<Partial<MafiaRoom>> {
-  const first = mafiaNightSteps(room.settings)[0];
+function enterNight(room: MafiaRoom, night: number): Partial<MafiaRoom> {
   return {
     phase: "night_act",
-    night_step: first,
+    night_step: mafiaNightSteps(room.settings)[0],
     night_number: night,
-    phase_ends_at: await stepDeadline(admin, room.room_code, first, night),
+    // أدوار الليل بدون مؤقت: تمشي لما الكل يختارون
+    phase_ends_at: null,
     vote_counts: {},
     vote_result: null,
   };
+}
+
+/** بداية دور ليل جديد: البوتات (وضع التجربة) يختارون على طول، ونحدّث العداد */
+async function afterStepStart(admin: Admin, roomCode: string): Promise<void> {
+  const room = await loadRoom(admin, roomCode);
+  if (!room || room.phase !== "night_act") return;
+  await botsNightTurn(admin, room);
+  await finishStepIfAllDone(admin, roomCode, room.phase_seq);
 }
 
 async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
@@ -885,7 +962,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
 
   switch (room.phase) {
     case "reveal": {
-      await guardedRoomUpdate(admin, room, await enterNight(admin, room, 1));
+      if (await guardedRoomUpdate(admin, room, enterNight(room, 1))) await afterStepStart(admin, room.room_code);
       return;
     }
 
@@ -910,7 +987,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         .eq("room_code", room.room_code)
         .eq("night", room.night_number);
       const actions = ((acts as ActionRow[]) ?? [])
-        .filter((a) => a.step !== MAFIA_SUGGEST_STEP)
+        .filter((a) => isRoleStep(a.step))
         .map((a) => ({ step: a.step as MafiaNightStep, actorId: a.actor_id, targetId: a.target_id }));
 
       // بعد دور المافيا: لو الليلة حسمت اللعبة ننهيها على طول
@@ -922,11 +999,12 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
 
       const nextStep = remaining[0];
       if (nextStep) {
-        await guardedRoomUpdate(admin, room, {
+        const started = await guardedRoomUpdate(admin, room, {
           phase: "night_act",
           night_step: nextStep,
-          phase_ends_at: await stepDeadline(admin, room.room_code, nextStep, room.night_number),
+          phase_ends_at: null,
         });
+        if (started) await afterStepStart(admin, room.room_code);
         return;
       }
 
@@ -994,10 +1072,11 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         await endGame(admin, room, winner);
         return;
       }
-      await guardedRoomUpdate(admin, room, {
-        ...(await enterNight(admin, room, room.night_number + 1)),
+      const started = await guardedRoomUpdate(admin, room, {
+        ...enterNight(room, room.night_number + 1),
         announcements: [],
       });
+      if (started) await afterStepStart(admin, room.room_code);
       return;
     }
 
@@ -1092,13 +1171,12 @@ async function endGame(
 // ---------------------------------------------------------------------
 
 /**
- * انتهى وقت الدور: أي أحد ما اختار، يختار له النظام عشوائي.
+ * المنشئ تخطى الدور: صاحب الدور اللي ما اختار، يختار له النظام عشوائي.
  * - قائد المافيا: ياخذ الاقتراح الأكثر من زملائه، وإلا عشوائي.
  * - الساحر والصحفي: يعدّي دورهم بدون استخدام (قدرتهم مرة وحدة، ما نضيعها عليهم).
- *   البوتات بس (وضع التجربة) يستخدمونها أحياناً.
  */
 async function fillMissingActions(admin: Admin, room: MafiaRoom, step: MafiaNightStep): Promise<void> {
-  const [{ engine, players }, actsRes] = await Promise.all([
+  const [{ engine }, actsRes] = await Promise.all([
     loadEngine(admin, room.room_code),
     admin
       .from("mafia_actions")
@@ -1110,12 +1188,11 @@ async function fillMissingActions(admin: Admin, room: MafiaRoom, step: MafiaNigh
 
   const rows = (actsRes.data ?? []) as Pick<ActionRow, "actor_id" | "step" | "target_id">[];
   const acted = new Set(rows.filter((r) => r.step === step).map((r) => r.actor_id));
-  const botIds = new Set(players.filter((p) => p.is_bot).map((p) => p.id));
   const leaderId = mafiaLeaderId(engine, room.night_number);
 
   for (const p of engine) {
     if (acted.has(p.id) || !canActOnStep(p, step, leaderId, engine)) continue;
-    if ((step === "magician" || step === "journalist") && (!botIds.has(p.id) || Math.random() < 0.6)) continue;
+    if (step === "magician" || step === "journalist") continue;
 
     const allowed = allowedTargets(p, step, engine);
     let targetId: string | null = null;
@@ -1137,6 +1214,37 @@ async function fillMissingActions(admin: Admin, room: MafiaRoom, step: MafiaNigh
     if (step === "suicide") {
       await admin.from("mafia_secrets").update({ suicide_target: targetId }).eq("player_id", p.id);
     }
+  }
+}
+
+/** البوتات (وضع التجربة): أول ما يبدأ الدور يختارون كلهم — صاحب دور، مقترح، أو تمويه */
+async function botsNightTurn(admin: Admin, room: MafiaRoom): Promise<void> {
+  const step = room.night_step;
+  if (!step) return;
+  const { engine, players } = await loadEngine(admin, room.room_code);
+  const bots = new Set(players.filter((p) => p.is_bot).map((p) => p.id));
+  if (bots.size === 0) return;
+  const leaderId = mafiaLeaderId(engine, room.night_number);
+  const alive = engine.filter((p) => p.alive);
+
+  for (const p of alive.filter((x) => bots.has(x.id))) {
+    let row: { step: ActionStep; target_id: string | null } | null = null;
+    if (canActOnStep(p, step, leaderId, engine)) {
+      const allowed = allowedTargets(p, step, engine);
+      const skip = (step === "magician" || step === "journalist") && Math.random() < 0.6;
+      row = { step, target_id: skip ? null : pickRandom(allowed)?.id ?? null };
+      if (step === "suicide" && row.target_id) {
+        await admin.from("mafia_secrets").update({ suicide_target: row.target_id }).eq("player_id", p.id);
+      }
+    } else if (step === "mafia" && p.role === "mafia") {
+      row = { step: MAFIA_SUGGEST_STEP, target_id: pickRandom(allowedTargets(p, "mafia", engine))?.id ?? null };
+    } else {
+      row = { step: decoyStep(step), target_id: pickRandom(alive.filter((x) => x.id !== p.id))?.id ?? null };
+    }
+    await admin.from("mafia_actions").upsert(
+      { room_code: room.room_code, night: room.night_number, step: row.step, actor_id: p.id, target_id: row.target_id },
+      { onConflict: "room_code,night,step,actor_id", ignoreDuplicates: true }
+    );
   }
 }
 
@@ -1363,6 +1471,9 @@ export async function kickMafiaPlayer(input: { roomCode: string; playerId: strin
     return fail("تعذّر طرد اللاعب.");
   }
   if (!removed || removed.length === 0) return fail("اللاعب مو موجود في الغرفة.");
+
+  // يمكن هو اللي كان الكل ينتظرونه بدور الليل
+  if (room.phase === "night_act") await finishStepIfAllDone(admin, room.room_code, room.phase_seq);
 
   // صوته انحذف — نحدّث العداد ومين صوّت على مين
   if (room.phase === "voting") {
