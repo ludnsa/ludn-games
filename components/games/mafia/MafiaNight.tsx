@@ -44,18 +44,34 @@ export function MafiaNightAct({ ctx }: { ctx: MafiaGameCtx }) {
 }
 
 /**
- * كم باقي ما اختاروا — الدور ما يمشي إلا لما الكل يختارون.
- * عدد بس بدون أسماء: آخر واحد باقي غالباً صاحب الدور، فاسمه يفضحه.
+ * مين باقي ما اختار — الدور ما يمشي إلا لما الكل يختارون.
+ * اسمي يختفي من عندي أول ما أضغط استمرار، بدون ما أنتظر السيرفر.
  */
 export function NightWaiting({ ctx }: { ctx: MafiaGameCtx }) {
-  const room = ctx.room;
+  const { room, view, players } = ctx;
   const r = room?.night_ready;
   if (!room || !r || r.night !== room.night_number || r.step !== room.night_step) return null;
-  const left = Math.max(0, r.total - r.done);
-  if (left === 0) return null;
+
+  const task = view?.task && view.task.step === room.night_step ? view.task : null;
+  const fresh = view?.phaseSeq === room.phase_seq;
+  const iPicked = Boolean(task ? task.locked || (task.mode === "suggest" && task.selectedId) : fresh && view?.decoyId);
+  const waiting = (r.waiting ?? []).filter((id) => !(iPicked && id === view?.me.id));
+  const names = waiting.map((id) => players.find((p) => p.id === id)?.display_name).filter(Boolean);
+
+  // نسخة قديمة من السيرفر بدون أسماء: نرجع للعدد
+  if (!r.waiting) {
+    const left = Math.max(0, r.total - r.done);
+    if (left === 0) return null;
+    return (
+      <p className="text-center font-black text-amber-200 bg-amber-950/40 border border-amber-900 rounded-2xl p-3 animate-in fade-in">
+        ⏳ باقي {left === 1 ? "واحد ما اختار" : `${left} ما اختاروا`}
+      </p>
+    );
+  }
+  if (names.length === 0) return null;
   return (
-    <p className="text-center font-black text-amber-200 bg-amber-950/40 border border-amber-900 rounded-2xl p-3 animate-in fade-in">
-      ⏳ باقي {left === 1 ? "واحد ما اختار" : `${left} ما اختاروا`} — الدور ما يمشي إلا لما الكل يختارون
+    <p className="text-center font-black text-amber-200 bg-amber-950/40 border border-amber-900 rounded-2xl p-3 animate-in fade-in break-words">
+      ⏳ باقي {names.length === 1 ? "ما اختار" : "ما اختاروا"}: {names.join("، ")}
     </p>
   );
 }

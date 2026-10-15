@@ -706,7 +706,10 @@ export async function submitMafiaNightAction(input: {
  * - الباقين: يجاوبون سؤال التمويه
  * ما فيه مؤقت — لو أحد غايب، المنشئ يتخطى.
  */
-async function nightProgress(admin: Admin, room: MafiaRoom): Promise<{ done: number; total: number }> {
+async function nightProgress(
+  admin: Admin,
+  room: MafiaRoom
+): Promise<{ done: number; total: number; waiting: string[] }> {
   const step = room.night_step!;
   const [{ engine }, { data }] = await Promise.all([
     loadEngine(admin, room.room_code),
@@ -721,12 +724,13 @@ async function nightProgress(admin: Admin, room: MafiaRoom): Promise<{ done: num
   const has = (id: string, s: string) => rows.some((r) => r.actor_id === id && r.step === s);
   const leaderId = mafiaLeaderId(engine, room.night_number);
   const alive = engine.filter((p) => p.alive);
-  const done = alive.filter((p) => {
+  const isDone = (p: EnginePlayer) => {
     if (canActOnStep(p, step, leaderId, engine)) return has(p.id, step);
     if (step === "mafia" && p.role === "mafia") return has(p.id, MAFIA_SUGGEST_STEP);
     return has(p.id, decoyStep(step));
-  });
-  return { done: done.length, total: alive.length };
+  };
+  const waiting = alive.filter((p) => !isDone(p)).map((p) => p.id);
+  return { done: alive.length - waiting.length, total: alive.length, waiting };
 }
 
 async function finishStepIfAllDone(admin: Admin, roomCode: string, seq: number): Promise<void> {
@@ -738,7 +742,7 @@ async function finishStepIfAllDone(admin: Admin, roomCode: string, seq: number):
     await runTransition(admin, room);
     return;
   }
-  // كم باقي — عدد بس (تحديث مستقل: لو ملف 0007 ما انشغّل، اللعبة تمشي عادي بدون العداد)
+  // مين باقي ما اختار (تحديث مستقل: لو ملف 0007 ما انشغّل، اللعبة تمشي عادي بدون القائمة)
   const { error } = await admin
     .from("mafia_rooms")
     .update({ night_ready: { night: room.night_number, step: room.night_step, ...progress } })

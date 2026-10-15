@@ -253,10 +253,10 @@ export interface MafiaRoom {
   /** التصويت مكشوف: لكل هدف (أو "skip") قائمة معرّفات اللي صوّتوا عليه */
   vote_voters?: Record<string, string[]>;
   /**
-   * كم واحد اختار في دور الليل الحالي (عدد بس، بدون أسماء — عشان
-   * "آخر واحد باقي" ما يفضح صاحب الدور). يحتاج 0007_mafia_night_ready.sql
+   * مين باقي ما اختار في دور الليل الحالي (waiting = معرّفاتهم).
+   * يحتاج 0007_mafia_night_ready.sql
    */
-  night_ready?: { night: number; step: MafiaNightStep; done: number; total: number } | null;
+  night_ready?: { night: number; step: MafiaNightStep; done: number; total: number; waiting?: string[] } | null;
   vote_result: MafiaVoteResult | null;
   winner: MafiaTeam | null;
   final_roles: MafiaFinalRole[] | null;
