@@ -339,16 +339,24 @@ export function resolveVotes(counts: Record<string, number>): MafiaVoteResult {
 }
 
 /**
- * المواطنين يفوزون إذا ما بقى مافيا، والمافيا يفوزون إذا صاروا أكثر من الباقين،
- * أو نفس عددهم بشرط ما فيه دكتور حي — الدكتور يقدر يكسر التعادل بحماية ناجحة، فتكمل اللعبة.
+ * المواطنين يفوزون إذا ما بقى مافيا، والمافيا يفوزون إذا صاروا أكثر من الباقين.
+ * التساوي = فوز المافيا، إلا لو الدكتور حي (يقدر يكسر التعادل بحماية ناجحة) — بشرطين:
+ * - مو واحد ضد واحد: التصويت بينهم تعادل دايماً، فما فيه شي يتغير
+ * - التساوي ما جا من ذبح ناجح الليلة (nightKill): الدكتور ما حمى، فخلاص انحسمت
  */
-export function checkWinner(players: { alive: boolean; role: MafiaRole }[]): MafiaTeam | null {
+export function checkWinner(
+  players: { alive: boolean; role: MafiaRole }[],
+  opts: { nightKill?: boolean } = {}
+): MafiaTeam | null {
   const alive = players.filter((p) => p.alive);
   const mafia = alive.filter((p) => p.role === "mafia").length;
   const rest = alive.length - mafia;
   if (mafia === 0) return "town";
   if (mafia > rest) return "mafia";
-  if (mafia === rest && !alive.some((p) => p.role === "doctor")) return "mafia";
+  if (mafia === rest) {
+    const doctorAlive = alive.some((p) => p.role === "doctor");
+    if (!doctorAlive || rest === 1 || opts.nightKill) return "mafia";
+  }
   return null;
 }
 
@@ -376,15 +384,18 @@ export function mafiaNightShortcut(
   remaining: MafiaNightStep[]
 ): MafiaNightShortcut {
   const resolution = resolveNight(players, actions);
-  const winner = checkWinner(playersAfterNight(players, resolution));
+  const outcome = mafiaKillOutcome(players, actions);
+  const nightKill = outcome.fate === "killed";
+  const winner = checkWinner(playersAfterNight(players, resolution), { nightKill });
   if (!winner) return null;
 
   const pending = new Set<MafiaNightStep>();
-  const outcome = mafiaKillOutcome(players, actions);
   const victim = players.find((p) => p.id === outcome.victimId);
-  if (outcome.fate === "killed" && victim?.role === "suicide") pending.add("suicide");
+  if (nightKill && victim?.role === "suicide") pending.add("suicide");
+  // بعد ذبح ناجح، الساحر لو صار دكتور ما ينفع (التساوي من ذبح = انحسمت)
   if (
     winner === "mafia" &&
+    !nightKill &&
     players.some((p) => p.alive && p.role === "magician" && !p.abilityUsed && !resolution.deaths.includes(p.id)) &&
     magicianVacancies(players).some((v) => v.role === "doctor")
   ) {
