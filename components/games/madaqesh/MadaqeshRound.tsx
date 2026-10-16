@@ -9,6 +9,7 @@ import {
   currentBidderId,
   currentHighBid,
   equalShares,
+  minBid,
   pickDecider,
   respondersFor,
   responseOf,
@@ -16,6 +17,7 @@ import {
   stakedOpponents,
   stakeOf,
   sumShares,
+  validateBid,
 } from "@/lib/game/madaqesh-engine";
 import type { MadaqeshGameCtx } from "@/hooks/games/madaqesh/useMadaqeshGame";
 import type { MadaqeshDecision, MadaqeshDecisionMode, MadaqeshResponse, MadaqeshRound } from "@/types/madaqesh";
@@ -49,10 +51,15 @@ export function MadaqeshBidding({ ctx }: { ctx: MadaqeshGameCtx }) {
   const high = currentHighBid(round);
   const leader = pickDecider(round);
   const allIn = canAllIn(round, me.balance);
-  const valid = amount > high && amount <= me.balance;
+  // الخانة فاضية = أقل سومة مسموحة، فيقدر يسوم على طول
+  const min = minBid(round);
+  const effective = amount > 0 ? amount : min;
+  const check = validateBid(round, me.balance, "bid", effective);
+  const canRaise = me.balance >= min;
+  const step = MADAQESH_CONFIG.BID_STEP;
 
   const submit = async (kind: "bid" | "allin" | "pass") => {
-    const res = await ctx.bid(kind, kind === "bid" ? amount : 0);
+    const res = await ctx.bid(kind, kind === "bid" ? effective : 0);
     if (res?.success) setAmount(0);
   };
 
@@ -93,17 +100,35 @@ export function MadaqeshBidding({ ctx }: { ctx: MadaqeshGameCtx }) {
         <Panel className="border-amber-600">
           <h2 className="text-2xl font-black text-center mb-1">🎯 دورك تسوم</h2>
           <p className="text-center text-sm font-bold text-slate-400 mb-4">
-            رصيدك <Money value={me.balance} /> — {high > 0 ? "لازم تزيد على أعلى سومة" : "حدد سومتك على حسب ورقك"}
+            رصيدك <Money value={me.balance} /> —{" "}
+            {canRaise ? (
+              <>
+                {high > 0 ? "أقل سومة" : "أقل فتح"} <Money value={min} /> (مضاعفات {formatMoney(step)})
+              </>
+            ) : (
+              "رصيدك ما يكفي لأقل سومة"
+            )}
           </p>
-          <MoneyInput value={amount} onChange={setAmount} base={high} disabled={busy} />
-          {amount > 0 && amount > me.balance && <p className="mt-2 text-center text-sm font-bold text-red-400">أكثر من رصيدك</p>}
-          {amount > 0 && amount <= high && <p className="mt-2 text-center text-sm font-bold text-red-400">لازم تزيد على {formatMoney(high)}</p>}
+          {canRaise && (
+            <>
+              <MoneyInput
+                value={amount}
+                onChange={setAmount}
+                base={Math.floor(high / step) * step}
+                placeholder={formatMoney(min)}
+                disabled={busy}
+              />
+              {amount > 0 && !check.ok && <p className="mt-2 text-center text-sm font-bold text-red-400">{check.error}</p>}
+            </>
+          )}
 
           <div className="flex flex-col gap-2 mt-4">
-            <button type="button" disabled={!valid || busy} onClick={() => submit("bid")} className={btn.primary}>
-              {busy ? <Loader2 className="animate-spin" size={22} /> : <Check size={22} />}
-              {amount > 0 ? `أسوم ${formatMoney(amount)}` : "اكتب سومتك"}
-            </button>
+            {canRaise && (
+              <button type="button" disabled={!check.ok || busy} onClick={() => submit("bid")} className={btn.primary}>
+                {busy ? <Loader2 className="animate-spin" size={22} /> : <Check size={22} />}
+                أسوم {formatMoney(effective)}
+              </button>
+            )}
             {allIn && (
               <button type="button" disabled={busy} onClick={() => submit("allin")} className={btn.danger}>
                 💰 أدخل بكل فلوسي ({formatMoney(me.balance)})
@@ -174,8 +199,11 @@ function DecisionForm({
   total: number;
   onBehalf: boolean;
 }) {
-  const { nameOf, busy } = ctx;
+  const { nameOf, busy, playerOf } = ctx;
   const deciderId = round.deciderId!;
+  const balanceOf = (id: string) => playerOf(id)?.balance ?? 0;
+  // بالتساوي: صاحب القرار واللي ياخذون نفس الحصة، والباقي لصاحب أقل رصيد
+  const split = (ids: string[]) => equalShares(total, ids, deciderId, balanceOf);
   // التوزيع والتثبيت بس على اللي سامو — اللي انسحب من السوم خلاص ما له شي
   const others = stakedOpponents(round);
   const passed = round.order.filter((id) => id !== deciderId && !others.includes(id));
@@ -194,7 +222,7 @@ function DecisionForm({
   const toggleFixed = (id: string) => {
     const next = fixed.includes(id) ? fixed.filter((x) => x !== id) : [...fixed, id];
     setFixed(next);
-    if (equal) setShares(equalShares(total, others.filter((x) => !next.includes(x))));
+    if (equal) setShares(split(others.filter((x) => !next.includes(x))));
   };
 
   const submit = () => {
@@ -236,7 +264,7 @@ function DecisionForm({
               type="button"
               onClick={() => {
                 setEqual(true);
-                setShares(equalShares(total, receivers));
+                setShares(split(receivers));
               }}
               className="flex-1 py-2.5 rounded-xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm flex items-center justify-center gap-1.5"
             >
@@ -475,15 +503,24 @@ export function MadaqeshResponding({ ctx }: { ctx: MadaqeshGameCtx }) {
 export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
   const { room, me, nameOf, isHost, busy, players } = ctx;
   const round = room?.round;
-  const [picked, setPicked] = useState<string | null>(null);
+  // المنشئ يختار صاحب أقوى ورق — أو يضغط "تعادل" ويختار المتعادلين (2 أو أكثر)
+  const [tie, setTie] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const ready = tie ? picked.length >= 2 : picked.length === 1;
   const preview = useMemo(
-    () => (room && round && picked ? settleRound(round, players, picked, room.settings) : null),
-    [room, round, picked, players]
+    () => (room && round && ready ? settleRound(round, players, picked, room.settings) : null),
+    [room, round, picked, ready, players]
   );
   if (!room || !round || !me || !round.deciderId) return null;
 
   const fighters = [round.deciderId, ...contestants(round)];
-  const canRecord = round.deciderId === me.id || isHost;
+  const pick = (id: string) =>
+    setPicked((p) => (tie ? (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]) : [id]));
+  const toggleTie = () => {
+    setTie((t) => !t);
+    setPicked((p) => p.slice(0, 1));
+  };
+  const names = picked.map(nameOf).join(" و ");
 
   return (
     <div className="flex flex-col gap-4">
@@ -491,24 +528,31 @@ export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
       <Panel className="border-red-800">
         <h2 className="text-2xl font-black text-center mb-1">⚔️ المداقشة</h2>
         <p className="text-center font-bold text-slate-400 mb-4">
-          {canRecord ? "العبوا على الطاولة، وبعدها اختر صاحب أقوى ورق" : `العبوا… ${nameOf(round.deciderId)} يسجّل النتيجة`}
+          {!isHost
+            ? "العبوا… المنشئ يسجّل النتيجة"
+            : tie
+              ? "اختر المتعادلين (2 أو أكثر)"
+              : "العبوا على الطاولة، وبعدها اختر صاحب أقوى ورق"}
         </p>
         <ul className="grid grid-cols-1 gap-2">
           {fighters.map((id) => {
-            const on = picked === id;
+            const on = picked.includes(id);
             return (
               <li key={id}>
                 <button
                   type="button"
-                  disabled={!canRecord || busy}
-                  onClick={() => setPicked(id)}
+                  disabled={!isHost || busy}
+                  onClick={() => pick(id)}
                   aria-pressed={on}
                   className={`w-full flex items-center gap-3 p-3.5 rounded-2xl font-black border-b-4 transition-all text-start ${
                     on ? "bg-amber-500 text-slate-950 border-amber-700" : "bg-slate-800 border-slate-950"
                   } disabled:opacity-90`}
                 >
                   <span className="text-2xl">{id === round.deciderId ? "👑" : "⚔️"}</span>
-                  <span className="flex-1 min-w-0 break-words">{nameOf(id)}</span>
+                  <span className="flex-1 min-w-0 break-words">
+                    {nameOf(id)}
+                    {round.bids[id]?.kind === "allin" && <span className="block text-xs font-bold opacity-80">💰 داخل بكل فلوسه</span>}
+                  </span>
                   <Money value={stakeOf(round, id)} />
                 </button>
               </li>
@@ -516,9 +560,23 @@ export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
           })}
         </ul>
 
-        {canRecord && preview && picked && (
+        {isHost && (
+          <button
+            type="button"
+            onClick={toggleTie}
+            disabled={busy}
+            aria-pressed={tie}
+            className={`w-full mt-3 py-3 rounded-2xl font-black border-b-4 flex items-center justify-center gap-2 transition-all ${
+              tie ? "bg-sky-600 border-sky-800" : "bg-slate-800 border-slate-950 text-slate-300"
+            }`}
+          >
+            🤝 {tie ? "تعادل — اختر المتعادلين (اضغط مرة ثانية للإلغاء)" : "تعادل"}
+          </button>
+        )}
+
+        {isHost && preview && (
           <div className="mt-4 p-3 rounded-2xl bg-slate-950 animate-in fade-in">
-            <p className="font-black text-sm text-slate-400 mb-2">لو فاز {nameOf(picked)}:</p>
+            <p className="font-black text-sm text-slate-400 mb-2">{tie ? `لو تعادل ${names}:` : `لو فاز ${names}:`}</p>
             <ul className="flex flex-col gap-1">
               {Object.entries(preview.deltas).map(([id, d]) => (
                 <li key={id} className="flex items-center gap-2 font-bold">
@@ -526,16 +584,22 @@ export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
                   <Delta value={d} />
                 </li>
               ))}
+              {Object.keys(preview.deltas).length === 0 && <li className="font-bold text-slate-400">محد يتغير رصيده</li>}
             </ul>
-            <button type="button" onClick={() => ctx.setWinner(picked)} disabled={busy} className={`${btn.primary} mt-3`}>
+            <button type="button" onClick={() => ctx.setWinners(picked)} disabled={busy} className={`${btn.primary} mt-3`}>
               {busy ? <Loader2 className="animate-spin" size={22} /> : <Scale size={22} />}
-              اعتمد: {nameOf(picked)} أقوى ورق
+              {tie ? `اعتمد: تعادل ${names}` : `اعتمد: ${names} أقوى ورق`}
             </button>
           </div>
         )}
       </Panel>
     </div>
   );
+}
+
+/** الفايزين بالمداقشة (السجلات القديمة فيها winnerId بس) */
+function resultWinners(result: NonNullable<MadaqeshRound["result"]>): string[] {
+  return result.winnerIds ?? (result.winnerId ? [result.winnerId] : []);
 }
 
 // ---------------------------------------------------------------------
@@ -559,17 +623,22 @@ export function MadaqeshResult({ ctx }: { ctx: MadaqeshGameCtx }) {
   }
 
   const fighters = contestants(round);
+  const winners = resultWinners(result);
+  const tie = winners.length > 1;
   const entries = Object.entries(result.deltas).sort((a, b) => b[1] - a[1]);
   return (
     <Panel className="text-center">
-      <p className="text-6xl mb-2">{fighters.length === 0 ? "🤝" : result.winnerId === round.deciderId ? "👑" : "⚔️"}</p>
+      <p className="text-6xl mb-2">{fighters.length === 0 || tie ? "🤝" : winners[0] === round.deciderId ? "👑" : "⚔️"}</p>
       <h2 className="text-2xl font-black mb-1">
         {fighters.length === 0
           ? round.decision?.mode === "withdraw"
             ? `الكل انسحبوا — ${nameOf(round.deciderId)} أخذها كاملة`
             : "اعتمدت التوزيعة"
-          : `${nameOf(result.winnerId)} فاز بالمداقشة!`}
+          : tie
+            ? `تعادل: ${winners.map(nameOf).join(" و ")}`
+            : `${nameOf(winners[0])} فاز بالمداقشة!`}
       </h2>
+      {entries.length === 0 && fighters.length > 0 && <p className="mt-2 font-bold text-slate-400">محد تغيّر رصيده</p>}
       <ul className="flex flex-col gap-1.5 mt-4 text-start">
         {entries.map(([id, d]) => (
           <li key={id} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800 font-black animate-in fade-in slide-in-from-bottom-2">
@@ -615,6 +684,8 @@ export function roundHeadline(round: MadaqeshRound, nameOf: (id: string | null |
   const base = `${nameOf(round.deciderId)} بـ ${formatMoney(stakeOf(round, round.deciderId))} — ${MODE_LABEL[d.mode]}`;
   if (fighters.length === 0) return base;
   const objectors = d.mode === "distribute" ? fighters.filter((id) => responseOf(round, id) === "object") : [];
-  return `${base}${objectors.length ? ` (اعترض ${objectors.map(nameOf).join("، ")})` : ""} — فاز ${nameOf(round.result?.winnerId)}`;
+  const winners = round.result ? resultWinners(round.result) : [];
+  const outcome = winners.length > 1 ? `تعادل ${winners.map(nameOf).join(" و ")}` : `فاز ${nameOf(winners[0])}`;
+  return `${base}${objectors.length ? ` (اعترض ${objectors.map(nameOf).join("، ")})` : ""} — ${outcome}`;
 }
 

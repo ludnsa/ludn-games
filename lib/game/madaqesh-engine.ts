@@ -1,4 +1,4 @@
-import { MADAQESH_CONFIG } from "@/constants/madaqesh";
+import { MADAQESH_CONFIG, formatMoney } from "@/constants/madaqesh";
 import type {
   MadaqeshBid,
   MadaqeshBidKind,
@@ -12,16 +12,20 @@ import type {
 // محرك حاسبة مداقش — حسابات بحتة بدون قاعدة بيانات، عشان تنختبر لحالها.
 //
 // القوانين باختصار:
-// - السوم دورة وحدة. كل لاعب: يرفع (أعلى من أعلى سومة وفي حدود رصيده)،
-//   أو يدخل بكل فلوسه لو ما تكفي، أو ينسحب. أعلى سومة = صاحب القرار.
+// - السوم دورة وحدة. كل لاعب: يرفع (أقل فتح 1000، وبعدها مضاعفات 500 فوق
+//   أعلى سومة، وفي حدود رصيده)، أو يدخل بكل فلوسه لو ما تكفي لأقل سومة، أو ينسحب.
+//   أعلى سومة = صاحب القرار.
 // - "سومة" كل لاعب = المبلغ اللي يداقش عليه. اللي انسحب من السوم ما يداقش.
 // - صاحب القرار (سومته B): يوزع B (بالتساوي أو على مزاجه) والباقي له،
 //   ويقدر يثبّت لاعبين / يعطي فرصة انسحاب / يخلي الجميع ثابت.
-// - المداقشة: صاحب أقوى ورق يفوز.
+// - المداقشة: المنشئ يسجّل صاحب أقوى ورق (أو تعادل بين أكثر من واحد).
 //     فاز صاحب القرار: كل اللي داقشوه ينخصم منهم سومتهم، والتوزيعة تعتمد،
 //       وهو ياخذ B ناقص اللي وزعه.
-//     فاز لاعب: ياخذ سومته، وصاحب القرار ينخصم B، والباقين ينخصم منهم
-//       سومتهم، والتوزيعة تنلغي.
+//     فاز لاعب: ياخذ سومته (ولو داخل بكل فلوسه ياخذ B)، وصاحب القرار ينخصم B،
+//       والباقين ينخصم منهم سومتهم، والتوزيعة تنلغي.
+//     تعادل مع صاحب القرار: المتعادلين على رصيدهم، والخسرانين ينخصم منهم،
+//       والتوزيعة تنلغي.
+//     تعادل بين المداقشين: يتقاسمون B، وصاحب القرار ينخصم B، والخسرانين ينخصم منهم.
 // - اللي يوصل صفر يرجع 5000 وتنحسب عليه "إفلاسة"، ولو خلصت فرصه يطلع.
 // =====================================================================
 
@@ -74,10 +78,16 @@ export function currentBidderId(round: MadaqeshRound): string | null {
   return round.turn < round.order.length ? round.order[round.turn] : null;
 }
 
-/** يدخل بكل فلوسه: بس لو رصيده ما يكفي يرفع فوق أعلى سومة */
-export function canAllIn(round: MadaqeshRound, balance: number): boolean {
+/** أقل سومة مسموحة الحين: الفتح 1000، وبعدها أول مضاعف لـ 500 فوق أعلى سومة */
+export function minBid(round: MadaqeshRound): number {
+  const step = MADAQESH_CONFIG.BID_STEP;
   const high = currentHighBid(round);
-  return high > 0 && balance > 0 && balance <= high;
+  return Math.max(MADAQESH_CONFIG.MIN_OPEN_BID, (Math.floor(high / step) + 1) * step);
+}
+
+/** يدخل بكل فلوسه: بس لو رصيده ما يكفي لأقل سومة مسموحة */
+export function canAllIn(round: MadaqeshRound, balance: number): boolean {
+  return balance > 0 && balance < minBid(round);
 }
 
 export function validateBid(
@@ -88,12 +98,16 @@ export function validateBid(
 ): { ok: true; bid: MadaqeshBid } | { ok: false; error: string } {
   if (kind === "pass") return { ok: true, bid: { amount: 0, kind: "pass" } };
   if (kind === "allin") {
-    if (!canAllIn(round, balance)) return { ok: false, error: "تقدر ترفع السومة — الدخول بكل فلوسك بس لو رصيدك ما يكفي." };
+    if (!canAllIn(round, balance)) return { ok: false, error: "تقدر تسوم — الدخول بكل فلوسك بس لو رصيدك ما يكفي لأقل سومة." };
     return { ok: true, bid: { amount: balance, kind: "allin" } };
   }
-  const high = currentHighBid(round);
+  const min = minBid(round);
+  const step = MADAQESH_CONFIG.BID_STEP;
   if (!Number.isInteger(amount) || amount <= 0) return { ok: false, error: "اكتب مبلغ صحيح." };
-  if (amount <= high) return { ok: false, error: "لازم تزيد على أعلى سومة." };
+  if (amount % step !== 0) return { ok: false, error: `السومة لازم تكون من مضاعفات ${formatMoney(step)}.` };
+  if (amount < min) {
+    return { ok: false, error: currentHighBid(round) > 0 ? `أقل سومة ${formatMoney(min)}.` : `أقل فتح للسوم ${formatMoney(min)}.` };
+  }
   if (amount > balance) return { ok: false, error: "المبلغ أكثر من رصيدك." };
   return { ok: true, bid: { amount, kind: "bid" } };
 }
@@ -128,12 +142,35 @@ export function stakedOpponents(round: MadaqeshRound): string[] {
 // ---------------------------------------------------------------------
 
 /**
- * التقسيم بالتساوي على اللي سامو (وصاحب القرار منهم): كل واحد ياخذ نفس الحصة (مقرّبة لتحت)،
- * والباقي يروح لصاحب القرار.
+ * قسمة مبلغ بالتساوي: كل واحد نفس الحصة (مضاعفات 500 لتحت)،
+ * والباقي كله لصاحب أقل رصيد بينهم (لو تساووا: الأول بالترتيب).
+ * مثال: 10000 على 3 = 3000 لكل واحد، و 4000 لصاحب أقل رصيد.
  */
-export function equalShares(total: number, recipientIds: string[], unit: number = MADAQESH_CONFIG.SPLIT_UNIT): Record<string, number> {
-  const each = Math.floor(total / (recipientIds.length + 1) / unit) * unit;
-  return Object.fromEntries(recipientIds.map((id) => [id, each]));
+export function splitEvenly(
+  total: number,
+  ids: string[],
+  balanceOf: (id: string) => number,
+  unit: number = MADAQESH_CONFIG.SPLIT_UNIT
+): Record<string, number> {
+  if (ids.length === 0) return {};
+  const each = Math.floor(total / ids.length / unit) * unit;
+  const rest = total - each * ids.length;
+  const poorest = ids.reduce((a, b) => (balanceOf(b) < balanceOf(a) ? b : a));
+  return Object.fromEntries(ids.map((id) => [id, each + (id === poorest ? rest : 0)]));
+}
+
+/**
+ * التوزيع بالتساوي: السومة تتقسم على صاحب القرار واللي ياخذون، والباقي لصاحب أقل رصيد.
+ * يرجع أنصبة اللي ياخذون بس — نصيب صاحب القرار هو اللي يبقى من السومة.
+ */
+export function equalShares(
+  total: number,
+  recipientIds: string[],
+  deciderId: string,
+  balanceOf: (id: string) => number
+): Record<string, number> {
+  const all = splitEvenly(total, [deciderId, ...recipientIds], balanceOf);
+  return Object.fromEntries(recipientIds.map((id) => [id, all[id]]));
 }
 
 export function sumShares(shares: Record<string, number>): number {
@@ -215,26 +252,36 @@ export interface MadaqeshSettlement {
   eliminated: string[];
 }
 
+/** الفايزين المعتمدين: بس اللي في المداقشة (صاحب القرار واللي داقشوه)، بدون تكرار */
+export function showdownWinners(round: MadaqeshRound, winnerIds: string[]): string[] {
+  if (!round.deciderId) return [];
+  const inShowdown = new Set([round.deciderId, ...contestants(round)]);
+  return [...new Set(winnerIds)].filter((id) => inShowdown.has(id));
+}
+
 /**
- * winnerId: صاحب أقوى ورق بين صاحب القرار واللي داقشوه.
- * لو ما فيه أحد يداقش، النتيجة كأن صاحب القرار فاز (التوزيعة تعتمد).
+ * winnerIds: صاحب أقوى ورق بين صاحب القرار واللي داقشوه — أو أكثر من واحد لو تعادل.
+ * لو ما فيه أحد يداقش (أو ما انسجّل فايز)، النتيجة كأن صاحب القرار فاز (التوزيعة تعتمد).
  */
 export function settleRound(
   round: MadaqeshRound,
   players: MadaqeshEnginePlayer[],
-  winnerId: string | null,
+  winnerIds: string[],
   settings: Pick<MadaqeshSettings, "maxBankrupts">
 ): MadaqeshSettlement {
   const deltas: Record<string, number> = {};
   const add = (id: string, n: number) => {
     if (n !== 0) deltas[id] = (deltas[id] ?? 0) + n;
   };
+  const balanceOf = (id: string) => players.find((p) => p.id === id)?.balance ?? 0;
 
   const deciderId = round.deciderId;
   if (deciderId && round.decision) {
     const total = stakeOf(round, deciderId);
     const fighters = contestants(round);
-    const deciderWins = fighters.length === 0 || !winnerId || winnerId === deciderId;
+    const winners = showdownWinners(round, winnerIds);
+    const losers = fighters.filter((id) => !winners.includes(id));
+    const deciderWins = fighters.length === 0 || winners.length === 0 || (winners.length === 1 && winners[0] === deciderId);
 
     if (deciderWins) {
       // التوزيعة تعتمد للي رضوا، وصاحب القرار ياخذ الباقي
@@ -248,11 +295,21 @@ export function settleRound(
       }
       add(deciderId, total - paid);
       fighters.forEach((id) => add(id, -stakeOf(round, id)));
+    } else if (winners.includes(deciderId)) {
+      // تعادل مع صاحب القرار: المتعادلين على رصيدهم، والتوزيعة تنلغي، والخسرانين ينخصم منهم
+      losers.forEach((id) => add(id, -stakeOf(round, id)));
     } else {
-      // فاز لاعب: ياخذ سومته، وصاحب القرار ينخصم سومته كاملة، والتوزيعة تنلغي
-      add(winnerId, stakeOf(round, winnerId));
+      // فاز لاعب (أو أكثر): صاحب القرار ينخصم سومته كاملة، والتوزيعة تنلغي، والخسرانين ينخصم منهم
       add(deciderId, -total);
-      fighters.filter((id) => id !== winnerId).forEach((id) => add(id, -stakeOf(round, id)));
+      losers.forEach((id) => add(id, -stakeOf(round, id)));
+      if (winners.length === 1) {
+        // ياخذ سومته — إلا لو داخل بكل فلوسه: ياخذ فلوس صاحب القرار
+        const w = winners[0];
+        add(w, round.bids[w]?.kind === "allin" ? total : stakeOf(round, w));
+      } else {
+        // تعادل بين المداقشين: يتقاسمون فلوس صاحب القرار
+        Object.entries(splitEvenly(total, winners, balanceOf)).forEach(([id, n]) => add(id, n));
+      }
     }
   }
 

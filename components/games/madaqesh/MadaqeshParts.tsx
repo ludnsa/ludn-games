@@ -105,12 +105,8 @@ export function BalanceBoard({ ctx }: { ctx: MadaqeshGameCtx }) {
   const target = room.settings.targetAmount;
   const bidderId = room.phase === "bidding" && round ? round.order[round.turn] : null;
   const showDeltas = room.phase === "result" || room.phase === "ended";
-  const order = round?.order ?? players.map((p) => p.id);
-  const ranked = [...players].sort((a, b) => {
-    const ai = order.indexOf(a.id);
-    const bi = order.indexOf(b.id);
-    return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi) || a.seat - b.seat;
-  });
+  // الأسماء ثابتة بترتيب الجلسة — ما تتحرك مع تبديل البادئ كل جولة
+  const ranked = [...players].sort((a, b) => a.seat - b.seat);
 
   return (
     <Panel className="!p-3 md:!p-4">
@@ -124,7 +120,7 @@ export function BalanceBoard({ ctx }: { ctx: MadaqeshGameCtx }) {
             <li
               key={p.id}
               className={`relative overflow-hidden rounded-2xl px-3 py-2.5 ${
-                p.is_out ? "bg-slate-950 opacity-50" : isBidder ? "bg-amber-900/60 ring-2 ring-amber-400" : "bg-slate-800/80"
+                p.is_out ? "bg-slate-950 opacity-45 grayscale" : isBidder ? "bg-amber-900/60 ring-2 ring-amber-400" : "bg-slate-800/80"
               } ${p.id === me?.id ? "border-2 border-sky-600" : ""}`}
             >
               {/* شريط التقدم نحو مبلغ الفوز */}

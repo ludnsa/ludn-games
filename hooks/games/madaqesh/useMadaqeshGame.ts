@@ -14,11 +14,11 @@ import {
   newMadaqeshRoom,
   nextMadaqeshRound,
   outMadaqeshPlayer,
-  moveMadaqeshPlayer,
   placeMadaqeshBid,
   playMadaqeshAgain,
   respondMadaqesh,
   setMadaqeshBalance,
+  setMadaqeshPlayerPosition,
   setMadaqeshShowdownWinner,
   shuffleMadaqeshPlayers,
   skipMadaqeshTurn,
@@ -33,6 +33,7 @@ import {
   pickDecider,
   respondersFor,
   settleRound,
+  showdownWinners,
   validateBid,
   validateDecision,
 } from "@/lib/game/madaqesh-engine";
@@ -208,13 +209,23 @@ export function useMadaqeshGame(
 
   /** نحسب الجولة محلياً (نفس حساب السيرفر) ونعرض النتيجة والأرصدة الجديدة فوراً */
   const applyLocalSettle = useCallback(
-    (r: MadaqeshRoom, round: MadaqeshRound, winnerId: string | null) => {
-      const s = settleRound(round, players, winnerId, r.settings);
+    (r: MadaqeshRoom, round: MadaqeshRound, winnerIds: string[]) => {
+      const s = settleRound(round, players, winnerIds, r.settings);
       const champion = checkMadaqeshWinner(s.updates, r.settings.targetAmount);
+      const winners = showdownWinners(round, winnerIds);
       setRoom({
         ...r,
         phase: champion ? "ended" : "result",
-        round: { ...round, result: { deltas: s.deltas, winnerId, revived: s.revived, eliminated: s.eliminated } },
+        round: {
+          ...round,
+          result: {
+            deltas: s.deltas,
+            winnerId: winners.length === 1 ? winners[0] : null,
+            winnerIds: winners,
+            revived: s.revived,
+            eliminated: s.eliminated,
+          },
+        },
         winner_id: champion,
       });
       const byId = new Map(s.updates.map((u) => [u.id, u]));
@@ -241,7 +252,11 @@ export function useMadaqeshGame(
           setRoom(
             deciderId
               ? { ...r, phase: "deciding", round: { ...next, deciderId } }
-              : { ...r, phase: "result", round: { ...next, result: { deltas: {}, winnerId: null, revived: [], eliminated: [], void: true } } }
+              : {
+                  ...r,
+                  phase: "result",
+                  round: { ...next, result: { deltas: {}, winnerId: null, winnerIds: [], revived: [], eliminated: [], void: true } },
+                }
           );
         },
         () => placeMadaqeshBid({ roomCode, token, kind, amount })
@@ -264,7 +279,7 @@ export function useMadaqeshGame(
           const next: MadaqeshRound = { ...r.round!, decision: v.decision, responses: {} };
           if (respondersFor(next).length > 0) setRoom({ ...r, phase: "responding", round: next });
           else if (contestants(next).length > 0) setRoom({ ...r, phase: "showdown", round: next });
-          else applyLocalSettle(r, next, null);
+          else applyLocalSettle(r, next, []);
         },
         () => decideMadaqesh({ roomCode, token, decision })
       );
@@ -291,35 +306,33 @@ export function useMadaqeshGame(
     [me?.playerId, roomCode, token, fetchPublic]
   );
 
-  const setWinner = useCallback(
-    (winnerId: string) => {
+  /** المنشئ يسجّل صاحب أقوى ورق — أو أكثر من واحد لو تعادل */
+  const setWinners = useCallback(
+    (winnerIds: string[]) => {
       const r = room;
-      if (!r?.round || r.phase !== "showdown") return Promise.resolve(null);
+      if (!r?.round || r.phase !== "showdown" || winnerIds.length === 0) return Promise.resolve(null);
       return instant(
-        () => applyLocalSettle(r, r.round!, winnerId),
-        () => setMadaqeshShowdownWinner({ roomCode, token, winnerId })
+        () => applyLocalSettle(r, r.round!, winnerIds),
+        () => setMadaqeshShowdownWinner({ roomCode, token, winnerIds })
       );
     },
     [room, instant, applyLocalSettle, roomCode, token]
   );
 
-  /** ترتيب اللاعبين يتحرك فوراً */
-  const move = useCallback(
-    (playerId: string, dir: -1 | 1) =>
+  /** ترتيب اللاعبين: يتحرك فوراً لمكانه الجديد والباقين يتزحزحون */
+  const setPosition = useCallback(
+    (playerId: string, position: number) =>
       instant(
         () =>
           setPlayers((ps) => {
-            const i = ps.findIndex((p) => p.id === playerId);
-            const j = i + dir;
-            if (i < 0 || j < 0 || j >= ps.length) return ps;
+            const from = ps.findIndex((p) => p.id === playerId);
+            if (from < 0) return ps;
             const next = [...ps];
-            const a = { ...next[i], seat: next[j].seat };
-            const b = { ...next[j], seat: next[i].seat };
-            next[i] = b;
-            next[j] = a;
-            return next;
+            const [item] = next.splice(from, 1);
+            next.splice(Math.max(0, Math.min(position, next.length)), 0, item);
+            return next.map((p, i) => ({ ...p, seat: i + 1 }));
           }),
-        () => moveMadaqeshPlayer({ roomCode, playerId, dir })
+        () => setMadaqeshPlayerPosition({ roomCode, playerId, position })
       ),
     [instant, roomCode]
   );
@@ -328,7 +341,7 @@ export function useMadaqeshGame(
     () => ({
       start: () => run(() => startMadaqeshGame(roomCode)),
       updateSettings: (settings: MadaqeshSettings) => run(() => updateMadaqeshSettings({ roomCode, settings })),
-      move,
+      setPosition,
       shuffle: () => run(() => shuffleMadaqeshPlayers(roomCode)),
       kick: (playerId: string) => run(() => kickMadaqeshPlayer({ roomCode, playerId })),
       out: (playerId: string) => run(() => outMadaqeshPlayer({ roomCode, playerId })),
@@ -347,7 +360,7 @@ export function useMadaqeshGame(
       nextRound: () => run(() => nextMadaqeshRound(roomCode)),
       addBots: () => run(() => addMadaqeshBots(roomCode)),
     }),
-    [run, roomCode, move]
+    [run, roomCode, setPosition]
   );
 
   // -------------------------------------------------------------------
@@ -374,7 +387,7 @@ export function useMadaqeshGame(
     bid,
     decide,
     respond,
-    setWinner,
+    setWinners,
     host,
   };
 }

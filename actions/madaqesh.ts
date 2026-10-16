@@ -16,13 +16,14 @@ import {
   checkMadaqeshWinner,
   contestants,
   currentBidderId,
-  currentHighBid,
   equalShares,
+  minBid,
   newRound,
   nextRoundOrder,
   pickDecider,
   respondersFor,
   settleRound,
+  showdownWinners,
   stakedOpponents,
   stakeOf,
   validateBid,
@@ -207,7 +208,7 @@ async function finishBidding(admin: Admin, room: MadaqeshRoom, round: MadaqeshRo
       phase_ends_at: null,
       round: {
         ...round,
-        result: { deltas: {}, winnerId: null, revived: [], eliminated: [], void: true },
+        result: { deltas: {}, winnerId: null, winnerIds: [], revived: [], eliminated: [], void: true },
       },
     });
   }
@@ -220,17 +221,24 @@ async function afterResponses(admin: Admin, room: MadaqeshRoom, round: MadaqeshR
     await guardedUpdate(admin, room, { phase: "showdown", round });
     return;
   }
-  await settle(admin, room, round, null);
+  await settle(admin, room, round, []);
 }
 
 /** حساب الجولة: الأرصدة الجديدة + الإفلاس + الفوز، ونحفظ اللي قبل للتراجع */
-async function settle(admin: Admin, room: MadaqeshRoom, round: MadaqeshRound, winnerId: string | null): Promise<boolean> {
+async function settle(admin: Admin, room: MadaqeshRoom, round: MadaqeshRound, winnerIds: string[]): Promise<boolean> {
   const players = await loadPlayers(admin, room.room_code);
-  const s = settleRound(round, players, winnerId, room.settings);
+  const s = settleRound(round, players, winnerIds, room.settings);
   const after = s.updates;
   const champion = checkMadaqeshWinner(after, room.settings.targetAmount);
 
-  const result = { deltas: s.deltas, winnerId, revived: s.revived, eliminated: s.eliminated };
+  const winners = showdownWinners(round, winnerIds);
+  const result = {
+    deltas: s.deltas,
+    winnerId: winners.length === 1 ? winners[0] : null,
+    winnerIds: winners,
+    revived: s.revived,
+    eliminated: s.eliminated,
+  };
   const won = await guardedUpdate(admin, room, {
     phase: champion ? "ended" : "result",
     phase_ends_at: null,
@@ -324,8 +332,7 @@ async function runBots(admin: Admin, roomCode: string): Promise<void> {
     if (room.phase === "bidding") {
       const bot = bots.get(currentBidderId(round) ?? "");
       if (!bot) return;
-      const high = currentHighBid(round);
-      const raise = high + randomOf(MADAQESH_CONFIG.RAISE_STEPS.slice(0, 2));
+      const raise = minBid(round) + randomOf([0, MADAQESH_CONFIG.BID_STEP, 2 * MADAQESH_CONFIG.BID_STEP]);
       if (raise <= bot.balance && Math.random() < 0.55) await applyBid(admin, room, bot, "bid", raise);
       else if (canAllIn(round, bot.balance) && Math.random() < 0.3) await applyBid(admin, room, bot, "allin", 0);
       else await applyBid(admin, room, bot, "pass", 0);
@@ -341,7 +348,15 @@ async function runBots(admin: Admin, roomCode: string): Promise<void> {
       const fixed = mode === "distribute" && Math.random() < 0.4 ? stakedOpponents(round).slice(0, 1) : [];
       await applyDecision(admin, room, {
         mode,
-        shares: mode === "distribute" ? equalShares(total, others.filter((id) => !fixed.includes(id))) : {},
+        shares:
+          mode === "distribute"
+            ? equalShares(
+                total,
+                others.filter((id) => !fixed.includes(id)),
+                bot.id,
+                (id) => players.find((p) => p.id === id)?.balance ?? 0
+              )
+            : {},
         fixed,
       });
       continue;
@@ -552,23 +567,24 @@ export async function respondMadaqesh(input: {
   return { success: true };
 }
 
-/** صاحب أقوى ورق في المداقشة — يسجله صاحب القرار أو المنشئ */
+/** صاحب أقوى ورق في المداقشة (أو المتعادلين) — يسجله المنشئ بس */
 export async function setMadaqeshShowdownWinner(input: {
   roomCode: string;
   token: string;
-  winnerId: string;
+  winnerIds: string[];
 }): Promise<ActionResult> {
   const ctx = await requirePlayer(input);
   if (!ctx.ok) return fail(ctx.error);
-  const { admin, room, player, isHost } = ctx;
+  const { admin, room, isHost } = ctx;
   const round = room.round;
   if (room.phase !== "showdown" || !round) return fail("مو وقت المداقشة.");
-  if (round.deciderId !== player.id && !isHost) return fail("النتيجة يسجلها صاحب القرار أو المنشئ.");
+  if (!isHost) return fail("النتيجة يسجلها المنشئ.");
 
-  const allowed = [round.deciderId, ...contestants(round)];
-  if (!allowed.includes(input.winnerId)) return fail("هذا اللاعب مو في المداقشة.");
+  const ids = Array.isArray(input.winnerIds) ? input.winnerIds.filter((id) => typeof id === "string") : [];
+  const winners = showdownWinners(round, ids);
+  if (winners.length === 0 || winners.length !== new Set(ids).size) return fail("اختر صاحب أقوى ورق من اللي في المداقشة.");
 
-  const ok = await settle(admin, room, round, input.winnerId);
+  const ok = await settle(admin, room, round, winners);
   return ok ? { success: true } : fail("تغيّر شي بنفس اللحظة، حاول مرة ثانية.");
 }
 
@@ -603,23 +619,35 @@ export async function updateMadaqeshSettings(input: { roomCode: string; settings
   return { success: true };
 }
 
-/** ترتيب اللاعبين: يرفع لاعب أو ينزله خانة */
-export async function moveMadaqeshPlayer(input: { roomCode: string; playerId: string; dir: -1 | 1 }): Promise<ActionResult> {
+/** ترتيب اللاعبين: المنشئ يحط لاعب في مكان معيّن (الأول، الثاني…) والباقين يتزحزحون */
+export async function setMadaqeshPlayerPosition(input: {
+  roomCode: string;
+  playerId: string;
+  position: number;
+}): Promise<ActionResult> {
   const ctx = await requireHost(input.roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
   if (room.phase !== "lobby") return fail("الترتيب قبل البدء بس.");
   const players = await loadPlayers(admin, room.room_code);
-  const i = players.findIndex((p) => p.id === input.playerId);
-  const j = i + input.dir;
-  if (i < 0 || j < 0 || j >= players.length) return { success: true };
-  const a = players[i];
-  const b = players[j];
-  // نبدّل المقاعد على مرحلتين عشان ما يتصادمون
-  await admin.from("madaqesh_players").update({ seat: -1 }).eq("id", a.id);
-  await admin.from("madaqesh_players").update({ seat: a.seat }).eq("id", b.id);
-  await admin.from("madaqesh_players").update({ seat: b.seat }).eq("id", a.id);
+  const from = players.findIndex((p) => p.id === input.playerId);
+  if (from < 0 || !Number.isInteger(input.position)) return fail("اللاعب مو موجود.");
+  const order = movePlayer(players, from, input.position);
+  await Promise.all(
+    order
+      .map((p, i) => ({ p, seat: i + 1 }))
+      .filter(({ p, seat }) => p.seat !== seat)
+      .map(({ p, seat }) => admin.from("madaqesh_players").update({ seat }).eq("id", p.id))
+  );
   return { success: true };
+}
+
+/** ينقل لاعب لمكان جديد في القائمة (نفس الحساب على الجهاز والسيرفر) */
+function movePlayer<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(Math.max(0, Math.min(to, next.length)), 0, item);
+  return next;
 }
 
 /** خلط الترتيب عشوائي (بالسحب) */

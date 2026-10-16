@@ -11,8 +11,8 @@ import {
   Copy,
   Check,
   QrCode,
-  ArrowUp,
-  ArrowDown,
+  ChevronDown,
+  BookOpen,
   Shuffle,
   Play,
   Bot,
@@ -31,7 +31,14 @@ import {
   SkipForward,
   CheckCheck,
 } from "lucide-react";
-import { MADAQESH_CONFIG, MADAQESH_GAME, formatMoney } from "@/constants/madaqesh";
+import {
+  MADAQESH_CARD_ORDER,
+  MADAQESH_CONFIG,
+  MADAQESH_GAME,
+  MADAQESH_HAND_RANKS,
+  MADAQESH_ORDINALS,
+  formatMoney,
+} from "@/constants/madaqesh";
 import type { MadaqeshGameCtx } from "@/hooks/games/madaqesh/useMadaqeshGame";
 import { writeMadaqeshSession } from "@/lib/game/madaqesh-session";
 import type { MadaqeshPhase } from "@/types/madaqesh";
@@ -86,6 +93,7 @@ export default function MadaqeshScreen({ ctx, onLeave }: { ctx: MadaqeshGameCtx;
           </p>
           <h1 className="text-xl font-black leading-tight break-words">{phaseLabel(phase, room.round_number)}</h1>
         </div>
+        {phase !== "closed" && <HandRanksButton />}
         {inGame && <HistoryButton ctx={ctx} />}
         {ctx.isHost && phase !== "closed" && <HostMenu ctx={ctx} />}
         {phase === "lobby" && !ctx.isHost && (
@@ -140,6 +148,8 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
   const [showQR, setShowQR] = useState(false);
   const [editing, setEditing] = useState(false);
   const [kickArmed, setKickArmed] = useState<string | null>(null);
+  // قائمة الترتيب المفتوحة (لاعب واحد بكل مرة)
+  const [orderOpen, setOrderOpen] = useState<string | null>(null);
   if (!room) return null;
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}${MADAQESH_GAME.joinPath}?room=${room.room_code}` : "";
   const s = room.settings;
@@ -192,26 +202,51 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
         </div>
         <p className="text-xs font-bold text-slate-400 mb-3">
           الجولة الأولى تبدأ من الأول، وكل جولة يبدأ اللي بعده
+          {isHost && players.length > 1 && " — اضغط على الاسم عشان تحدد ترتيبه"}
         </p>
         <ol className="flex flex-col gap-2">
           {players.map((p, i) => (
             <li
               key={p.id}
-              className={`flex items-center gap-2 py-2 px-3 rounded-2xl font-black animate-in zoom-in-95 ${
+              className={`relative flex items-center gap-2 py-2 px-3 rounded-2xl font-black animate-in zoom-in-95 ${
                 p.id === me?.id ? "bg-amber-900/40 border-2 border-amber-700" : "bg-slate-800"
-              }`}
+              } ${orderOpen === p.id ? "z-30" : ""}`}
             >
-              <span className="w-7 text-center text-slate-400 tabular-nums">{i + 1}</span>
-              {p.id === room.host_player_id && <Crown size={16} className="text-amber-400 shrink-0" />}
-              <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}</span>
+              {isHost && players.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setOrderOpen((o) => (o === p.id ? null : p.id))}
+                  aria-haspopup="listbox"
+                  aria-expanded={orderOpen === p.id}
+                  aria-label={`ترتيب ${p.display_name}: ${MADAQESH_ORDINALS[i] ?? i + 1}`}
+                  className="flex-1 min-w-0 flex items-center gap-2 text-start -my-1 py-1 rounded-xl"
+                >
+                  <OrderBadge index={i} />
+                  {p.id === room.host_player_id && <Crown size={16} className="text-amber-400 shrink-0" />}
+                  <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}</span>
+                  <ChevronDown size={18} className={`shrink-0 text-slate-400 transition-transform ${orderOpen === p.id ? "rotate-180" : ""}`} />
+                </button>
+              ) : (
+                <>
+                  <OrderBadge index={i} />
+                  {p.id === room.host_player_id && <Crown size={16} className="text-amber-400 shrink-0" />}
+                  <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}</span>
+                </>
+              )}
+              {orderOpen === p.id && (
+                <OrderMenu
+                  name={p.display_name}
+                  index={i}
+                  count={players.length}
+                  onClose={() => setOrderOpen(null)}
+                  onPick={(pos) => {
+                    setOrderOpen(null);
+                    if (pos !== i) host.setPosition(p.id, pos);
+                  }}
+                />
+              )}
               {isHost && (
                 <>
-                  <button type="button" disabled={busy || i === 0} onClick={() => host.move(p.id, -1)} aria-label={`${p.display_name} لفوق`} className="w-9 h-9 rounded-xl bg-slate-900/60 flex items-center justify-center disabled:opacity-30">
-                    <ArrowUp size={18} />
-                  </button>
-                  <button type="button" disabled={busy || i === players.length - 1} onClick={() => host.move(p.id, 1)} aria-label={`${p.display_name} لتحت`} className="w-9 h-9 rounded-xl bg-slate-900/60 flex items-center justify-center disabled:opacity-30">
-                    <ArrowDown size={18} />
-                  </button>
                   {p.id !== room.host_player_id && (
                     <button
                       type="button"
@@ -300,6 +335,109 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
 // ---------------------------------------------------------------------
 // سجل الجولات
 // ---------------------------------------------------------------------
+
+function OrderBadge({ index }: { index: number }) {
+  return (
+    <span className="w-8 h-8 shrink-0 rounded-xl bg-slate-900/70 text-amber-400 tabular-nums flex items-center justify-center">
+      {index + 1}
+    </span>
+  );
+}
+
+/** قائمة منسدلة تحت اسم اللاعب: يختار المنشئ ترتيبه (الأول، الثاني…) والباقين يتزحزحون */
+function OrderMenu({
+  name,
+  index,
+  count,
+  onPick,
+  onClose,
+}: {
+  name: string;
+  index: number;
+  count: number;
+  onPick: (position: number) => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {/* ضغطة برا القائمة تسكّرها */}
+      <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
+      <div
+        role="listbox"
+        aria-label={`ترتيب ${name}`}
+        className="absolute z-50 top-full inset-x-0 mt-2 p-2 rounded-2xl bg-slate-900 border-2 border-amber-600 shadow-2xl shadow-black/60 animate-in fade-in slide-in-from-top-2 duration-150"
+      >
+        <p className="px-2 pt-1 pb-2 text-xs font-bold text-slate-400 break-words">ترتيب {name} في اللعب</p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {Array.from({ length: count }, (_, i) => {
+            const on = i === index;
+            return (
+              <button
+                key={i}
+                type="button"
+                role="option"
+                aria-selected={on}
+                onClick={() => onPick(i)}
+                className={`py-2.5 px-1 rounded-xl font-black text-sm flex flex-col items-center leading-tight transition-colors ${
+                  on ? "bg-amber-500 text-slate-950" : "bg-slate-800 hover:bg-slate-700"
+                }`}
+              >
+                <span className="text-xs tabular-nums opacity-60">{i + 1}</span>
+                {MADAQESH_ORDINALS[i] ?? i + 1}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** تعليمات بسيطة: ترتيب القوى في المداقشة وترتيب الورق — يشوفها الكل */
+function HandRanksButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="ترتيب القوى"
+        title="ترتيب القوى"
+        className="w-11 h-11 rounded-2xl bg-slate-800 border-b-4 border-slate-950 flex items-center justify-center"
+      >
+        <BookOpen size={20} />
+      </button>
+      {open && (
+        <Sheet title="📖 ترتيب القوى" onClose={() => setOpen(false)}>
+          <p className="text-sm font-bold text-slate-400 mb-3">من الأقوى للأضعف:</p>
+          <ol className="flex flex-col gap-2">
+            {MADAQESH_HAND_RANKS.map((r, i) => (
+              <li key={r.title} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-800">
+                <span className="w-9 h-9 shrink-0 rounded-xl bg-amber-500 text-slate-950 font-black text-lg flex items-center justify-center">
+                  {i + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-black">{r.title}</span>
+                  <span className="block text-sm font-bold text-slate-400">{r.example}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+
+          <h3 className="font-black mt-5 mb-2">🃏 ترتيب الورق (من الأكبر للأصغر)</h3>
+          <ol className="flex flex-wrap gap-1.5">
+            {MADAQESH_CARD_ORDER.map((c, i) => (
+              <li key={c} className="flex items-center gap-1.5">
+                <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-950 font-black text-sm min-w-10 text-center">{c}</span>
+                {i < MADAQESH_CARD_ORDER.length - 1 && <span className="text-slate-500 font-black">‹</span>}
+              </li>
+            ))}
+          </ol>
+        </Sheet>
+      )}
+    </>
+  );
+}
 
 function HistoryButton({ ctx }: { ctx: MadaqeshGameCtx }) {
   const [open, setOpen] = useState(false);

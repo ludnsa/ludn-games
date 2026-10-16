@@ -54,8 +54,10 @@ export type MadaqeshResponse = "accept" | "object" | "withdraw" | "stay";
 export interface MadaqeshRoundResult {
   /** تغيّر رصيد كل لاعب في الجولة */
   deltas: Record<string, number>;
-  /** مين فاز بالمداقشة (لو صار فيه مداقشة) */
+  /** مين فاز بالمداقشة (لو صار فيه مداقشة) — null لو تعادل */
   winnerId: string | null;
+  /** كل الفايزين: واحد، أو أكثر لو تعادل */
+  winnerIds?: string[];
   /** اللي أفلسوا ورجعوا 5000 */
   revived: string[];
   /** اللي خلصت فرصهم وطلعوا */
