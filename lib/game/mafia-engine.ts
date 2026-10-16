@@ -19,9 +19,18 @@ import type {
 // الإعداد وتوزيع الأدوار
 // ---------------------------------------------------------------------
 
-/** عدد المواطنين العاديين حسب الإعداد (الباقي بعد كل الفئات الخاصة) */
+/**
+ * خانات المواطنين: كل اللاعبين ناقص المافيا والمحقق والدكتور.
+ * الفئات الاختيارية (الساحر، الصحفي…) من صف المواطنين، فكل وحدة تاخذ مكان مواطن عادي —
+ * ما تحتاج لاعب زيادة.
+ */
+export function mafiaTownSlots(maxPlayers: number, mafiaCount: number): number {
+  return maxPlayers - mafiaCount - 2;
+}
+
+/** عدد المواطنين العاديين حسب الإعداد (خانات المواطنين ناقص الفئات الاختيارية) */
 export function mafiaCitizenCount(s: MafiaSettings): number {
-  return s.maxPlayers - s.mafiaCount - 2 - s.optionalRoles.length;
+  return mafiaTownSlots(s.maxPlayers, s.mafiaCount) - s.optionalRoles.length;
 }
 
 /** يرجع رسالة خطأ إذا الإعداد غير صالح، أو null إذا تمام */
@@ -30,19 +39,18 @@ export function validateMafiaSettings(s: MafiaSettings): string | null {
   if (s.maxPlayers > MAFIA_CONFIG.MAX_PLAYERS) return `أكثر عدد ${MAFIA_CONFIG.MAX_PLAYERS} لاعب.`;
   if (s.mafiaCount < MAFIA_CONFIG.MIN_MAFIA) return `أقل عدد للمافيا ${MAFIA_CONFIG.MIN_MAFIA}.`;
   if (new Set(s.optionalRoles).size !== s.optionalRoles.length) return "كل فئة اختيارية مرة وحدة بس.";
-  if (mafiaCitizenCount(s) < MAFIA_CONFIG.MIN_CITIZENS) {
-    return `لازم يبقى ${MAFIA_CONFIG.MIN_CITIZENS} مواطنين على الأقل — زد عدد اللاعبين أو قلّل الفئات.`;
+  if (mafiaTownSlots(s.maxPlayers, s.mafiaCount) < MAFIA_CONFIG.MIN_CITIZENS) {
+    return `لازم يبقى ${MAFIA_CONFIG.MIN_CITIZENS} مواطنين على الأقل (مع الفئات الاختيارية) — زد عدد اللاعبين أو قلّل المافيا.`;
   }
+  if (mafiaCitizenCount(s) < 0) return "الفئات الاختيارية أكثر من المواطنين — زد عدد اللاعبين أو شيل فئة.";
   if (s.mafiaCount >= s.maxPlayers - s.mafiaCount) return "عدد المافيا لازم يكون أقل من باقي اللاعبين.";
   return null;
 }
 
 /** أكثر عدد مافيا مسموح لعدد لاعبين وفئات معيّنة */
 export function mafiaMaxMafia(maxPlayers: number, optionalCount: number): number {
-  return Math.max(
-    MAFIA_CONFIG.MIN_MAFIA,
-    Math.min(maxPlayers - 2 - optionalCount - MAFIA_CONFIG.MIN_CITIZENS, Math.ceil(maxPlayers / 2) - 1)
-  );
+  const townNeeded = Math.max(MAFIA_CONFIG.MIN_CITIZENS, optionalCount);
+  return Math.max(MAFIA_CONFIG.MIN_MAFIA, Math.min(maxPlayers - 2 - townNeeded, Math.ceil(maxPlayers / 2) - 1));
 }
 
 /** مجموعة الأدوار مخلوطة وجاهزة للتوزيع على اللاعبين بالترتيب */

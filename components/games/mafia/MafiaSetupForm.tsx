@@ -79,6 +79,8 @@ export default function MafiaSetupForm({
   const maxMafia = mafiaMaxMafia(settings.maxPlayers, settings.optionalRoles.length);
   const citizens = mafiaCitizenCount(settings);
   const problem = validateMafiaSettings(settings);
+  // كل فئة اختيارية تاخذ مكان مواطن — فما ننزل العدد لين تصير الفئات أكثر من المواطنين
+  const minForRoles = settings.mafiaCount + 2 + settings.optionalRoles.length;
 
   const setPlayers = (maxPlayers: number) =>
     setSettings((s) => ({
@@ -115,7 +117,7 @@ export default function MafiaSetupForm({
       <Stepper
         label="👥 عدد اللاعبين"
         value={settings.maxPlayers}
-        min={Math.max(MAFIA_CONFIG.MIN_PLAYERS, minPlayers)}
+        min={Math.max(MAFIA_CONFIG.MIN_PLAYERS, minPlayers, minForRoles)}
         max={MAFIA_CONFIG.MAX_PLAYERS}
         onChange={setPlayers}
       />
@@ -128,18 +130,23 @@ export default function MafiaSetupForm({
       />
 
       <div>
-        <p className="font-bold text-sm text-slate-400 mb-2">فئات اختيارية (وحدة من كل فئة بالكثير)</p>
+        <p className="font-bold text-sm text-slate-400 mb-2">
+          فئات اختيارية (وحدة من كل فئة بالكثير) — كل فئة تاخذ مكان مواطن
+        </p>
         <div className="grid grid-cols-2 gap-2">
           {MAFIA_OPTIONAL_ROLES.map((role) => {
             const def = MAFIA_ROLES[role];
             const on = settings.optionalRoles.includes(role);
+            // ما بقى مواطن عادي يتحول لها
+            const full = !on && citizens <= 0;
             return (
               <button
                 key={role}
                 type="button"
                 aria-pressed={on}
+                disabled={full}
                 onClick={() => toggleRole(role)}
-                className={`p-3 rounded-2xl border-2 border-b-4 text-right transition-all ${
+                className={`p-3 rounded-2xl border-2 border-b-4 text-right transition-all disabled:opacity-40 ${
                   on
                     ? "bg-red-600/20 border-red-500 text-white"
                     : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-600"
@@ -147,7 +154,9 @@ export default function MafiaSetupForm({
               >
                 <span className="text-2xl block mb-1">{def.emoji}</span>
                 <span className="font-black block">{def.label}</span>
-                <span className="text-[11px] font-bold opacity-70">{on ? "مضاف ✓" : "اضغط للإضافة"}</span>
+                <span className="text-[11px] font-bold opacity-70">
+                  {on ? "مضاف ✓" : full ? "ما بقى مواطن — زد اللاعبين" : "اضغط للإضافة"}
+                </span>
               </button>
             );
           })}
