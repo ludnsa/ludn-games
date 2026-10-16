@@ -1,9 +1,10 @@
 import React from "react";
 import Link from "next/link";
-import { Swords, Globe, Gavel, LayoutGrid, Play, Skull, Calculator } from "lucide-react";
+import { Swords, Globe, Gavel, LayoutGrid, Play, Skull, Calculator, Hexagon } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { MAFIA_GAME } from "@/constants/mafia";
 import { MADAQESH_GAME } from "@/constants/madaqesh";
+import { LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 
 const GAMES = [
   {
@@ -54,6 +55,14 @@ const GAMES = [
     path: MADAQESH_GAME.path,
     color: "from-amber-400 to-amber-600",
   },
+  {
+    id: LETTERS_HIVE_GAME.id,
+    title: LETTERS_HIVE_GAME.title,
+    description: LETTERS_HIVE_GAME.description,
+    icon: <Hexagon className="w-8 h-8 text-emerald-500" />,
+    path: LETTERS_HIVE_GAME.path,
+    color: "from-emerald-500 to-green-600",
+  },
 ];
 
 const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
@@ -64,6 +73,7 @@ const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
     if (id === QUIZ_GAME.id) return "bg-violet-500 border-violet-700 hover:bg-violet-400";
     if (id === MAFIA_GAME.id) return "bg-red-600 border-red-800 hover:bg-red-500";
     if (id === MADAQESH_GAME.id) return "bg-amber-500 border-amber-700 hover:bg-amber-400 text-slate-900";
+    if (id === LETTERS_HIVE_GAME.id) return "bg-emerald-600 border-emerald-800 hover:bg-emerald-500";
     return "bg-blue-500 border-blue-700 hover:bg-blue-400";
   };
 
@@ -97,6 +107,11 @@ const PlayfulGameCard = ({ game, index }: { game: any; index: number }) => {
       return {
         card: "border-red-200 dark:border-red-900/60 shadow-xl shadow-red-100 dark:shadow-red-900/20 hover:shadow-red-200 dark:hover:shadow-red-900/40",
         icon: "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20",
+      };
+    if (id === LETTERS_HIVE_GAME.id)
+      return {
+        card: "border-emerald-200 dark:border-emerald-900/60 shadow-xl shadow-emerald-100 dark:shadow-emerald-900/20 hover:shadow-emerald-200 dark:hover:shadow-emerald-900/40",
+        icon: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20",
       };
     return {
       card: "border-slate-200 dark:border-slate-900/60 shadow-xl shadow-slate-100 dark:shadow-slate-900/20 hover:shadow-slate-200 dark:hover:shadow-slate-900/40",
