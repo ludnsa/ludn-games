@@ -26,6 +26,7 @@ import {
   pickRandom,
   resolveNight,
   resolveVotes,
+  silencedPlayerId,
   validateMafiaSettings,
   voteBombTarget,
   MAFIA_SKIP_KEY,
@@ -1070,8 +1071,8 @@ async function applyNight(admin: Admin, res: NightResolution, secretOf: Map<stri
   if (res.shieldUsedBy.length > 0) {
     jobs.push(admin.from("mafia_secrets").update({ soldier_shield_used: true }).in("player_id", res.shieldUsedBy));
   }
-  res.lastProtected.forEach(({ doctorId, targetId }) => {
-    jobs.push(admin.from("mafia_secrets").update({ last_protected: targetId }).eq("player_id", doctorId));
+  res.lastProtected.forEach(({ actorId, targetId }) => {
+    jobs.push(admin.from("mafia_secrets").update({ last_protected: targetId }).eq("player_id", actorId));
   });
   await Promise.all(jobs);
 
@@ -1390,6 +1391,52 @@ export async function skipMafiaPhase(roomCode: string): Promise<ActionResult> {
   if (room.phase === "lobby" || room.phase === "ended") return fail("ما فيه مرحلة شغالة الحين.");
 
   await runTransition(admin, room);
+  return { success: true };
+}
+
+/**
+ * الممنوع من الكلام (المسكت) تكلم: المنشئ يقتله. يظل بالغرفة كميت، ويطلع للكل إعلان،
+ * وبعدها نفحص الفوز على طول. لو صار وقت التصويت، ينشال صوته والأصوات اللي عليه.
+ * ما ينفجر لو كان انتحاري (الانفجار بس بالذبح أو التصويت).
+ */
+export async function killSilencedMafiaPlayer(roomCode: string): Promise<ActionResult> {
+  const ctx = await requireHost(roomCode);
+  if (!ctx.ok) return fail(ctx.error);
+  const { admin, room } = ctx;
+  if (room.phase !== "morning" && room.phase !== "discussion" && room.phase !== "voting") {
+    return fail("المنع من الكلام بس وقت النهار.");
+  }
+
+  const players = await loadPlayers(admin, room.room_code);
+  const targetId = silencedPlayerId(room.announcements, players);
+  const target = players.find((p) => p.id === targetId);
+  if (!target) return fail("ما فيه أحد ممنوع من الكلام الحين.");
+
+  const { error } = await admin.from("mafia_players").update({ is_alive: false }).eq("id", target.id).eq("is_alive", true);
+  if (error) {
+    console.error("killSilencedMafiaPlayer error:", error);
+    return fail("تعذّر تنفيذها، حاول مرة ثانية.");
+  }
+
+  if (room.phase === "voting") {
+    await admin
+      .from("mafia_votes")
+      .delete()
+      .eq("room_code", room.room_code)
+      .eq("round", room.night_number)
+      .or(`voter_id.eq.${target.id},target_id.eq.${target.id}`);
+    const counts = await recountVotes(admin, room);
+    await admin.from("mafia_rooms").update({ vote_counts: counts }).eq("room_code", room.room_code).eq("phase_seq", room.phase_seq);
+  }
+
+  const announcements = [
+    ...(room.announcements ?? []),
+    { kind: "hushed_kill" as const, emoji: "☠️", text: `${target.display_name} تكلم وهو ممنوع… وانقتل! 🤐`, targetId: target.id },
+  ];
+  await admin.from("mafia_rooms").update({ announcements }).eq("room_code", room.room_code).eq("phase_seq", room.phase_seq);
+
+  const winner = await currentWinner(admin, room.room_code);
+  if (winner) await endGame(admin, { ...room, announcements }, winner);
   return { success: true };
 }
 

@@ -174,11 +174,12 @@ export type MafiaRole =
   | "magician"
   | "journalist"
   | "soldier"
-  | "suicide";
+  | "suicide"
+  | "silencer";
 
-export type MafiaOptionalRole = "magician" | "journalist" | "soldier" | "suicide";
+export type MafiaOptionalRole = "magician" | "journalist" | "soldier" | "suicide" | "silencer";
 
-export type MafiaNightStep = "doctor" | "mafia" | "detective" | "magician" | "journalist" | "suicide";
+export type MafiaNightStep = "doctor" | "mafia" | "detective" | "magician" | "journalist" | "suicide" | "silencer";
 
 export type MafiaPhase =
   | "lobby"
@@ -215,7 +216,11 @@ export type MafiaAnnouncementKind =
   | "investigate_miss"
   | "investigate_none"
   | "magic"
-  | "journalist";
+  | "journalist"
+  /** المسكت: فلان ممنوع من الكلام اليوم (targetId = الممنوع) */
+  | "silence"
+  /** الممنوع تكلم والمنشئ قتله (ينضاف وسط النهار) */
+  | "hushed_kill";
 
 export interface MafiaAnnouncement {
   kind: MafiaAnnouncementKind;

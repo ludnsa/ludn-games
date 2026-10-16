@@ -44,6 +44,39 @@ export function MafiaHostSkip({ ctx }: { ctx: MafiaGameCtx }) {
 }
 
 /**
+ * المسكت: الممنوع من الكلام تكلم — المنشئ يقتله (يظل بالغرفة كميت).
+ * ضغطتين عشان ما ينضغط بالغلط.
+ */
+export function MafiaHostHush({ ctx }: { ctx: MafiaGameCtx }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const id = setTimeout(() => setArmed(false), 3000);
+    return () => clearTimeout(id);
+  }, [armed]);
+  if (!ctx.silencedId) return null;
+  const name = ctx.nameOf(ctx.silencedId);
+
+  return (
+    <button
+      type="button"
+      disabled={ctx.busy}
+      onClick={() => {
+        if (!armed) return setArmed(true);
+        setArmed(false);
+        ctx.host.killSilenced();
+      }}
+      className={`w-full py-3 rounded-2xl border-b-4 font-black flex items-center justify-center gap-2 transition-colors disabled:opacity-40 ${
+        armed ? "bg-red-600 border-red-800 animate-pulse" : "bg-slate-800 border-slate-950 text-red-300"
+      }`}
+    >
+      {ctx.busy ? <Loader2 size={18} className="animate-spin" /> : "🤐"}
+      {armed ? `متأكد؟ اضغط مرة ثانية ويموت ${name}` : `👑 ${name} تكلم؟ اقتله`}
+    </button>
+  );
+}
+
+/**
  * قائمة صلاحيات منشئ اللعبة — تفتح من زر التاج في الشريط العلوي.
  * الأزرار الخطيرة (إنهاء، إعادة) تحتاج ضغطة تأكيد ثانية.
  */

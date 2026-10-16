@@ -21,7 +21,7 @@ import {
   MafiaVoting,
 } from "./MafiaDay";
 import MafiaGameOver from "./MafiaGameOver";
-import MafiaHostMenu, { MafiaHostSkip } from "./MafiaHostMenu";
+import MafiaHostMenu, { MafiaHostHush, MafiaHostSkip } from "./MafiaHostMenu";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
 import { unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 
@@ -144,6 +144,20 @@ export default function MafiaScreen({
         </div>
       )}
 
+      {/* المسكت: الممنوع من الكلام يشوف تنبيه، وبالتصويت الكل يتذكر مين الممنوع */}
+      {ctx.silencedId && ctx.silencedId === me.id && (
+        <div className="text-center p-4 rounded-2xl bg-sky-950/70 border-2 border-sky-600 animate-in zoom-in-95">
+          <p className="text-4xl mb-1">🤐</p>
+          <p className="font-black text-lg">أنت ممنوع من الكلام اليوم!</p>
+          <p className="text-xs font-bold text-sky-200 mt-1">إذا تكلمت ينقتل — بس تقدر تصوّت عادي</p>
+        </div>
+      )}
+      {ctx.silencedId && ctx.silencedId !== me.id && phase === "voting" && (
+        <p className="text-center text-sm font-black text-sky-200 bg-sky-950/50 border border-sky-800 rounded-2xl p-3">
+          🤐 {ctx.nameOf(ctx.silencedId)} ممنوع من الكلام اليوم
+        </p>
+      )}
+
       {/* محتوى المرحلة */}
       {phase === "lobby" && <MafiaLobby ctx={ctx} />}
       {phase === "reveal" && <MafiaReveal ctx={ctx} />}
@@ -166,6 +180,8 @@ export default function MafiaScreen({
 
       {/* المنشئ: تخطي سريع تحت الشاشة لو أحد تأخر */}
       {me.isHost && (phase === "night_act" || phase === "voting") && <MafiaHostSkip ctx={ctx} />}
+      {/* المنشئ: الممنوع من الكلام تكلم */}
+      {me.isHost && <MafiaHostHush ctx={ctx} />}
 
       {/* رسائل خاصة (الساحر، انضمام للمافيا) */}
       {view &&

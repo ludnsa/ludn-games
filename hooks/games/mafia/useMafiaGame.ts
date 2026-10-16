@@ -12,6 +12,7 @@ import {
   getMafiaMyView,
   isMafiaDevMode,
   kickMafiaPlayer,
+  killSilencedMafiaPlayer,
   newMafiaRoom,
   playMafiaAgain,
   renameMafiaPlayer,
@@ -25,7 +26,7 @@ import {
   updateMafiaSettings,
   type MafiaMyView,
 } from "@/actions/mafia";
-import { MAFIA_SKIP_KEY, mafiaNightSteps } from "@/lib/game/mafia-engine";
+import { MAFIA_SKIP_KEY, mafiaNightSteps, silencedPlayerId } from "@/lib/game/mafia-engine";
 import { getMafiaSoundTiming, playMafiaSound, unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
 import type {
@@ -54,6 +55,7 @@ const STEP_DONE_CUE: Record<MafiaNightStep, Cue> = {
   magician: ["magic", "magic"],
   journalist: ["camera", "flash"],
   suicide: ["tick"],
+  silencer: ["tick"],
 };
 
 const ANNOUNCEMENT_CUE: Partial<Record<MafiaAnnouncementKind, Cue>> = {
@@ -492,6 +494,8 @@ export function useMafiaGame(
       start: () => run(() => startMafiaGame(roomCode)),
       updateSettings: (settings: MafiaSettings) => run(() => updateMafiaSettings({ roomCode, settings })),
       skipPhase: () => run(() => skipMafiaPhase(roomCode)),
+      /** الممنوع من الكلام تكلم: ينقتل */
+      killSilenced: () => run(() => killSilencedMafiaPlayer(roomCode)),
       endGame: () => run(() => endMafiaGameNow(roomCode)),
       kick: (playerId: string) => run(() => kickMafiaPlayer({ roomCode, playerId })),
       playAgain: () => run(() => playMafiaAgain(roomCode)),
@@ -518,6 +522,21 @@ export function useMafiaGame(
     (id: string | null | undefined) => players.find((p) => p.id === id)?.display_name ?? "",
     [players]
   );
+  // الممنوع من الكلام اليوم (المسكت) — بس وقت النهار
+  const dayPhase = room?.phase === "morning" || room?.phase === "discussion" || room?.phase === "voting";
+  const silencedId = dayPhase ? silencedPlayerId(room?.announcements, players) : null;
+
+  // الممنوع تكلم وانقتل: نفس صوت الذبح عند الكل، والحركة الخاصة على جواله هو
+  const hushedSeen = useRef<number | null>(null);
+  const hushed = (room?.announcements ?? []).filter((a) => a.kind === "hushed_kill");
+  const hushedCount = hushed.length;
+  const lastHushedId = hushed[hushedCount - 1]?.targetId;
+  useEffect(() => {
+    const first = hushedSeen.current === null;
+    const grew = !first && hushedCount > (hushedSeen.current ?? 0);
+    hushedSeen.current = hushedCount;
+    if (grew) cueMafia("horror", lastHushedId && lastHushedId === meIdRef.current ? "victim" : "kill");
+  }, [hushedCount, lastHushedId]);
 
   return {
     roomCode,
@@ -534,6 +553,7 @@ export function useMafiaGame(
     devRoles,
     secondsLeft,
     nameOf,
+    silencedId,
     act,
     suggest,
     decoy,

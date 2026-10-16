@@ -104,7 +104,7 @@ export const MafiaNameSchema = z
 export const MafiaSettingsSchema = z.object({
   maxPlayers: z.number().int().min(7, "أقل عدد 7 لاعبين").max(20, "أكثر عدد 20 لاعب"),
   mafiaCount: z.number().int().min(2, "أقل عدد للمافيا 2").max(9),
-  optionalRoles: z.array(z.enum(["magician", "journalist", "soldier", "suicide"])).max(4),
+  optionalRoles: z.array(z.enum(["magician", "journalist", "soldier", "suicide", "silencer"])).max(5),
   discussionSeconds: z.union([z.literal(120), z.literal(180), z.literal(300), z.literal(0)]).optional(),
 });
 

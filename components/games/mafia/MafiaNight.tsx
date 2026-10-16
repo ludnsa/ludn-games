@@ -15,6 +15,7 @@ const STEP_ACCENT: Record<MafiaNightStep, "red" | "emerald" | "sky" | "purple" |
   magician: "purple",
   journalist: "amber",
   suicide: "orange",
+  silencer: "sky",
 };
 
 /** قدرة مرة وحدة طول اللعبة — يقدر يعدّي الليلة ويحتفظ بقدرته */
@@ -126,6 +127,11 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
               تقدر تحمي نفسك، بس مو نفس الشخص اللي حميته الليلة اللي قبل
             </p>
           )}
+          {task.step === "silencer" && (
+            <p className="text-center text-xs font-bold text-slate-400 -mt-1 mb-3">
+              ما تقدر تختار نفس الشخص اللي سكّته الليلة اللي قبل
+            </p>
+          )}
           {task.step === "mafia" && task.suggestions && task.suggestions.length > 0 && (
             <div className="mb-4 p-3 rounded-2xl bg-red-950/50 border border-red-900">
               <p className="text-sm font-black text-red-200 mb-2">💡 اقتراحات زملائك (اضغط عشان تختار)</p>
@@ -162,6 +168,7 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
           ✅ تم{chosenName ? `: ${chosenName}` : " — عدّيت الليلة"}
           {task.step === "magician" && chosenName && " — من الليلة الجاية هذا دورك 🎩"}
           {task.step === "journalist" && chosenName && " — النتيجة تطلع مع الصباح 🌅"}
+          {task.step === "silencer" && chosenName && " — ينعلن مع الصباح 🤐"}
         </p>
       ) : (
         <>

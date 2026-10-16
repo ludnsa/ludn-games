@@ -122,6 +122,14 @@ export const MAFIA_ROLES: Record<MafiaRole, MafiaRoleDef> = {
     description: "كل ليلة تختار لاعب. إذا المافيا ذبحوك، تنفجر وتاخذ آخر واحد اخترته معك.",
     accent: "from-orange-500 to-red-700",
   },
+  silencer: {
+    key: "silencer",
+    label: "المسكت",
+    emoji: "🤐",
+    team: "town",
+    description: "كل ليلة تختار لاعب يصير ممنوع من الكلام اليوم الجاي — وإذا تكلم ينقتل. ما تقدر تختار نفس الشخص ليلتين ورا بعض.",
+    accent: "from-cyan-600 to-teal-800",
+  },
 };
 
 /** الفئات الاختيارية بالترتيب اللي تظهر فيه في شاشة الإعداد */
@@ -130,6 +138,7 @@ export const MAFIA_OPTIONAL_ROLES: readonly MafiaOptionalRole[] = [
   "journalist",
   "soldier",
   "suicide",
+  "silencer",
 ] as const;
 
 /** ترتيب أدوار الليل. الجندي ما له دور بالليل لأن درعه تلقائي. */
@@ -140,6 +149,7 @@ export const MAFIA_NIGHT_ORDER: readonly MafiaNightStep[] = [
   "detective",
   "journalist",
   "magician",
+  "silencer",
 ] as const;
 
 export interface MafiaNightStepDef {
@@ -188,6 +198,12 @@ export const MAFIA_NIGHT_STEPS: Record<MafiaNightStep, MafiaNightStepDef> = {
     prompt: "مين تاخذ معك إذا ذبحوك؟",
     doneText: "الانتحاري اختار هدفه",
     doneEmoji: "🧨",
+  },
+  silencer: {
+    headline: "🤐 المسكت يختار مين يسكّت...",
+    prompt: "مين يكون ممنوع من الكلام بكرة؟",
+    doneText: "المسكت اختار",
+    doneEmoji: "🤐",
   },
 };
 

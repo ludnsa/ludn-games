@@ -77,6 +77,7 @@ export interface EnginePlayer {
   soldierShieldUsed: boolean;
   abilityUsed: boolean;
   suicideTarget: string | null;
+  /** آخر واحد اختاره الليلة اللي قبل: الدكتور (حماه) أو المسكت (سكّته) — ما يختارونه ليلتين ورا بعض */
   lastProtected: string | null;
 }
 
@@ -138,6 +139,9 @@ export function allowedTargets(actor: EnginePlayer, step: MafiaNightStep, player
     case "magician":
       // الساحر ما يختار لاعب حي — يختار فئة فاضية (ممثلة بصاحبها الميت)
       return magicianVacancies(players);
+    case "silencer":
+      // المسكت: غيره، وبس مو نفس اللي سكّته الليلة اللي قبل
+      return alive.filter((p) => p.id !== actor.id && p.id !== actor.lastProtected);
     default:
       return alive.filter((p) => p.id !== actor.id);
   }
@@ -153,7 +157,8 @@ export interface NightResolution {
   shieldUsedBy: string[];
   abilityUsedBy: string[];
   roleChanges: { playerId: string; role: MafiaRole }[];
-  lastProtected: { doctorId: string; targetId: string | null }[];
+  /** آخر اختيار للدكتور والمسكت — ينحفظ عشان ما يكررونه الليلة الجاية */
+  lastProtected: { actorId: string; targetId: string | null }[];
   notes: { playerId: string; text: string }[];
 }
 
@@ -202,7 +207,13 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     .filter((p) => p.alive && p.role === "doctor")
     .forEach((doc) => {
       const act = acts("doctor").find((a) => a.actorId === doc.id);
-      out.lastProtected.push({ doctorId: doc.id, targetId: act?.targetId ?? null });
+      out.lastProtected.push({ actorId: doc.id, targetId: act?.targetId ?? null });
+    });
+  players
+    .filter((p) => p.alive && p.role === "silencer")
+    .forEach((s) => {
+      const act = acts("silencer").find((a) => a.actorId === s.id);
+      out.lastProtected.push({ actorId: s.id, targetId: act?.targetId ?? null });
     });
 
   // الذبح (نفس منطق mafiaKillOutcome — مصدر واحد)
@@ -290,7 +301,28 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     });
   });
 
+  // المسكت — اللي اختاره ممنوع من الكلام اليوم (لو مات الليلة، ما له داعي)
+  acts("silencer").forEach((a) => {
+    const target = byId.get(a.targetId!);
+    if (!target || !target.alive || out.deaths.includes(target.id)) return;
+    out.announcements.push({
+      kind: "silence",
+      emoji: "🤐",
+      text: `${target.name} ممنوع من الكلام اليوم — إذا تكلم ينقتل!`,
+      targetId: target.id,
+    });
+  });
+
   return out;
+}
+
+/** الممنوع من الكلام اليوم (لو للحين حي) — من إعلانات الصباح */
+export function silencedPlayerId(
+  announcements: MafiaAnnouncement[] | null | undefined,
+  players: { id: string; is_alive: boolean }[]
+): string | null {
+  const id = (announcements ?? []).find((a) => a.kind === "silence")?.targetId;
+  return id && players.some((p) => p.id === id && p.is_alive) ? id : null;
 }
 
 // ---------------------------------------------------------------------
