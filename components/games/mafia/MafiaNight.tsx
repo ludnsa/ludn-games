@@ -168,7 +168,7 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
           ✅ تم{chosenName ? `: ${chosenName}` : " — عدّيت الليلة"}
           {task.step === "magician" && chosenName && " — من الليلة الجاية هذا دورك 🎩"}
           {task.step === "journalist" && chosenName && " — النتيجة تطلع مع الصباح 🌅"}
-          {task.step === "silencer" && chosenName && " — ينعلن مع الصباح 🤐"}
+          {task.step === "silencer" && chosenName && " — يُعلن في الصباح 🤐"}
         </p>
       ) : (
         <>

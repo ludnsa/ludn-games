@@ -309,14 +309,18 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     });
   });
 
-  // المسكت — اللي اختاره ممنوع من الكلام اليوم (لو مات الليلة، ما له داعي)
+  // المسكت — اللي اختاره ممنوع من الكلام اليوم. يُعلن دايماً، حتى لو مات الليلة
+  // (زر "اقتله" عند المنشئ ما يطلع إلا لو الممنوع حي — شوف silencedPlayerId)
   acts("silencer").forEach((a) => {
     const target = byId.get(a.targetId!);
-    if (!target || !target.alive || out.deaths.includes(target.id)) return;
+    if (!target) return;
+    const died = !target.alive || out.deaths.includes(target.id);
     out.announcements.push({
       kind: "silence",
       emoji: "🤐",
-      text: `${target.name} ممنوع من الكلام اليوم — إذا تكلم ينقتل!`,
+      text: died
+        ? `المسكت سكّت ${target.name}… بس مات الليلة`
+        : `${target.name} ممنوع من الكلام اليوم — إذا تكلم ينقتل!`,
       targetId: target.id,
     });
   });
@@ -380,14 +384,10 @@ export function resolveVotes(counts: Record<string, number>): MafiaVoteResult {
 
 /**
  * المواطنين يفوزون إذا ما بقى مافيا، والمافيا يفوزون إذا صاروا أكثر من الباقين.
- * التساوي = فوز المافيا، إلا لو الدكتور حي (يقدر يكسر التعادل بحماية ناجحة) — بشرطين:
- * - مو واحد ضد واحد: التصويت بينهم تعادل دايماً، فما فيه شي يتغير
- * - التساوي ما جا من ذبح ناجح الليلة (nightKill): الدكتور ما حمى، فخلاص انحسمت
+ * التساوي = فوز المافيا، إلا لو الدكتور حي (يقدر يكسر التعادل بحماية ناجحة) — حتى لو
+ * التساوي جا من ذبح بالليل. الاستثناء: واحد ضد واحد، التصويت بينهم تعادل دايماً فتنتهي.
  */
-export function checkWinner(
-  players: { alive: boolean; role: MafiaRole }[],
-  opts: { nightKill?: boolean } = {}
-): MafiaTeam | null {
+export function checkWinner(players: { alive: boolean; role: MafiaRole }[]): MafiaTeam | null {
   const alive = players.filter((p) => p.alive);
   const mafia = alive.filter((p) => p.role === "mafia").length;
   const rest = alive.length - mafia;
@@ -395,7 +395,7 @@ export function checkWinner(
   if (mafia > rest) return "mafia";
   if (mafia === rest) {
     const doctorAlive = alive.some((p) => p.role === "doctor");
-    if (!doctorAlive || rest === 1 || opts.nightKill) return "mafia";
+    if (!doctorAlive || rest === 1) return "mafia";
   }
   return null;
 }
@@ -424,18 +424,15 @@ export function mafiaNightShortcut(
   remaining: MafiaNightStep[]
 ): MafiaNightShortcut {
   const resolution = resolveNight(players, actions);
-  const outcome = mafiaKillOutcome(players, actions);
-  const nightKill = outcome.fate === "killed";
-  const winner = checkWinner(playersAfterNight(players, resolution), { nightKill });
+  const winner = checkWinner(playersAfterNight(players, resolution));
   if (!winner) return null;
 
   const pending = new Set<MafiaNightStep>();
+  const outcome = mafiaKillOutcome(players, actions);
   const victim = players.find((p) => p.id === outcome.victimId);
-  if (nightKill && victim?.role === "suicide") pending.add("suicide");
-  // بعد ذبح ناجح، الساحر لو صار دكتور ما ينفع (التساوي من ذبح = انحسمت)
+  if (outcome.fate === "killed" && victim?.role === "suicide") pending.add("suicide");
   if (
     winner === "mafia" &&
-    !nightKill &&
     players.some((p) => p.alive && p.role === "magician" && !p.abilityUsed && !resolution.deaths.includes(p.id)) &&
     magicianVacancies(players).some((v) => v.role === "doctor")
   ) {

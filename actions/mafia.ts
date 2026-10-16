@@ -997,8 +997,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
     }
 
     case "morning": {
-      const nightKill = (room.announcements ?? []).some((a) => a.kind === "kill");
-      const winner = await currentWinner(admin, room.room_code, nightKill);
+      const winner = await currentWinner(admin, room.room_code);
       if (winner) {
         await endGame(admin, room, winner);
         return;
@@ -1110,10 +1109,9 @@ async function applyNight(admin: Admin, res: NightResolution, secretOf: Map<stri
   );
 }
 
-/** nightKill: الصباح بعد ليلة فيها ذبح ناجح — التساوي هنا يحسمها للمافيا */
-async function currentWinner(admin: Admin, roomCode: string, nightKill = false): Promise<MafiaTeam | null> {
+async function currentWinner(admin: Admin, roomCode: string): Promise<MafiaTeam | null> {
   const { engine } = await loadEngine(admin, roomCode);
-  return checkWinner(engine, { nightKill });
+  return checkWinner(engine);
 }
 
 /**
