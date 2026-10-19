@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Crown, X, SkipForward, Square, RotateCcw, Home, Loader2, UserX, DoorOpen } from "lucide-react";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import MafiaHomeButton from "./MafiaHomeButton";
+import { RoleIcon } from "./MafiaParts";
 
 type Confirmable = "end" | "restart" | "newRoom" | null;
 
@@ -37,8 +39,8 @@ export function MafiaHostSkip({ ctx }: { ctx: MafiaGameCtx }) {
       {armed
         ? "متأكد؟ اضغط مرة ثانية"
         : night
-          ? "👑 تخطي الدور (اللي ما اختار يختار له النظام)"
-          : "👑 إنهاء التصويت الحين"}
+          ? "تخطي الدور (اللي ما اختار يختار له النظام)"
+          : "إنهاء التصويت الحين"}
     </button>
   );
 }
@@ -70,8 +72,8 @@ export function MafiaHostHush({ ctx }: { ctx: MafiaGameCtx }) {
         armed ? "bg-red-600 border-red-800 animate-pulse" : "bg-slate-800 border-slate-950 text-red-300"
       }`}
     >
-      {ctx.busy ? <Loader2 size={18} className="animate-spin" /> : "🤐"}
-      {armed ? `متأكد؟ اضغط مرة ثانية ويموت ${name}` : `👑 ${name} تكلم؟ اقتله`}
+      {ctx.busy ? <Loader2 size={18} className="animate-spin" /> : <RoleIcon role="silencer" className="w-8 h-8 -my-1" />}
+      {armed ? `متأكد؟ اضغط مرة ثانية ويموت ${name}` : `${name} تكلم؟ اقتله`}
     </button>
   );
 }
@@ -115,143 +117,146 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
         <Crown size={22} />
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[2500] flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 animate-in fade-in"
-          onClick={close}
-        >
+      {/* على body مباشرة: الشريط العلوي (فيه blur) يحبس أي fixed داخله */}
+      {open &&
+        createPortal(
           <div
-            role="dialog"
-            aria-label="صلاحيات المنشئ"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain bg-slate-900 border-2 border-amber-600 rounded-[2rem] p-5 pt-0 shadow-2xl animate-in slide-in-from-bottom-8"
+            className="fixed inset-0 z-[2500] flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 text-white animate-in fade-in"
+            onClick={close}
           >
-            {/* ثابت فوق وقت السحب — عشان زر الإغلاق دايماً موجود */}
-            <div className="sticky top-0 z-10 -mx-5 px-5 pt-5 pb-3 mb-1 bg-slate-900 flex items-center justify-between">
-              <h2 className="text-xl font-black flex items-center gap-2">
-                <Crown size={22} className="text-amber-400" /> صلاحيات المنشئ
-              </h2>
-              <button
-                type="button"
-                onClick={close}
-                aria-label="إغلاق"
-                className="w-11 h-11 -me-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-slate-800"
-              >
-                <X size={24} />
-              </button>
-            </div>
+            <div
+              role="dialog"
+              aria-label="صلاحيات المنشئ"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain bg-slate-900 border-2 border-amber-600 rounded-[2rem] p-5 pt-0 shadow-2xl animate-in slide-in-from-bottom-8"
+            >
+              {/* ثابت فوق وقت السحب — عشان زر الإغلاق دايماً موجود */}
+              <div className="sticky top-0 z-10 -mx-5 px-5 pt-5 pb-3 mb-1 bg-slate-900 flex items-center justify-between">
+                <h2 className="text-xl font-black flex items-center gap-2">
+                  <Crown size={22} className="text-amber-400" /> صلاحيات المنشئ
+                </h2>
+                <button
+                  type="button"
+                  onClick={close}
+                  aria-label="إغلاق"
+                  className="w-11 h-11 -me-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-slate-800"
+                >
+                  <X size={24} />
+                </button>
+              </div>
 
-            <div className="flex flex-col gap-2.5">
-              {playing && (
-                <MenuButton
-                  icon={<SkipForward size={20} />}
-                  label="تخطي المرحلة الحالية"
-                  hint="بالليل: لو أحد غايب، الدور يمشي والنظام يختار عن صاحب الدور"
-                  onClick={() => runAndClose(host.skipPhase)}
-                  disabled={busy}
-                />
-              )}
+              <div className="flex flex-col gap-2.5">
+                {playing && (
+                  <MenuButton
+                    icon={<SkipForward size={20} />}
+                    label="تخطي المرحلة الحالية"
+                    hint="بالليل: لو أحد غايب، الدور يمشي والنظام يختار عن صاحب الدور"
+                    onClick={() => runAndClose(host.skipPhase)}
+                    disabled={busy}
+                  />
+                )}
 
-              {playing && (
+                {playing && (
+                  <MenuButton
+                    icon={<Square size={20} />}
+                    label={confirming === "end" ? "متأكد؟ اضغط مرة ثانية للإنهاء" : "إنهاء اللعبة وكشف الأدوار"}
+                    hint="تنتهي الجولة بدون فائز ويشوف الكل أدوار بعض"
+                    tone="danger"
+                    armed={confirming === "end"}
+                    onClick={() => (confirming === "end" ? runAndClose(host.endGame) : setConfirming("end"))}
+                    disabled={busy}
+                  />
+                )}
+
+                {kickable.length > 0 && (
+                  <MenuButton
+                    icon={<UserX size={20} />}
+                    label="طرد لاعب"
+                    hint="يطلع من الغرفة فوراً وما يقدر يرجع لين تخلص الجولة"
+                    tone="danger"
+                    onClick={() => {
+                      setShowKick((v) => !v);
+                      setKickTarget(null);
+                    }}
+                    disabled={busy}
+                  />
+                )}
+
+                {showKick && (
+                  <div className="grid grid-cols-2 gap-2 p-2 rounded-2xl bg-slate-950/60 max-h-64 overflow-y-auto">
+                    {kickable.map((p) => {
+                      const armed = kickTarget === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          disabled={busy}
+                          onClick={async () => {
+                            if (!armed) {
+                              setKickTarget(p.id);
+                              return;
+                            }
+                            const res = await host.kick(p.id);
+                            if (res?.success) setKickTarget(null);
+                          }}
+                          className={`min-h-11 py-2.5 px-2 rounded-xl font-black text-sm leading-tight break-words border-b-4 transition-colors ${
+                            armed
+                              ? "bg-red-600 border-red-800 text-white animate-pulse"
+                              : "bg-slate-800 border-slate-950 text-slate-100"
+                          } ${p.is_alive ? "" : "opacity-60"}`}
+                        >
+                          {armed ? `اطرد ${p.display_name}؟` : p.display_name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {room.phase !== "lobby" && (
+                  <MenuButton
+                    icon={<RotateCcw size={20} />}
+                    label={confirming === "restart" ? "متأكد؟ اضغط مرة ثانية للإعادة" : "جولة جديدة (رجوع لغرفة الانتظار)"}
+                    hint="نفس اللاعبين، وتقدر تعدّل العدد والفئات قبل البدء"
+                    tone="warn"
+                    armed={confirming === "restart"}
+                    onClick={() => (confirming === "restart" ? runAndClose(host.playAgain) : setConfirming("restart"))}
+                    disabled={busy}
+                  />
+                )}
+
                 <MenuButton
-                  icon={<Square size={20} />}
-                  label={confirming === "end" ? "متأكد؟ اضغط مرة ثانية للإنهاء" : "إنهاء اللعبة وكشف الأدوار"}
-                  hint="تنتهي الجولة بدون فائز ويشوف الكل أدوار بعض"
+                  icon={<DoorOpen size={20} />}
+                  label={confirming === "newRoom" ? "متأكد؟ اضغط مرة ثانية للغرفة الجديدة" : "غرفة جديدة (كود جديد)"}
+                  hint="الكل يطلع من هالغرفة ويدخلون من جديد بالكود الجديد"
                   tone="danger"
-                  armed={confirming === "end"}
-                  onClick={() => (confirming === "end" ? runAndClose(host.endGame) : setConfirming("end"))}
+                  armed={confirming === "newRoom"}
+                  onClick={() => (confirming === "newRoom" ? runAndClose(host.newRoom) : setConfirming("newRoom"))}
                   disabled={busy}
                 />
-              )}
 
-              {kickable.length > 0 && (
-                <MenuButton
-                  icon={<UserX size={20} />}
-                  label="طرد لاعب"
-                  hint="يطلع من الغرفة فوراً وما يقدر يرجع لين تخلص الجولة"
-                  tone="danger"
-                  onClick={() => {
-                    setShowKick((v) => !v);
-                    setKickTarget(null);
-                  }}
-                  disabled={busy}
-                />
-              )}
-
-              {showKick && (
-                <div className="grid grid-cols-2 gap-2 p-2 rounded-2xl bg-slate-950/60 max-h-64 overflow-y-auto">
-                  {kickable.map((p) => {
-                    const armed = kickTarget === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        disabled={busy}
-                        onClick={async () => {
-                          if (!armed) {
-                            setKickTarget(p.id);
-                            return;
-                          }
-                          const res = await host.kick(p.id);
-                          if (res?.success) setKickTarget(null);
-                        }}
-                        className={`min-h-11 py-2.5 px-2 rounded-xl font-black text-sm leading-tight break-words border-b-4 transition-colors ${
-                          armed
-                            ? "bg-red-600 border-red-800 text-white animate-pulse"
-                            : "bg-slate-800 border-slate-950 text-slate-100"
-                        } ${p.is_alive ? "" : "opacity-60"}`}
-                      >
-                        {armed ? `اطرد ${p.display_name}؟` : p.display_name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {room.phase !== "lobby" && (
-                <MenuButton
-                  icon={<RotateCcw size={20} />}
-                  label={confirming === "restart" ? "متأكد؟ اضغط مرة ثانية للإعادة" : "جولة جديدة (رجوع لغرفة الانتظار)"}
-                  hint="نفس اللاعبين، وتقدر تعدّل العدد والفئات قبل البدء"
-                  tone="warn"
-                  armed={confirming === "restart"}
-                  onClick={() => (confirming === "restart" ? runAndClose(host.playAgain) : setConfirming("restart"))}
-                  disabled={busy}
-                />
-              )}
-
-              <MenuButton
-                icon={<DoorOpen size={20} />}
-                label={confirming === "newRoom" ? "متأكد؟ اضغط مرة ثانية للغرفة الجديدة" : "غرفة جديدة (كود جديد)"}
-                hint="الكل يطلع من هالغرفة ويدخلون من جديد بالكود الجديد"
-                tone="danger"
-                armed={confirming === "newRoom"}
-                onClick={() => (confirming === "newRoom" ? runAndClose(host.newRoom) : setConfirming("newRoom"))}
-                disabled={busy}
-              />
-
-              <MafiaHomeButton
-                ctx={ctx}
-                className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black text-start"
-              >
-                <Home size={20} />
-                <span className="flex-1">
-                  الصفحة الرئيسية
-                  <span className="block text-xs font-bold text-slate-400">
-                    تقدر تقفل الغرفة أو تخليها شغالة
+                <MafiaHomeButton
+                  ctx={ctx}
+                  className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black text-start"
+                >
+                  <Home size={20} />
+                  <span className="flex-1">
+                    الصفحة الرئيسية
+                    <span className="block text-xs font-bold text-slate-400">
+                      تقدر تقفل الغرفة أو تخليها شغالة
+                    </span>
                   </span>
-                </span>
-              </MafiaHomeButton>
-            </div>
+                </MafiaHomeButton>
+              </div>
 
-            {busy && (
-              <p className="flex items-center justify-center gap-2 mt-4 text-sm font-bold text-slate-400">
-                <Loader2 size={16} className="animate-spin" /> لحظة...
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+              {busy && (
+                <p className="flex items-center justify-center gap-2 mt-4 text-sm font-bold text-slate-400">
+                  <Loader2 size={16} className="animate-spin" /> لحظة...
+                </p>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

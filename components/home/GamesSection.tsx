@@ -1,8 +1,8 @@
 import React from "react";
 import Link from "next/link";
-import { Swords, Globe, Gavel, LayoutGrid, Play, Skull, Calculator, Hexagon } from "lucide-react";
+import { Swords, Globe, Gavel, LayoutGrid, Play, Calculator, Hexagon } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
-import { MAFIA_GAME } from "@/constants/mafia";
+import { MAFIA_GAME, mafiaIconSrc } from "@/constants/mafia";
 import { MADAQESH_GAME } from "@/constants/madaqesh";
 import { LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 
@@ -43,7 +43,8 @@ const GAMES = [
     id: MAFIA_GAME.id,
     title: MAFIA_GAME.title,
     description: MAFIA_GAME.description,
-    icon: <Skull className="w-8 h-8 text-red-500" />,
+    // eslint-disable-next-line @next/next/no-img-element
+    icon: <img src={mafiaIconSrc("mafia")} alt="" className="w-14 h-14 object-contain" />,
     path: MAFIA_GAME.path,
     color: "from-red-500 to-red-700",
   },

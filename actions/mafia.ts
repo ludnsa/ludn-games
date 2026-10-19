@@ -548,7 +548,7 @@ export async function getMafiaMyView(input: {
     if (role === "mafia") {
       view.mafiaTeam = engine
         .filter((p) => p.role === "mafia")
-        .map((p) => ({ id: p.id, name: p.alive ? p.name : `${p.name} ☠️` }));
+        .map((p) => ({ id: p.id, name: p.alive ? p.name : `${p.name} (ميت)` }));
     }
 
     if (room.phase === "night_act" && room.night_step && player.is_alive) {
@@ -584,8 +584,8 @@ async function buildTask(
   const nameOf = (id: string | null) => engine.find((p) => p.id === id)?.name ?? "";
   const options = allowedTargets(me, step, engine).map((p) => ({
     id: p.id,
-    // الساحر يختار فئة (المحقق/الدكتور/الجندي)، مو اسم اللاعب الميت
-    name: step === "magician" ? `${MAFIA_ROLES[p.role].emoji} ${MAFIA_ROLES[p.role].label}` : p.name,
+    // الساحر يختار فئة (المحقق/الطبيب/الجندي)، مو اسم اللاعب الميت
+    name: step === "magician" ? MAFIA_ROLES[p.role].label : p.name,
   }));
 
   const { data } = await admin
@@ -757,16 +757,21 @@ export async function submitMafiaDecoy(input: {
   roomCode: string;
   token: string;
   targetId: string;
+  /** الدور اللي جاوب عليه — عشان الطلب المتأخر ما ينحسب على الدور اللي بعده */
+  seq?: number;
 }): Promise<ActionResult> {
   const ctx = await requirePlayer(input);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room, player } = ctx;
-  if (room.phase !== "night_act" || !room.night_step) return fail("انتهى هذا الدور.");
+  // طلب متأخر (الدور خلص أو بدأ دور ثاني): سؤال التمويه ما ينحسب بشي، فنتجاهله بصمت
+  if (room.phase !== "night_act" || !room.night_step || (input.seq !== undefined && input.seq !== room.phase_seq)) {
+    return { success: true };
+  }
   const step = room.night_step;
 
   const { engine } = await loadEngine(admin, room.room_code);
   const me = engine.find((p) => p.id === player.id);
-  if (!me || !me.alive) return fail("الموتى ما يختارون 👻");
+  if (!me || !me.alive) return fail("الموتى ما يختارون");
   const leaderId = mafiaLeaderId(engine, room.night_number);
   if (canActOnStep(me, step, leaderId, engine)) return fail("اختر من مهمتك.");
   if (step === "mafia" && me.role === "mafia") return fail("اقترح على قائدك.");
@@ -860,7 +865,7 @@ export async function castMafiaVote(input: {
 
   if (room.phase !== "voting") return fail("التصويت مو مفتوح الحين.");
   if (room.phase_ends_at && Date.now() > Date.parse(room.phase_ends_at) + 1000) return fail("انتهى وقت التصويت.");
-  if (!player.is_alive) return fail("الموتى ما يصوّتون 👻");
+  if (!player.is_alive) return fail("الموتى ما يصوّتون");
 
   if (input.targetId) {
     if (input.targetId === player.id) return fail("ما تقدر تصوّت على نفسك.");
@@ -1176,7 +1181,7 @@ async function fillMissingActions(admin: Admin, room: MafiaRoom, step: MafiaNigh
       const suggested = rows.filter((r) => r.step === MAFIA_SUGGEST_STEP && r.target_id).map((r) => r.target_id!);
       targetId = pickMafiaSuggestion(suggested, new Set(allowed.map((a) => a.id)));
     }
-    // الانتحاري: يظل على آخر هدف اختاره بنفسه، والعشوائي بس لو ما اختار أبد (أو هدفه مات)
+    // المنتقم: يظل على آخر هدف اختاره بنفسه، والعشوائي بس لو ما اختار أبد (أو هدفه مات)
     if (step === "suicide" && p.suicideTarget && allowed.some((a) => a.id === p.suicideTarget)) {
       targetId = p.suicideTarget;
     }
@@ -1395,7 +1400,7 @@ export async function skipMafiaPhase(roomCode: string): Promise<ActionResult> {
 /**
  * الممنوع من الكلام (المسكت) تكلم: المنشئ يقتله. يظل بالغرفة كميت، ويطلع للكل إعلان،
  * وبعدها نفحص الفوز على طول. لو صار وقت التصويت، ينشال صوته والأصوات اللي عليه.
- * ما ينفجر لو كان انتحاري (الانفجار بس بالذبح أو التصويت).
+ * ما ينفجر لو كان المنتقم (الانفجار بس بالذبح أو التصويت).
  */
 export async function killSilencedMafiaPlayer(roomCode: string): Promise<ActionResult> {
   const ctx = await requireHost(roomCode);
@@ -1429,7 +1434,7 @@ export async function killSilencedMafiaPlayer(roomCode: string): Promise<ActionR
 
   const announcements = [
     ...(room.announcements ?? []),
-    { kind: "hushed_kill" as const, emoji: "☠️", text: `${target.display_name} تكلم وهو ممنوع… وانقتل! 🤐`, targetId: target.id },
+    { kind: "hushed_kill" as const, emoji: "☠️", text: `${target.display_name} تكلم وهو ممنوع… وانقتل!`, targetId: target.id },
   ];
   await admin.from("mafia_rooms").update({ announcements }).eq("room_code", room.room_code).eq("phase_seq", room.phase_seq);
 
@@ -1480,7 +1485,7 @@ export async function kickMafiaPlayer(input: { roomCode: string; playerId: strin
   const ctx = await requireHost(input.roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
-  if (input.playerId === room.host_player_id) return fail("ما تقدر تطرد نفسك 😅");
+  if (input.playerId === room.host_player_id) return fail("ما تقدر تطرد نفسك");
 
   const { data: removed, error } = await admin
     .from("mafia_players")

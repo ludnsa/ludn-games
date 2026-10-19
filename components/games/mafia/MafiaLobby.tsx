@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Copy, Check, Crown, X, Play, Loader2, Settings2, Bot, QrCode, Pencil } from "lucide-react";
+import { Copy, Check, Crown, X, Play, Loader2, Settings2, Bot, QrCode, Pencil, Users, Hourglass } from "lucide-react";
 import { MAFIA_GAME } from "@/constants/mafia";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import MafiaSetupForm from "./MafiaSetupForm";
@@ -69,7 +69,9 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
 
       <Panel>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-black">👥 اللاعبين</h2>
+          <h2 className="text-xl font-black flex items-center gap-2">
+            <Users size={22} /> اللاعبين
+          </h2>
           <span className={`px-3 py-1 rounded-xl font-black tabular-nums ${full ? "bg-emerald-600" : "bg-slate-800"}`}>
             {players.length} / {max}
           </span>
@@ -171,7 +173,7 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
             className="w-full py-5 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xl rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
           >
             {busy ? <Loader2 className="animate-spin" size={24} /> : <Play size={24} className="fill-current" />}
-            {full ? "ابدأ اللعبة 🔥" : `باقي ${max - players.length} لاعبين`}
+            {full ? "ابدأ اللعبة" : `باقي ${max - players.length} لاعبين`}
           </button>
 
           <button
@@ -205,15 +207,15 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
               disabled={busy}
               className="w-full py-3 bg-indigo-900/60 border-2 border-dashed border-indigo-500 rounded-2xl font-black text-indigo-200 flex items-center justify-center gap-2"
             >
-              <Bot size={18} /> 🧪 عبّي الغرفة بلاعبين وهميين (localhost فقط)
+              <Bot size={18} /> عبّي الغرفة بلاعبين وهميين (localhost فقط)
             </button>
           )}
         </div>
       ) : (
         <Panel className="text-center">
-          <p className="text-4xl mb-2 animate-bounce">⏳</p>
+          <Hourglass size={40} className="mx-auto mb-2 text-amber-300 animate-pulse" />
           <p className="font-black text-lg">بانتظار المنشئ يبدأ اللعبة...</p>
-          <p className="font-bold text-sm text-slate-400 mt-1">خل جوالك قريب منك وبعيد عن عيون الباقين 👀</p>
+          <p className="font-bold text-sm text-slate-400 mt-1">خل جوالك قريب منك وبعيد عن عيون الباقين</p>
         </Panel>
       )}
     </div>

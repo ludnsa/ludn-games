@@ -59,7 +59,7 @@ export default function MafiaHomeButton({
               className="w-full max-w-sm bg-slate-900 border-2 border-slate-700 rounded-3xl p-6 text-center animate-in zoom-in-95"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="text-6xl mb-3">🚪</p>
+              <DoorClosed size={56} strokeWidth={1.6} className="mx-auto mb-3 text-slate-300" />
               <h2 className="text-2xl font-black mb-2">
                 هل تريد إغلاق الغرفة؟
               </h2>

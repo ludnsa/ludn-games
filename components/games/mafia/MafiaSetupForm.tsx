@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { Loader2, Minus, Plus, AlertCircle } from "lucide-react";
+import { Loader2, Minus, Plus, AlertCircle, Users, MessagesSquare } from "lucide-react";
 import { MAFIA_CONFIG, MAFIA_OPTIONAL_ROLES, MAFIA_ROLES } from "@/constants/mafia";
 import { mafiaCitizenCount, mafiaMaxMafia, validateMafiaSettings } from "@/lib/game/mafia-engine";
-import type { MafiaOptionalRole, MafiaSettings } from "@/types";
-import { DiscussionTimePicker } from "./MafiaParts";
+import type { MafiaOptionalRole, MafiaRole, MafiaSettings } from "@/types";
+import { DiscussionTimePicker, RoleIcon } from "./MafiaParts";
 
 export const DEFAULT_MAFIA_SETTINGS: MafiaSettings = {
   maxPlayers: MAFIA_CONFIG.MIN_PLAYERS,
@@ -15,12 +15,14 @@ export const DEFAULT_MAFIA_SETTINGS: MafiaSettings = {
 
 function Stepper({
   label,
+  icon,
   value,
   min,
   max,
   onChange,
 }: {
   label: string;
+  icon: React.ReactNode;
   value: number;
   min: number;
   max: number;
@@ -28,7 +30,10 @@ function Stepper({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 bg-slate-900 border-2 border-slate-800 rounded-2xl p-3">
-      <span className="font-black text-slate-200">{label}</span>
+      <span className="font-black text-slate-200 flex items-center gap-2">
+        {icon}
+        {label}
+      </span>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -56,7 +61,7 @@ function Stepper({
 
 /**
  * نموذج إعداد الفئات — يُستخدم عند إنشاء الغرفة، وداخل غرفة الانتظار لتعديلها.
- * المحقق والدكتور والمافيا (2 على الأقل) إجباريين، والباقي مواطنين تلقائياً.
+ * المحقق والطبيب والمافيا (2 على الأقل) إجباريين، والباقي مواطنين تلقائياً.
  */
 export default function MafiaSetupForm({
   initial,
@@ -97,11 +102,11 @@ export default function MafiaSetupForm({
       return { ...s, optionalRoles };
     });
 
-  const fixedRows: { emoji: string; label: string; count: number }[] = [
-    { emoji: MAFIA_ROLES.detective.emoji, label: MAFIA_ROLES.detective.label, count: 1 },
-    { emoji: MAFIA_ROLES.doctor.emoji, label: MAFIA_ROLES.doctor.label, count: 1 },
-    { emoji: MAFIA_ROLES.mafia.emoji, label: MAFIA_ROLES.mafia.label, count: settings.mafiaCount },
-    { emoji: MAFIA_ROLES.citizen.emoji, label: "مواطنين", count: citizens },
+  const fixedRows: { role: MafiaRole; label: string; count: number }[] = [
+    { role: "detective", label: MAFIA_ROLES.detective.label, count: 1 },
+    { role: "doctor", label: MAFIA_ROLES.doctor.label, count: 1 },
+    { role: "mafia", label: MAFIA_ROLES.mafia.label, count: settings.mafiaCount },
+    { role: "citizen", label: "مواطنين", count: citizens },
   ];
 
   return (
@@ -115,14 +120,16 @@ export default function MafiaSetupForm({
       {children}
 
       <Stepper
-        label="👥 عدد اللاعبين"
+        label="عدد اللاعبين"
+        icon={<Users size={22} className="text-slate-400" />}
         value={settings.maxPlayers}
         min={Math.max(MAFIA_CONFIG.MIN_PLAYERS, minPlayers, minForRoles)}
         max={MAFIA_CONFIG.MAX_PLAYERS}
         onChange={setPlayers}
       />
       <Stepper
-        label="🔪 عدد المافيا"
+        label="عدد المافيا"
+        icon={<RoleIcon role="mafia" className="w-8 h-8" />}
         value={settings.mafiaCount}
         min={MAFIA_CONFIG.MIN_MAFIA}
         max={maxMafia}
@@ -152,7 +159,7 @@ export default function MafiaSetupForm({
                     : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-600"
                 }`}
               >
-                <span className="text-2xl block mb-1">{def.emoji}</span>
+                <RoleIcon role={role} className={`w-12 h-12 mb-1.5 transition-all ${on ? "" : "grayscale-60 opacity-80"}`} />
                 <span className="font-black block">{def.label}</span>
                 <span className="text-[11px] font-bold opacity-70">
                   {on ? "مضاف ✓" : full ? "ما بقى مواطن — زد اللاعبين" : "اضغط للإضافة"}
@@ -164,7 +171,9 @@ export default function MafiaSetupForm({
       </div>
 
       <div>
-        <p className="font-bold text-sm text-slate-400 mb-2">🗣️ وقت النقاش (تقدر تغيّره بعدين لحظة نتائج الصباح)</p>
+        <p className="font-bold text-sm text-slate-400 mb-2 flex items-center gap-1.5">
+          <MessagesSquare size={16} className="shrink-0" /> وقت النقاش (تقدر تغيّره بعدين لحظة نتائج الصباح)
+        </p>
         <DiscussionTimePicker
           value={settings.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS}
           onChange={(discussionSeconds) => setSettings((s) => ({ ...s, discussionSeconds }))}
@@ -175,13 +184,13 @@ export default function MafiaSetupForm({
         <p className="font-bold text-xs text-slate-500 mb-2">التوزيعة</p>
         <div className="flex flex-wrap gap-2">
           {fixedRows.map((r) => (
-            <span key={r.label} className="px-3 py-1.5 rounded-xl bg-slate-800 font-black text-sm">
-              {r.emoji} {r.label} × {r.count}
+            <span key={r.label} className="ps-1 pe-3 py-1 rounded-xl bg-slate-800 font-black text-sm flex items-center gap-1.5">
+              <RoleIcon role={r.role} className="w-7 h-7" /> {r.label} × {r.count}
             </span>
           ))}
           {settings.optionalRoles.map((role) => (
-            <span key={role} className="px-3 py-1.5 rounded-xl bg-red-900/40 font-black text-sm">
-              {MAFIA_ROLES[role].emoji} {MAFIA_ROLES[role].label} × 1
+            <span key={role} className="ps-1 pe-3 py-1 rounded-xl bg-red-900/40 font-black text-sm flex items-center gap-1.5">
+              <RoleIcon role={role} className="w-7 h-7" /> {MAFIA_ROLES[role].label} × 1
             </span>
           ))}
         </div>

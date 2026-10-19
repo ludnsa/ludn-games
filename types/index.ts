@@ -233,7 +233,7 @@ export interface MafiaAnnouncement {
 export interface MafiaVoteResult {
   eliminatedId: string | null;
   reason: "player" | "skip" | "tie" | "none";
-  /** اللي طلع بالتصويت انتحاري: يطير معه آخر واحد اختاره */
+  /** اللي طلع بالتصويت وهو المنتقم: يطير معه آخر واحد اختاره */
   bombId?: string | null;
 }
 

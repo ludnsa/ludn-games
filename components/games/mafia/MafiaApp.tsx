@@ -10,8 +10,8 @@ import { unlockMafiaAudio } from "@/lib/game/mafia-sounds";
 import { readMafiaSession, writeMafiaSession } from "@/lib/game/mafia-session";
 import MafiaSetupForm, { DEFAULT_MAFIA_SETTINGS } from "./MafiaSetupForm";
 import MafiaScreen from "./MafiaScreen";
-import MafiaFxLayer, { MafiaNightSky, MAFIA_STAGE_ID } from "./MafiaFxLayer";
-import { Panel } from "./MafiaParts";
+import MafiaFxLayer, { MafiaBackdrop, MAFIA_STAGE_ID } from "./MafiaFxLayer";
+import { Panel, RoleIcon } from "./MafiaParts";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -61,6 +61,8 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
       className={`min-h-[100dvh] bg-slate-950 text-white p-4 md:p-6 flex flex-col relative z-10 ${cairo.className}`}
       dir="rtl"
     >
+      {/* شاشات الدخول: خلفية الليل (داخل اللعبة MafiaInGame يحط خلفيته حسب المرحلة) */}
+      {(!session || askResume) && <MafiaBackdrop night />}
       {session && askResume ? (
         <MafiaResumeOrNew
           roomCode={session.roomCode}
@@ -104,7 +106,13 @@ function MafiaInGame({
   useEffect(() => {
     if (isHost && !session.host && phase !== "closed") writeMafiaSession({ ...session, host: true });
   }, [isHost, session, phase]);
-  const isNight = phase === "night_act" || phase === "night_done";
+  // خلفية النهار للصباح والنقاش والتصويت (ولفوز المدينة)، والليل لكل الباقي
+  const isDay =
+    phase === "morning" ||
+    phase === "discussion" ||
+    phase === "voting" ||
+    phase === "vote_result" ||
+    (phase === "ended" && ctx.room?.winner === "town");
   // الميت يشوف اللعبة باهتة لين تنتهي
   const isGhost = Boolean(ctx.me && !ctx.me.alive && phase !== "lobby" && phase !== "ended");
 
@@ -116,18 +124,9 @@ function MafiaInGame({
   return (
     <>
       {/* خلفية الليل والنهار */}
-      <div
-        aria-hidden
-        className={`fixed inset-0 -z-10 transition-colors duration-1000 ${
-          isNight
-            ? "bg-gradient-to-b from-indigo-950 via-slate-950 to-black"
-            : "bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950"
-        }`}
-      >
-        {isNight && <MafiaNightSky />}
-      </div>
+      <MafiaBackdrop night={!isDay} />
 
-      {/* المسرح: هذا اللي يهتز مع الذبح والانفجار */}
+      {/* المسرح: شاشة اللعبة كاملة (الميت يشوفها باهتة) */}
       <div
         id={MAFIA_STAGE_ID}
         className={`flex-1 flex flex-col transition-[filter] duration-1000 ${isGhost ? "grayscale-[70%]" : ""}`}
@@ -181,7 +180,7 @@ function MafiaResumeOrNew({
 function Header({ subtitle }: { subtitle: string }) {
   return (
     <div className="text-center mb-6">
-      <p className="text-7xl mb-3">🕵️‍♂️🔪</p>
+      <RoleIcon role="mafia" className="w-32 h-32 mx-auto mb-3 drop-shadow-[0_0_28px_rgba(220,38,38,0.55)]" />
       <h1 className="text-4xl font-black mb-2">{MAFIA_GAME.title}</h1>
       <p className="font-bold text-slate-400 text-sm">{subtitle}</p>
     </div>
@@ -222,7 +221,7 @@ function MafiaCreate({ onCreated, notice }: { onCreated: (s: MafiaSession) => vo
         <MafiaSetupForm
           initial={DEFAULT_MAFIA_SETTINGS}
           busy={busy}
-          submitLabel="إنشاء الغرفة 🔥"
+          submitLabel="إنشاء الغرفة"
           onSubmit={async (settings) => {
             unlockMafiaAudio();
             setError("");
@@ -301,7 +300,7 @@ function MafiaJoin({ onJoined, notice }: { onJoined: (s: MafiaSession) => void; 
 
   return (
     <div className="w-full max-w-md mx-auto my-auto">
-      <Header subtitle="ادخل كود الغرفة واسمك، وخل جوالك بعيد عن عيون الباقين 👀" />
+      <Header subtitle="ادخل كود الغرفة واسمك، وخل جوالك بعيد عن عيون الباقين" />
       <NoticeLine notice={notice} />
       <Panel>
         <form onSubmit={join} className="flex flex-col gap-5">

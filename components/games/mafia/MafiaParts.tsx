@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useSyncExternalStore } from "react";
-import { Volume2, VolumeX, Eye } from "lucide-react";
-import { MAFIA_CONFIG, MAFIA_ROLES } from "@/constants/mafia";
+import { createPortal } from "react-dom";
+import { Volume2, VolumeX, Eye, Users, VenetianMask, Moon } from "lucide-react";
+import { MAFIA_CONFIG, MAFIA_ROLES, mafiaCardSrc, mafiaIconSrc } from "@/constants/mafia";
 import { isMafiaMuted, setMafiaMuted, subscribeMafiaMuted, unlockMafiaAudio } from "@/lib/game/mafia-sounds";
-import type { MafiaRole } from "@/types";
+import type { MafiaAnnouncementKind, MafiaRole } from "@/types";
 
 export function Panel({
   children,
@@ -60,38 +61,170 @@ export function SoundToggle() {
   );
 }
 
+/** أيقونة الدور الدائرية (بدون كلام) */
+export function RoleIcon({ role, className = "w-10 h-10" }: { role: MafiaRole; className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={mafiaIconSrc(role)}
+      alt={MAFIA_ROLES[role].label}
+      draggable={false}
+      className={`shrink-0 object-contain select-none ${className}`}
+    />
+  );
+}
+
+/** كل إعلان من إعلانات الصباح بأيقونة الدور اللي سوّاه */
+const ANNOUNCEMENT_ROLE: Partial<Record<MafiaAnnouncementKind, MafiaRole>> = {
+  kill: "mafia",
+  saved: "doctor",
+  soldier: "soldier",
+  bomb: "suicide",
+  investigate_hit: "detective",
+  investigate_miss: "detective",
+  investigate_none: "detective",
+  magic: "magician",
+  journalist: "journalist",
+  silence: "silencer",
+  hushed_kill: "silencer",
+};
+
+export function AnnouncementIcon({ kind, className = "w-12 h-12" }: { kind: MafiaAnnouncementKind; className?: string }) {
+  const role = ANNOUNCEMENT_ROLE[kind];
+  if (role) return <RoleIcon role={role} className={className} />;
+  // ليلة هادئة: ما أحد سوّى شي
+  return (
+    <span
+      className={`shrink-0 rounded-full bg-indigo-950 border-2 border-indigo-700 text-indigo-200 flex items-center justify-center ${className}`}
+    >
+      <Moon className="w-1/2 h-1/2" />
+    </span>
+  );
+}
+
+let artPreloaded = false;
+/** البطاقات والأيقونات تنحمّل من أول ما يدخل الغرفة — كشف الدور ثواني بس، فما نبي الصورة تتأخر */
+export function preloadMafiaArt() {
+  if (artPreloaded || typeof window === "undefined") return;
+  artPreloaded = true;
+  for (const role of Object.keys(MAFIA_ROLES) as MafiaRole[]) {
+    for (const src of [mafiaCardSrc(role), mafiaIconSrc(role)]) {
+      const img = new Image();
+      img.src = src;
+    }
+  }
+}
+
+/** شرارات تطلع حول البطاقة بعد ما تنقلب — قيم ثابتة عشان الرسم ما يتغير مع كل تحديث */
+const EMBERS = [
+  { left: -4, dx: -14, delay: 1.1, dur: 2.2 },
+  { left: 8, dx: 10, delay: 1.6, dur: 2.6 },
+  { left: 22, dx: -8, delay: 1.3, dur: 2.0 },
+  { left: 38, dx: 12, delay: 1.9, dur: 2.4 },
+  { left: 55, dx: -10, delay: 1.2, dur: 2.3 },
+  { left: 70, dx: 8, delay: 1.7, dur: 2.1 },
+  { left: 86, dx: -12, delay: 1.4, dur: 2.5 },
+  { left: 100, dx: 14, delay: 2.0, dur: 2.2 },
+];
+
+/** ظهر البطاقة — يطلع أول شي وبعدين تنقلب على الدور */
+function CardBack() {
+  return (
+    <div aria-hidden className="mfx-card-face mfx-card-back">
+      <span className="absolute top-[4%] right-[7%] text-xl text-[#e9dcc3]/80">{"\u2660\uFE0E"}</span>
+      <span className="absolute top-[4%] left-[7%] text-xl text-red-500/80">{"\u2665\uFE0E"}</span>
+      <span className="absolute bottom-[4%] right-[7%] text-xl text-red-500/80">{"\u2666\uFE0E"}</span>
+      <span className="absolute bottom-[4%] left-[7%] text-xl text-[#e9dcc3]/80">{"\u2663\uFE0E"}</span>
+      <div className="w-[46%] aspect-square rounded-full border-[3px] border-[#e9dcc3] flex items-center justify-center bg-black/50 shadow-[0_0_0_6px_rgba(0,0,0,0.6),0_0_0_8px_rgba(185,28,28,0.9),0_0_40px_rgba(220,38,38,0.5)]">
+        <VenetianMask className="w-[55%] h-[55%] text-[#e9dcc3]" strokeWidth={1.6} />
+      </div>
+      <p className="mt-[8%] text-4xl font-black text-[#e9dcc3] [text-shadow:0_0_18px_rgba(220,38,38,0.9),0_3px_0_#7f1d1d]">
+        المافيا
+      </p>
+      <p className="mt-1 text-xs font-black tracking-[0.5em] text-red-500/90" dir="ltr">
+        MAFIA
+      </p>
+    </div>
+  );
+}
+
+/**
+ * بطاقة الدور بالصورة.
+ * flip: كشف الدور — يطلع ظهر البطاقة وتنقلب بحركة، وبعدها لمعة وتوهج بلون الدور.
+ * بدونه (زر "دوري"): البطاقة تطلع على طول.
+ */
 export function RoleCard({
   role,
-  compact = false,
   teammates = [],
+  flip = false,
+  small = false,
 }: {
   role: MafiaRole;
-  compact?: boolean;
-  /** المافيا: أسماء زملائه — تطلع داخل البطاقة نفسها عشان ما تفوته */
+  /** المافيا: أسماء زملائه — تطلع تحت البطاقة عشان ما تفوته */
   teammates?: string[];
+  flip?: boolean;
+  /** زر "دوري": بطاقة أصغر */
+  small?: boolean;
 }) {
   const def = MAFIA_ROLES[role];
+  const isMafia = def.team === "mafia";
   return (
     <div
-      className={`rounded-[2rem] bg-gradient-to-br ${def.accent} text-white text-center shadow-2xl ${
-        compact ? "p-4" : "p-7 mfx-flip-in"
-      }`}
+      className={`flex flex-col items-center w-full ${small ? "gap-3 max-w-xs" : "gap-4"}`}
+      style={{ "--glow": def.glow } as React.CSSProperties}
     >
-      <div className={`${compact ? "text-5xl" : "text-8xl"} mb-2 drop-shadow-lg`}>{def.emoji}</div>
-      <p className={`${compact ? "text-2xl" : "text-4xl"} font-black mb-2`}>{def.label}</p>
-      {teammates.length > 0 && (
-        <div className={`${compact ? "mb-3 p-3" : "mb-4 p-4"} rounded-2xl bg-black/35 border border-white/20`}>
-          <p className="font-black text-sm mb-2">🤝 عصابتك</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {teammates.map((n) => (
-              <span key={n} className={`px-3 py-1.5 rounded-xl bg-white text-red-800 font-black ${compact ? "text-base" : "text-lg"}`}>
-                {n}
-              </span>
-            ))}
+      <div className={`mfx-card ${flip ? "mfx-card-flip" : "mfx-card-static"} ${small ? "mfx-card-sm" : ""}`}>
+        <div aria-hidden className="mfx-card-glow" />
+        {flip &&
+          EMBERS.map((e, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className="mfx-ember"
+              style={
+                {
+                  left: `${e.left}%`,
+                  "--dx": `${e.dx}px`,
+                  animationDelay: `${e.delay}s`,
+                  animationDuration: `${e.dur}s`,
+                } as React.CSSProperties
+              }
+            />
+          ))}
+        <div className="mfx-card-inner">
+          {flip && <CardBack />}
+          <div className="mfx-card-face mfx-card-front">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={mafiaCardSrc(role)} alt={def.label} draggable={false} className="w-full h-full select-none" />
+            <span aria-hidden className="mfx-card-shine" />
           </div>
         </div>
-      )}
-      <p className={`${compact ? "text-xs" : "text-sm"} font-bold opacity-90 leading-relaxed`}>{def.description}</p>
+      </div>
+
+      <div className={`flex flex-col items-center gap-3 text-center w-full max-w-sm ${flip ? "mfx-card-after" : ""}`}>
+        <span
+          className={`px-4 py-1 rounded-full text-sm font-black border ${
+            isMafia ? "bg-red-950/80 border-red-700 text-red-200" : "bg-amber-950/50 border-amber-700/60 text-amber-100"
+          }`}
+        >
+          {isMafia ? "فريق المافيا" : "فريق المدينة"}
+        </span>
+        {teammates.length > 0 && (
+          <div className="w-full p-3 rounded-2xl bg-red-950/60 border border-red-800">
+            <p className="font-black text-sm mb-2 flex items-center justify-center gap-1.5 text-red-200">
+              <Users size={16} /> عصابتك
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {teammates.map((n) => (
+                <span key={n} className="px-3 py-1.5 rounded-xl bg-white text-red-800 font-black text-base">
+                  {n}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        <p className={`font-bold text-slate-300 leading-relaxed ${small ? "text-xs" : "text-sm"}`}>{def.description}</p>
+      </div>
     </div>
   );
 }
@@ -112,13 +245,14 @@ export function RolePeek({ role, teammates = [] }: { role: MafiaRole | null; tea
       >
         <Eye size={18} /> دوري
       </button>
-      {show && (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-slate-950/90 pointer-events-none">
-          <div className="w-full max-w-sm">
-            <RoleCard role={role} compact teammates={teammates} />
-          </div>
-        </div>
-      )}
+      {/* على body مباشرة: بنص الشاشة فوق كل شي، وصغيرة عشان اللي جنبك ما يشوفها */}
+      {show &&
+        createPortal(
+          <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-slate-950/95 text-white pointer-events-none animate-in fade-in duration-150">
+            <RoleCard small role={role} teammates={teammates} />
+          </div>,
+          document.body
+        )}
     </>
   );
 }

@@ -155,7 +155,7 @@ export function useMafiaGame(
     const res = await getMafiaMyView({ roomCode, token });
     if (!res.success) {
       if (res.error.includes("انتهت جلستك") || res.error.includes("غير موجودة")) {
-        onLostRef.current("🚫 طلعت من الغرفة — المنشئ طردك أو انتهت الغرفة.");
+        onLostRef.current("طلعت من الغرفة — المنشئ طردك أو انتهت الغرفة.");
       }
       return;
     }
@@ -303,9 +303,9 @@ export function useMafiaGame(
     const timers = phaseTimers.current;
     switch (room.phase) {
       case "reveal":
-        // أول ما تبدأ اللعبة: بومة، بعدها موسيقى كشف الأدوار
-        cueMafia("owl");
-        timers.push(setTimeout(() => cueMafia("reveal"), 1500));
+        // موسيقى كشف الأدوار مع قلبة البطاقة (3 ثواني — تخلص قبل الليل).
+        // البومة ما تطلع هنا: تطلع مرة وحدة أول ما يبدأ الليل، عشان ما تتداخل الأصوات
+        cueMafia("reveal");
         break;
       case "night_act":
         if (room.night_step === mafiaNightSteps(room.settings)[0]) playMafiaSound("owl");
@@ -318,7 +318,7 @@ export function useMafiaGame(
         playMafiaSound("rooster");
         const schedule = mafiaMorningSchedule(room.announcements);
         room.announcements.forEach((a, i) => {
-          // ضحية الذبح وهدف الانتحاري يشوفون رسالتهم الخاصة هنا (نفس الصوت اللي عند الكل)
+          // ضحية الذبح وهدف المنتقم يشوفون رسالتهم الخاصة هنا (نفس الصوت اللي عند الكل)
           const mine = Boolean(a.targetId && a.targetId === meIdRef.current);
           const cue: Cue | undefined =
             mine && a.kind === "bomb"
@@ -337,7 +337,7 @@ export function useMafiaGame(
         const result = room.vote_result;
         if (result?.eliminatedId) cueMafia("horror", "doom");
         else cueMafia("womp");
-        // الانتحاري طلع بالتصويت: ينفجر ويطيّر آخر واحد اختاره
+        // المنتقم طلع بالتصويت: ينفجر ويطيّر آخر واحد اختاره
         const bombId = result?.bombId;
         if (bombId) {
           timers.push(
@@ -347,7 +347,7 @@ export function useMafiaGame(
         break;
       }
       case "ended": {
-        // انحسمت بالليل بانفجار الانتحاري: الانفجار أول، وبعده الفوز
+        // انحسمت بالليل بانفجار المنتقم: الانفجار أول، وبعده الفوز
         const bomb = (room.announcements ?? []).find((a) => a.kind === "bomb");
         const delay = bomb ? getMafiaSoundTiming("bomb").duration * 1000 + 600 : 0;
         if (bomb) cueMafia("bomb", bomb.targetId === meIdRef.current ? "victim_bomb" : "bomb");
@@ -441,18 +441,26 @@ export function useMafiaGame(
     [roomCode, token, fetchView]
   );
 
-  /** سؤال التمويه: لازم كل الأحياء يجاوبون عشان يمشي الدور — يتقفل فوراً على الشاشة */
+  /**
+   * سؤال التمويه: لازم كل الأحياء يجاوبون عشان يمشي الدور — يتقفل فوراً على الشاشة.
+   * ينرسل مرة وحدة بس لكل دور، ومعه رقم الدور عشان السيرفر يتجاهله لو وصل متأخر.
+   */
+  const decoySeq = useRef<number | null>(null);
+  const phaseSeq = room?.phase_seq;
   const decoy = useCallback(
     async (targetId: string) => {
+      if (phaseSeq === undefined || decoySeq.current === phaseSeq) return;
+      decoySeq.current = phaseSeq;
       setError("");
       setView((v) => (v ? { ...v, decoyId: targetId } : v));
-      const res = await submitMafiaDecoy({ roomCode, token, targetId });
+      const res = await submitMafiaDecoy({ roomCode, token, targetId, seq: phaseSeq });
       if (!res.success) {
+        decoySeq.current = null;
         setError(res.error);
         fetchView();
       }
     },
-    [roomCode, token, fetchView]
+    [roomCode, token, fetchView, phaseSeq]
   );
 
   const rename = useCallback(
@@ -535,7 +543,7 @@ export function useMafiaGame(
     const first = hushedSeen.current === null;
     const grew = !first && hushedCount > (hushedSeen.current ?? 0);
     hushedSeen.current = hushedCount;
-    if (grew) cueMafia("horror", lastHushedId && lastHushedId === meIdRef.current ? "victim" : "kill");
+    if (grew) cueMafia("horror", lastHushedId && lastHushedId === meIdRef.current ? "victim_hushed" : "hushed");
   }, [hushedCount, lastHushedId]);
 
   return {

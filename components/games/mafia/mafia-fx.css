@@ -73,6 +73,12 @@
   background: radial-gradient(ellipse at center, transparent 40%, rgba(160, 0, 0, 0.6) 100%);
   animation-name: mfx-vignette-pulse;
 }
+/* المحقق ما لقى مافيا: الشاشة زرقاء */
+.mfx-vignette-blue {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(14, 116, 220, 0.6) 100%);
+  animation-name: mfx-vignette-pulse;
+}
+.mfx-flash-blue { background: radial-gradient(circle at center, rgba(56, 189, 248, 0.25), rgba(3, 105, 161, 0.75)); }
 @keyframes mfx-vignette {
   0% { opacity: 0; }
   15% { opacity: 1; }
@@ -190,23 +196,16 @@
   100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
 }
 
-.mfx-big-emoji {
-  position: absolute;
-  left: 50%;
-  top: 45%;
-  font-size: 9rem;
-  line-height: 1;
-  animation-name: mfx-pop;
-  animation-fill-mode: both;
-  filter: drop-shadow(0 0 30px rgba(0, 0, 0, 0.6));
+/* ---------- أيقونة صاحب الدور بالليل: توهج بلونه ---------- */
+.mfx-step-icon {
+  filter: drop-shadow(0 0 16px var(--glow)) drop-shadow(0 0 4px var(--glow));
 }
-@keyframes mfx-pop {
-  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
-  15% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
-  25% { transform: translate(-50%, -50%) scale(1); }
-  80% { opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1.3); opacity: 0; }
+.mfx-step-pulse { animation: mfx-step-glow 2.4s ease-in-out infinite; }
+@keyframes mfx-step-glow {
+  0%, 100% { filter: drop-shadow(0 0 16px var(--glow)) drop-shadow(0 0 4px var(--glow)); }
+  50% { filter: drop-shadow(0 0 30px var(--glow)) drop-shadow(0 0 8px var(--glow)); }
 }
+
 
 /* ---------- الانفجار ---------- */
 .mfx-smoke {
@@ -224,7 +223,28 @@
   100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
 }
 
-/* ---------- أجواء الليل (ثابتة طول الليل) ---------- */
+/* ---------- خلفية الليل والنهار ---------- */
+.mfx-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity 1.2s ease;
+}
+/* تغميق فوق الصورة عشان الكلام يبان — أخف فوق وأغمق تحت عند الأزرار */
+.mfx-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.mfx-bg-night::after {
+  background: linear-gradient(to bottom, rgba(2, 6, 23, 0.3), rgba(2, 6, 23, 0.55) 40%, rgba(2, 6, 23, 0.85));
+}
+.mfx-bg-day::after {
+  background: linear-gradient(to bottom, rgba(2, 6, 23, 0.25), rgba(2, 6, 23, 0.5) 40%, rgba(2, 6, 23, 0.82));
+}
+
+/* ---------- ضباب الليل (يتحرك فوق الخلفية) ---------- */
 .mfx-fog {
   position: absolute;
   inset: auto -50% 0 -50%;
@@ -242,34 +262,6 @@
   from { transform: translateX(-12%); }
   to { transform: translateX(12%); }
 }
-.mfx-moon {
-  position: absolute;
-  top: 20%;
-  left: 8%;
-  width: 70px;
-  height: 70px;
-  border-radius: 999px;
-  background: radial-gradient(circle at 35% 35%, #fefce8, #e2e8f0 60%, #94a3b8);
-  box-shadow: 0 0 60px 15px rgba(226, 232, 240, 0.25);
-  opacity: 0.45;
-  animation: mfx-moon-in 2s ease-out both;
-}
-@keyframes mfx-moon-in {
-  from { opacity: 0; }
-  to { opacity: 0.45; }
-}
-.mfx-star {
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  border-radius: 999px;
-  background: #fff;
-  animation: mfx-twinkle ease-in-out infinite;
-}
-@keyframes mfx-twinkle {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 1; }
-}
 
 /* ---------- الأشباح (للموتى) ---------- */
 .mfx-ghost {
@@ -281,17 +273,168 @@
   50% { transform: translateY(-10px) rotate(6deg); }
 }
 
-/* ---------- كشف الدور: البطاقة تنقلب ---------- */
-.mfx-flip-in {
-  animation: mfx-flip-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1.2) both;
+/* ---------- بطاقة الدور (صورة) ---------- */
+/* المقاس على قد الشاشة: ما تطلع أكبر من ثلث الطول تقريباً عشان الوصف يبان تحتها */
+.mfx-card {
+  position: relative;
+  width: min(68vw, 290px, 38dvh);
+  aspect-ratio: 512 / 752;
+  perspective: 1100px;
 }
-@keyframes mfx-flip-in {
-  0% { transform: perspective(900px) rotateY(90deg) scale(0.8); opacity: 0; }
-  100% { transform: perspective(900px) rotateY(0) scale(1); opacity: 1; }
+/* زر "دوري": أصغر عشان اللي جنبك ما يشوفها */
+.mfx-card-sm {
+  width: min(48vw, 200px, 30dvh);
+}
+.mfx-card-inner {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform-style: preserve-3d;
+}
+.mfx-card-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* نفس زوايا الصورة */
+  border-radius: 4% / 2.7%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 0 28px 50px -12px rgba(0, 0, 0, 0.85);
+}
+/* لو الصورة تأخرت شوي تطلع بطاقة غامقة بدل فراغ */
+.mfx-card-front { background: #0c0a0b; }
+.mfx-card-back {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(220, 38, 38, 0.3), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 12px),
+    #0c0a0b;
+  border: 5px solid #e9dcc3;
+}
+.mfx-card-back::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border: 2px solid rgba(185, 28, 28, 0.85);
+  border-radius: 3% / 2%;
+}
+
+/* التوهج بلون الدور خلف البطاقة */
+.mfx-card-glow {
+  position: absolute;
+  inset: -14% -28%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) 80%, transparent), transparent 80%);
+  filter: blur(8px);
+  opacity: 0.75;
+}
+
+/* لمعة تمر على البطاقة */
+.mfx-card-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.5) 47%, rgba(255, 255, 255, 0.15) 53%, transparent 68%);
+  transform: translateX(-130%);
+}
+@keyframes mfx-card-shine {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(130%); }
+}
+
+/* زر "دوري": تطلع على طول */
+.mfx-card-static { animation: mfx-card-pop 0.25s ease-out both; }
+.mfx-card-static .mfx-card-shine { animation: mfx-card-shine 0.8s ease-in-out 0.1s both; }
+@keyframes mfx-card-pop {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* كشف الدور: ظهر البطاقة ينزل، وبعدين تنقلب (الوجه يبان عند ~0.9 ثانية) */
+.mfx-card-flip { animation: mfx-card-appear 0.25s ease-out both, mfx-card-float 4s ease-in-out 1.4s infinite; }
+.mfx-card-flip .mfx-card-inner { animation: mfx-card-deal 1.3s cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+.mfx-card-flip .mfx-card-front { transform: rotateY(180deg); animation: mfx-card-face-in 1.3s both; }
+/* احتياط لو المتصفح ما دعم backface-visibility: الوجهين يتبدلون بالضبط لحظة 90 درجة (52%) */
+.mfx-card-flip .mfx-card-back { animation: mfx-card-face-out 1.3s both; }
+@keyframes mfx-card-face-in {
+  0%, 51.9% { opacity: 0; }
+  52%, 100% { opacity: 1; }
+}
+@keyframes mfx-card-face-out {
+  0%, 51.9% { opacity: 1; }
+  52%, 100% { opacity: 0; }
+}
+.mfx-card-flip .mfx-card-shine { animation: mfx-card-shine 0.9s ease-in-out 1.25s both; }
+.mfx-card-flip .mfx-card-glow {
+  animation: mfx-card-glow-in 0.7s ease-out 0.9s both, mfx-card-glow-pulse 2.4s ease-in-out 1.6s infinite;
+}
+/*
+ * نفس ترتيب الدوال بكل خطوة — وإلا المتصفح ياخذ أقصر طريق وتخرب القلبة.
+ * ولا opacity هنا: أي حركة opacity على العنصر اللي فيه preserve-3d تسطّحه ويختفي وجه البطاقة
+ * (الظهور التدريجي على .mfx-card بداله).
+ */
+@keyframes mfx-card-deal {
+  0% { transform: translateY(16%) scale(0.6) rotateZ(-7deg) rotateY(0deg); }
+  22% { transform: translateY(0) scale(1) rotateZ(0deg) rotateY(0deg); }
+  34% { transform: translateY(0) scale(1.03) rotateZ(0deg) rotateY(-14deg); }
+  52% { transform: translateY(0) scale(1.08) rotateZ(0deg) rotateY(90deg); }
+  80% { transform: translateY(0) scale(1.08) rotateZ(0deg) rotateY(192deg); }
+  100% { transform: translateY(0) scale(1) rotateZ(0deg) rotateY(180deg); }
+}
+@keyframes mfx-card-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes mfx-card-glow-in {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0.75; transform: scale(1); }
+}
+@keyframes mfx-card-glow-pulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 0.45; }
+}
+@keyframes mfx-card-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* الفريق والوصف يطلعون بعد القلبة */
+.mfx-card-after { animation: mfx-card-after 0.45s ease-out 1.1s both; }
+@keyframes mfx-card-after {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* شرارات بلون الدور */
+.mfx-ember {
+  position: absolute;
+  z-index: 2;
+  bottom: 10%;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--glow);
+  box-shadow: 0 0 10px 3px var(--glow);
+  opacity: 0;
+  animation-name: mfx-ember;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes mfx-ember {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  15% { opacity: 0.95; }
+  100% { transform: translate(var(--dx), -190px) scale(0.3); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mfx-fog, .mfx-star { animation: none; }
+  .mfx-fog { animation: none; }
+  .mfx-card-flip, .mfx-card-flip .mfx-card-inner, .mfx-card-flip .mfx-card-front, .mfx-card-flip .mfx-card-glow, .mfx-ember { animation: none; }
+  .mfx-card-flip .mfx-card-inner { transform: rotateY(180deg); }
+  .mfx-card-flip .mfx-card-back { display: none; }
+  .mfx-card-after { animation-delay: 0s; }
 }
 
 /* ---------- رسالة الضحية ("المافيا ذبحوك") ---------- */
@@ -317,9 +460,9 @@
   0% { opacity: 0; transform: scale(1.15); }
   100% { opacity: 1; transform: scale(1); }
 }
-.mfx-victim-skull {
-  font-size: 7rem;
-  line-height: 1;
+.mfx-victim-icon {
+  width: min(44vw, 190px);
+  aspect-ratio: 1;
   filter: drop-shadow(0 0 30px rgba(255, 0, 0, 0.8));
   animation: mfx-victim-pulse 1s ease-in-out infinite;
 }
@@ -345,7 +488,7 @@
   background: radial-gradient(circle at center, rgba(120, 90, 0, 0.45), rgba(20, 10, 30, 0.92) 75%);
 }
 
-/* ---------- حماية الدكتور: أخضر طبي ---------- */
+/* ---------- حماية الطبيب: أخضر طبي ---------- */
 .mfx-ring-green {
   border-color: rgba(52, 211, 153, 0.9);
   box-shadow: 0 0 60px 20px rgba(16, 185, 129, 0.45), inset 0 0 60px 10px rgba(110, 231, 183, 0.35);

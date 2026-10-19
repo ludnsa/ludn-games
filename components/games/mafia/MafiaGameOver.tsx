@@ -2,10 +2,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { RotateCcw, Loader2, Home, DoorOpen } from "lucide-react";
+import { RotateCcw, Loader2, Home, DoorOpen, Moon, VenetianMask, Ghost } from "lucide-react";
 import { MAFIA_ROLES } from "@/constants/mafia";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
-import { Panel } from "./MafiaParts";
+import { AnnouncementIcon, Panel, RoleIcon } from "./MafiaParts";
 import MafiaHomeButton from "./MafiaHomeButton";
 
 export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
@@ -24,27 +24,45 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
         }`}
       >
         {mafiaWon && <BloodDrips />}
-        <p className="relative text-8xl mb-3">{stopped ? "🛑" : mafiaWon ? "🔪" : "🏆"}</p>
+        <div className="relative flex justify-center mb-3">
+          {stopped ? (
+            // المنشئ أنهى اللعبة: أيقونة المافيا علامة اللعبة
+            <RoleIcon role="mafia" className="w-32 h-32 drop-shadow-[0_0_24px_rgba(0,0,0,0.6)]" />
+          ) : mafiaWon ? (
+            <RoleIcon role="mafia" className="w-32 h-32 drop-shadow-[0_0_24px_rgba(0,0,0,0.6)]" />
+          ) : (
+            // فوز المدينة: أيقونات المحقق والمواطن والطبيب مع بعض
+            (["detective", "citizen", "doctor"] as const).map((r, i) => (
+              <RoleIcon
+                key={r}
+                role={r}
+                className={`drop-shadow-[0_0_18px_rgba(0,0,0,0.5)] ${i === 1 ? "w-28 h-28 relative z-10" : "w-20 h-20 self-end -mx-3"}`}
+              />
+            ))
+          )}
+        </div>
         <h2 className="relative text-4xl font-black mb-2">
           {stopped ? "انتهت اللعبة" : mafiaWon ? "المافيا فازوا!" : "المواطنين فازوا!"}
         </h2>
         <p className="relative font-bold opacity-90">
           {stopped
-            ? "المنشئ أنهى الجولة… شوفوا مين كان مين 👀"
+            ? "المنشئ أنهى الجولة… شوفوا مين كان مين"
             : mafiaWon
-              ? "خلصوا على المدينة وما أحد كشفهم 😈"
-              : "طلّعوا كل المافيا والمدينة بأمان 🎉"}
+              ? "خلصوا على المدينة وما أحد كشفهم"
+              : "طلّعوا كل المافيا والمدينة بأمان"}
         </p>
       </div>
 
       {/* اللعبة انحسمت بالليل: مين مات في ليلة الحسم */}
       {(room.announcements ?? []).length > 0 && (
         <Panel className="border-red-900">
-          <h3 className="font-black text-xl mb-3">🌙 ليلة الحسم</h3>
+          <h3 className="font-black text-xl mb-3 flex items-center gap-2">
+            <Moon size={20} /> ليلة الحسم
+          </h3>
           <ul className="flex flex-col gap-2">
             {room.announcements.map((a, i) => (
               <li key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-red-950/60 font-black">
-                <span className="text-3xl shrink-0">{a.emoji}</span>
+                <AnnouncementIcon kind={a.kind} className="w-11 h-11" />
                 <span className="flex-1 min-w-0 break-words leading-snug">{a.text}</span>
               </li>
             ))}
@@ -53,7 +71,9 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
       )}
 
       <Panel>
-        <h3 className="font-black text-xl mb-3">🎭 كشف كل الأدوار</h3>
+        <h3 className="font-black text-xl mb-3 flex items-center gap-2">
+          <VenetianMask size={22} /> كشف كل الأدوار
+        </h3>
         <ul className="flex flex-col gap-2">
           {players.map((p) => {
             const r = roleOf.get(p.id);
@@ -67,10 +87,11 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
                   p.id === me?.id ? "bg-slate-700" : "bg-slate-800"
                 } ${p.is_alive ? "" : "opacity-60"}`}
               >
-                <span className="text-3xl shrink-0">{def.emoji}</span>
+                <RoleIcon role={r.role} className="w-12 h-12" />
                 <span className="flex-1 min-w-0">
                   <span className="block font-black break-words leading-tight">
-                    {p.display_name} {p.is_alive ? "" : "☠️"}
+                    {p.display_name}
+                    {!p.is_alive && <Ghost size={15} className="inline -mt-1 ms-1.5 text-slate-400" />}
                   </span>
                   <span className={`block text-sm font-bold ${def.team === "mafia" ? "text-red-400" : "text-slate-400"}`}>
                     {changed ? `${MAFIA_ROLES[r.originalRole].label} ← ` : ""}

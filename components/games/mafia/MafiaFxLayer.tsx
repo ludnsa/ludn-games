@@ -1,59 +1,14 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import React, { useEffect, useState } from "react";
 import { subscribeMafiaFx, type MafiaFxEvent, type MafiaFxKind } from "@/lib/game/mafia-fx";
-import { MAFIA_CONFIG } from "@/constants/mafia";
+import { MAFIA_BACKGROUNDS, MAFIA_CONFIG, mafiaIconSrc } from "@/constants/mafia";
+import type { MafiaRole } from "@/types";
 import "./mafia-fx.css";
 
-/** العنصر اللي يهتز — يلف شاشة اللعبة كاملة (MafiaApp) */
+/** غلاف شاشة اللعبة كاملة (MafiaApp) */
 export const MAFIA_STAGE_ID = "mafia-stage";
-
-type StageMove = "shake" | "bigShake" | "punch" | "wobble";
-
-const STAGE_KEYFRAMES: Record<StageMove, { frames: Keyframe[]; duration: number }> = {
-  shake: {
-    frames: [0, -8, 7, -6, 5, -3, 0].map((x, i) => ({ transform: `translate(${x}px, ${i % 2 ? 4 : -4}px)` })),
-    duration: 420,
-  },
-  bigShake: {
-    frames: [0, -16, 14, -12, 10, -7, 4, 0].map((x, i) => ({
-      transform: `translate(${x}px, ${i % 2 ? 9 : -9}px) rotate(${x / 8}deg)`,
-    })),
-    duration: 650,
-  },
-  punch: {
-    frames: [{ transform: "scale(1)" }, { transform: "scale(1.045)" }, { transform: "scale(1)" }],
-    duration: 300,
-  },
-  wobble: {
-    frames: [0, -2, 2, -1.5, 1, 0].map((r) => ({ transform: `rotate(${r}deg)` })),
-    duration: 900,
-  },
-};
-
-/** يهز شاشة اللعبة على لحظات الذروة في الصوت */
-function moveStage(move: StageMove, peaks: number[]) {
-  // الاهتزاز جزء من اللعبة نفسها، فيشتغل حتى لو الجهاز مفعّل "تقليل الحركة"
-  const stage = document.getElementById(MAFIA_STAGE_ID);
-  if (!stage) return;
-  const { frames, duration } = STAGE_KEYFRAMES[move];
-  peaks.forEach((p) => stage.animate(frames, { duration, delay: p * 1000, easing: "ease-out" }));
-}
-
-const STAGE_MOVE: Partial<Record<MafiaFxKind, StageMove>> = {
-  kill: "bigShake",
-  slash: "shake",
-  reveal_mafia: "punch",
-  investigate: "punch",
-  miss: "wobble",
-  shield: "shake",
-  bomb: "bigShake",
-  doom: "shake",
-  win_mafia: "bigShake",
-  victim: "bigShake",
-  victim_bomb: "bigShake",
-  escaped: "shake",
-};
 
 /** كل القيم العشوائية تنحسب مرة وحدة لحظة الحدث، عشان الرسم يظل ثابت */
 interface ActiveFx extends MafiaFxEvent {
@@ -64,10 +19,13 @@ interface ActiveFx extends MafiaFxEvent {
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
+const BLOOD_KINDS: MafiaFxKind[] = ["kill", "win_mafia", "victim", "hushed", "victim_hushed"];
+const VICTIM_KINDS: MafiaFxKind[] = ["victim", "victim_bomb", "escaped", "victim_hushed"];
+
 function prepare(e: MafiaFxEvent): ActiveFx {
   const d = Math.max(e.duration, 1);
-  const withBlood = e.kind === "kill" || e.kind === "win_mafia" || e.kind === "victim";
-  const isVictim = e.kind === "victim" || e.kind === "victim_bomb" || e.kind === "escaped";
+  const withBlood = BLOOD_KINDS.includes(e.kind);
+  const isVictim = VICTIM_KINDS.includes(e.kind);
   const bitCount =
     e.kind === "win_town"
       ? 80
@@ -103,32 +61,19 @@ function prepare(e: MafiaFxEvent): ActiveFx {
   };
 }
 
-const BIG_EMOJI: Partial<Record<MafiaFxKind, string>> = {
-  kill: "💀",
-  reveal_mafia: "🚨",
-  investigate: "🔍",
-  miss: "🤷",
-  saved: "💉",
-  shield: "🛡️",
-  bomb: "💥",
-  magic: "🎩",
-  flash: "📸",
-  doom: "⚖️",
-  win_town: "🏆",
-  win_mafia: "😈",
-};
+/*
+ * الحركات هنا مؤثرات بس (دم، وميض، حلقات، شاشة حمراء/زرقاء...) بدون شي بنص الشاشة:
+ * ردة الفعل نفسها هي أيقونة الدور اللي على الشاشة تحتها (تم الاغتيال، تم التحقيق، نتائج الصباح...)،
+ * فما نغطي عليها.
+ * المحقق: لقى مافيا = الشاشة الحمراء، ما لقى = الشاشة الزرقاء (وأيقونة النتيجة على شاشته).
+ */
 
 /** رسالة الضحية — تطلع على جوالها بس */
-const VICTIM_TEXT: Partial<Record<MafiaFxKind, { title: string; sub: string }>> = {
-  victim: { title: "المافيا ذبحوك! 🔪", sub: "يا حرام… طلعت من اللعبة" },
-  victim_bomb: { title: "الانتحاري أخذك معه! 💣", sub: "كنت في المكان الغلط 😵" },
-  escaped: { title: "المافيا حاولوا يذبحونك!", sub: "بس فكك الله 😈" },
-};
-
-const VICTIM_ICON: Partial<Record<MafiaFxKind, string>> = {
-  victim: "💀",
-  victim_bomb: "💥",
-  escaped: "😈",
+const VICTIM_TEXT: Partial<Record<MafiaFxKind, { title: string; sub: string; role: MafiaRole }>> = {
+  victim: { title: "المافيا ذبحوك!", sub: "يا حرام… طلعت من اللعبة", role: "mafia" },
+  victim_bomb: { title: "المنتقم أخذك معه!", sub: "كنت في المكان الغلط", role: "suicide" },
+  escaped: { title: "المافيا حاولوا يذبحونك!", sub: "بس فكك الله", role: "mafia" },
+  victim_hushed: { title: "تكلمت وأنت ممنوع!", sub: "المسكت سكّتك… وطلعت من اللعبة", role: "silencer" },
 };
 
 export default function MafiaFxLayer() {
@@ -139,10 +84,6 @@ export default function MafiaFxLayer() {
       subscribeMafiaFx((e) => {
         const fx = prepare(e);
         setActive((list) => [...list, fx]);
-
-        const move = STAGE_MOVE[e.kind];
-        if (move) moveStage(move, e.kind === "bomb" ? [e.peaks[0] ?? 0] : e.peaks);
-
         const lifetime = (sceneSeconds(e) + 0.3) * 1000;
         setTimeout(() => setActive((list) => list.filter((a) => a.id !== fx.id)), lifetime);
       }),
@@ -162,12 +103,12 @@ export default function MafiaFxLayer() {
 
 /**
  * مدة ظهور الحركة كاملة.
- * رسايل الضحية (الذبح والانتحاري) تطلع بالصباح، فتظل أطول عشان تنقرا.
+ * رسايل الضحية (الذبح والمنتقم والمسكت) تطلع بالصباح، فتظل أطول عشان تنقرا.
  */
 function sceneSeconds(e: MafiaFxEvent): number {
   const base = Math.max(e.duration, 1.2) + 1;
   if (e.kind === "escaped") return Math.min(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.6);
-  if (e.kind === "victim" || e.kind === "victim_bomb") return Math.max(base, 6);
+  if (e.kind === "victim" || e.kind === "victim_bomb" || e.kind === "victim_hushed") return Math.max(base, 6);
   // الحماية تملأ شاشة "تمت الحماية" (5 ثواني) بدل ما تخلص بعد ثانيتين
   if (e.kind === "saved") return Math.max(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.4);
   return base;
@@ -177,23 +118,23 @@ function FxScene({ fx }: { fx: ActiveFx }) {
   const total = sceneSeconds(fx);
   const victim = VICTIM_TEXT[fx.kind];
   const first = fx.peaks[0] ?? 0;
-  const emoji = BIG_EMOJI[fx.kind];
+  const k = fx.kind;
 
   return (
     // الغلاف كله يختفي تدريجياً في النهاية
     <div className="mfx-scene" style={{ animationDuration: `${total}s` }}>
       {/* ظلام الأطراف */}
-      {(fx.kind === "kill" || fx.kind === "doom" || fx.kind === "win_mafia" || victim) && (
+      {(k === "kill" || k === "doom" || k === "win_mafia" || k === "hushed" || victim) && (
         <div className="mfx-vignette" style={{ animationDuration: `${total}s` }} />
       )}
-      {fx.kind === "reveal_mafia" && (
-        <div className="mfx-vignette mfx-vignette-red" style={{ animationDuration: `${total}s` }} />
-      )}
+      {/* المحقق: أحمر لو مافيا، أزرق لو مواطن */}
+      {k === "reveal_mafia" && <div className="mfx-vignette mfx-vignette-red" style={{ animationDuration: `${total}s` }} />}
+      {k === "miss" && <div className="mfx-vignette mfx-vignette-blue" style={{ animationDuration: `${total}s` }} />}
 
       {/* خلفية الضحية الحمراء — تحت الدم */}
       {victim && (
         <div
-          className={`mfx-victim-bg ${fx.kind === "escaped" ? "mfx-victim-bg-escaped" : ""}`}
+          className={`mfx-victim-bg ${k === "escaped" ? "mfx-victim-bg-escaped" : ""}`}
           style={{ animationDelay: `${first}s` }}
         />
       )}
@@ -215,33 +156,29 @@ function FxScene({ fx }: { fx: ActiveFx }) {
       ))}
 
       {/* وميض على كل ذروة */}
-      {(fx.kind === "kill" ||
-        fx.kind === "slash" ||
-        fx.kind === "win_mafia" ||
-        fx.kind === "victim" ||
-        fx.kind === "escaped") &&
-        fx.peaks.map((p, i) => (
-          <div key={i} className="mfx-flash mfx-flash-red" style={{ animationDelay: `${p}s` }} />
-        ))}
-      {(fx.kind === "flash" || fx.kind === "reveal_mafia" || fx.kind === "investigate") &&
+      {(k === "kill" || k === "slash" || k === "win_mafia" || k === "victim" || k === "escaped" || k === "hushed" || k === "victim_hushed") &&
+        fx.peaks.map((p, i) => <div key={i} className="mfx-flash mfx-flash-red" style={{ animationDelay: `${p}s` }} />)}
+      {k === "miss" &&
+        fx.peaks.map((p, i) => <div key={i} className="mfx-flash mfx-flash-blue" style={{ animationDelay: `${p}s` }} />)}
+      {(k === "flash" || k === "reveal_mafia" || k === "investigate") &&
         fx.peaks.map((p, i) => (
           <div
             key={i}
             className="mfx-flash mfx-flash-white"
-            style={{ animationDelay: `${p}s`, animationDuration: fx.kind === "flash" ? "0.3s" : "0.35s" }}
+            style={{ animationDelay: `${p}s`, animationDuration: k === "flash" ? "0.3s" : "0.35s" }}
           />
         ))}
-      {(fx.kind === "bomb" || fx.kind === "victim_bomb") && (
+      {(k === "bomb" || k === "victim_bomb") && (
         <div className="mfx-flash mfx-flash-white" style={{ animationDelay: `${first}s`, animationDuration: "0.6s" }} />
       )}
 
       {/* ضربة السيف */}
-      {(fx.kind === "slash" || fx.kind === "kill" || fx.kind === "win_mafia" || fx.kind === "victim") && (
+      {(k === "slash" || k === "kill" || k === "win_mafia" || k === "victim") && (
         <div className="mfx-slash" style={{ animationDelay: `${Math.max(0, first - 0.15)}s` }} />
       )}
 
       {/* البرق */}
-      {(fx.kind === "reveal_mafia" || fx.kind === "investigate") &&
+      {(k === "reveal_mafia" || k === "investigate") &&
         fx.peaks.map((p, i) => (
           <svg
             key={i}
@@ -254,16 +191,14 @@ function FxScene({ fx }: { fx: ActiveFx }) {
         ))}
 
       {/* درع النور */}
-      {(fx.kind === "shield" || fx.kind === "escaped") && (
-        <div className="mfx-ring" style={{ animationDelay: `${first}s` }} />
-      )}
+      {(k === "shield" || k === "escaped") && <div className="mfx-ring" style={{ animationDelay: `${first}s` }} />}
 
       {/* الحماية: الحلقة الخضراء تنبض 3 مرات، وخط نبض القلب يرتسم مرتين */}
-      {fx.kind === "saved" &&
+      {k === "saved" &&
         [0, 1.2, 2.4].map((d) => (
           <div key={d} className="mfx-ring mfx-ring-green" style={{ animationDelay: `${first + d}s` }} />
         ))}
-      {fx.kind === "saved" &&
+      {k === "saved" &&
         [0, 1.8].map((d) => (
           <svg
             key={d}
@@ -277,7 +212,7 @@ function FxScene({ fx }: { fx: ActiveFx }) {
         ))}
 
       {/* جزيئات */}
-      {fx.kind === "saved" &&
+      {k === "saved" &&
         fx.bits.map((b, i) => (
           <span
             key={i}
@@ -292,7 +227,7 @@ function FxScene({ fx }: { fx: ActiveFx }) {
             ✚
           </span>
         ))}
-      {fx.kind === "magic" &&
+      {k === "magic" &&
         fx.bits.map((b, i) => (
           <span
             key={i}
@@ -307,7 +242,7 @@ function FxScene({ fx }: { fx: ActiveFx }) {
             }}
           />
         ))}
-      {fx.kind === "win_town" &&
+      {k === "win_town" &&
         fx.bits.map((b, i) => (
           <span
             key={i}
@@ -320,7 +255,7 @@ function FxScene({ fx }: { fx: ActiveFx }) {
             }}
           />
         ))}
-      {(fx.kind === "bomb" || fx.kind === "victim_bomb") &&
+      {(k === "bomb" || k === "victim_bomb") &&
         fx.bits.map((b, i) => (
           <span
             key={i}
@@ -335,58 +270,39 @@ function FxScene({ fx }: { fx: ActiveFx }) {
           />
         ))}
 
-      {/* رسالة الضحية: تغطي الشاشة بلون الدم */}
+      {/* رسالة الضحية: تغطي الشاشة بلون الدم، وبنصها أيقونة اللي قتله */}
       {victim && (
         <div className="mfx-victim" style={{ animationDelay: `${first}s` }}>
-          <span className="mfx-victim-skull">{VICTIM_ICON[fx.kind]}</span>
+          <img src={mafiaIconSrc(victim.role)} alt="" className="mfx-victim-icon" />
           <span className="mfx-victim-title">{victim.title}</span>
           <span className="mfx-victim-sub">{victim.sub}</span>
         </div>
-      )}
-
-      {/* الإيموجي الكبير في النص */}
-      {emoji && !victim && (
-        <span
-          className="mfx-big-emoji"
-          style={{ animationDelay: `${first}s`, animationDuration: `${Math.min(2.2, Math.max(1.4, fx.duration))}s` }}
-        >
-          {emoji}
-        </span>
       )}
     </div>
   );
 }
 
-/** أجواء الليل الثابتة: قمر ونجوم وضباب يتحرك */
-export function MafiaNightSky() {
-  const [stars] = useState(() =>
-    Array.from({ length: 40 }, () => ({
-      left: rand(0, 100),
-      top: rand(0, 55),
-      delay: rand(0, 4),
-      dur: rand(2, 5),
-      size: rand(1, 3),
-    }))
-  );
+/**
+ * خلفية اللعبة: صورة الليل أو النهار — تتبدل بينهم بتلاشي، والليل فوقه ضباب يتحرك.
+ * الصورتين تنحمّلون من البداية، فالصباح ما يتأخر.
+ */
+export function MafiaBackdrop({ night }: { night: boolean }) {
   return (
-    <div aria-hidden className="absolute inset-0 overflow-hidden animate-in fade-in duration-1000">
-      {stars.map((s, i) => (
-        <span
-          key={i}
-          className="mfx-star"
-          style={{
-            left: `${s.left}%`,
-            top: `${s.top}%`,
-            width: s.size,
-            height: s.size,
-            animationDelay: `${s.delay}s`,
-            animationDuration: `${s.dur}s`,
-          }}
-        />
-      ))}
-      <div className="mfx-moon" />
-      <div className="mfx-fog" />
-      <div className="mfx-fog mfx-fog-2" />
+    <div aria-hidden className="fixed inset-0 -z-10 bg-slate-950 overflow-hidden">
+      <div
+        className="mfx-bg mfx-bg-day"
+        style={{ backgroundImage: `url(${MAFIA_BACKGROUNDS.day})`, opacity: night ? 0 : 1 }}
+      />
+      <div
+        className="mfx-bg mfx-bg-night"
+        style={{ backgroundImage: `url(${MAFIA_BACKGROUNDS.night})`, opacity: night ? 1 : 0 }}
+      />
+      {night && (
+        <div className="absolute inset-0 animate-in fade-in duration-1000">
+          <div className="mfx-fog" />
+          <div className="mfx-fog mfx-fog-2" />
+        </div>
+      )}
     </div>
   );
 }

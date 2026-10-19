@@ -20,7 +20,7 @@ import type {
 // ---------------------------------------------------------------------
 
 /**
- * خانات المواطنين: كل اللاعبين ناقص المافيا والمحقق والدكتور.
+ * خانات المواطنين: كل اللاعبين ناقص المافيا والمحقق والطبيب.
  * الفئات الاختيارية (الساحر، الصحفي…) من صف المواطنين، فكل وحدة تاخذ مكان مواطن عادي —
  * ما تحتاج لاعب زيادة.
  */
@@ -85,7 +85,7 @@ export interface EnginePlayer {
   soldierShieldUsed: boolean;
   abilityUsed: boolean;
   suicideTarget: string | null;
-  /** آخر واحد اختاره الليلة اللي قبل: الدكتور (حماه) أو المسكت (سكّته) — ما يختارونه ليلتين ورا بعض */
+  /** آخر واحد اختاره الليلة اللي قبل: الطبيب (حماه) أو المسكت (سكّته) — ما يختارونه ليلتين ورا بعض */
   lastProtected: string | null;
 }
 
@@ -165,15 +165,15 @@ export interface NightResolution {
   shieldUsedBy: string[];
   abilityUsedBy: string[];
   roleChanges: { playerId: string; role: MafiaRole }[];
-  /** آخر اختيار للدكتور والمسكت — ينحفظ عشان ما يكررونه الليلة الجاية */
+  /** آخر اختيار للطبيب والمسكت — ينحفظ عشان ما يكررونه الليلة الجاية */
   lastProtected: { actorId: string; targetId: string | null }[];
   notes: { playerId: string; text: string }[];
 }
 
-/** مصير ضحية المافيا الليلة — ينعرف أول ما يخلص دور المافيا، لأن الدكتور قبلهم */
+/** مصير ضحية المافيا الليلة — ينعرف أول ما يخلص دور المافيا، لأن الطبيب قبلهم */
 export interface MafiaKillOutcome {
   victimId: string | null;
-  /** killed = انذبح، saved = الدكتور حماه، shield = درع الجندي أنقذه */
+  /** killed = انذبح، saved = الطبيب حماه، shield = درع الجندي أنقذه */
   fate: "killed" | "saved" | "shield" | null;
 }
 
@@ -196,7 +196,7 @@ export function mafiaKillOutcome(players: EnginePlayer[], actions: EngineAction[
 export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): NightResolution {
   const byId = new Map(players.map((p) => [p.id, p]));
   const outcome = mafiaKillOutcome(players, actions);
-  // ضحية الذبح تكمل دورها تلك الليلة عادي (المحقق يحقق، الصحفي يكشف، الانتحاري يختار)
+  // ضحية الذبح تكمل دورها تلك الليلة عادي (المحقق يحقق، الصحفي يكشف، المنتقم يختار)
   const aliveActor = (a: EngineAction) => byId.get(a.actorId)?.alive === true;
   const acts = (step: MafiaNightStep) => actions.filter((a) => a.step === step && aliveActor(a) && a.targetId);
 
@@ -210,7 +210,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     notes: [],
   };
 
-  // الدكتور (ممكن يكونون أكثر من واحد لو الساحر أخذ فئة الدكتور) — نحفظ مين حمى عشان الليلة الجاية
+  // الطبيب (ممكن يكونون أكثر من واحد لو الساحر أخذ فئة الطبيب) — نحفظ مين حمى عشان الليلة الجاية
   players
     .filter((p) => p.alive && p.role === "doctor")
     .forEach((doc) => {
@@ -230,7 +230,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
   if (!victim || !outcome.fate) {
     out.announcements.push({ kind: "quiet", emoji: "🌙", text: "ليلة هادئة… المافيا ما ذبحوا أحد" });
   } else if (outcome.fate === "saved") {
-    out.announcements.push({ kind: "saved", emoji: "💉", text: "حماية ناجحة! الدكتور أنقذ أحد اللاعبين الليلة" });
+    out.announcements.push({ kind: "saved", emoji: "💉", text: "حماية ناجحة! الطبيب أنقذ أحد اللاعبين الليلة" });
   } else if (outcome.fate === "shield") {
     out.shieldUsedBy.push(victim.id);
     // الجندي ينكشف اسمه لما ينجو — مكافأة للمواطنين
@@ -244,7 +244,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
       targetId: victim.id,
     });
 
-    // الانتحاري ينفجر بس لو انذبح (مو بالتصويت)، وهدفه يموت حتى لو محمي
+    // المنتقم ينفجر بس لو انذبح (مو بالتصويت)، وهدفه يموت حتى لو محمي
     const boomId = victim.role === "suicide" ? victim.suicideTarget : null;
     const boom = boomId ? byId.get(boomId) : undefined;
     if (boom && boom.alive && boom.id !== victim.id) {
@@ -252,7 +252,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
       out.announcements.push({
         kind: "bomb",
         emoji: "💣",
-        text: `الانتحاري فجّر نفسه وأخذ معه ${boom.name}!`,
+        text: `المنتقم فجّر نفسه وأخذ معه ${boom.name}!`,
         targetId: boom.id,
       });
     }
@@ -287,11 +287,11 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     out.announcements.push({
       kind: "journalist",
       emoji: "📰",
-      text: `الصحفي كشف: ${target.name} فئته ${def.label} ${def.emoji}`,
+      text: `الصحفي كشف: ${target.name} فئته ${def.label}`,
     });
   });
 
-  // الساحر — ياخذ مكان المحقق أو الدكتور أو الجندي اللي مات، بشرط إنه نجا من الليلة.
+  // الساحر — ياخذ مكان المحقق أو الطبيب أو الجندي اللي مات، بشرط إنه نجا من الليلة.
   // ما يطلع أي إعلان للكل: هو يحاول يقنعهم بدوره وقت النقاش.
   acts("magician").forEach((a) => {
     const magician = byId.get(a.actorId);
@@ -305,7 +305,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     out.roleChanges.push({ playerId: magician.id, role: newRole });
     out.notes.push({
       playerId: magician.id,
-      text: `🎩 جاء دورك! صرت ${def.label} ${def.emoji} — ${def.label} الأصلي ودّع الملاعب`,
+      text: `جاء دورك! صرت ${def.label} — ${def.label} الأصلي ودّع الملاعب`,
     });
   });
 
@@ -362,7 +362,7 @@ export function groupVoters(votes: { voterId: string; targetId: string | null }[
   return voters;
 }
 
-/** طلع بالتصويت وهو انتحاري: يطير معه آخر واحد اختاره (لو للحين حي)، وإلا يطلع لحاله */
+/** طلع بالتصويت وهو المنتقم: يطير معه آخر واحد اختاره (لو للحين حي)، وإلا يطلع لحاله */
 export function voteBombTarget(players: EnginePlayer[], eliminatedId: string | null): string | null {
   const out = players.find((p) => p.id === eliminatedId);
   if (!out || out.role !== "suicide" || !out.suicideTarget) return null;
@@ -384,7 +384,7 @@ export function resolveVotes(counts: Record<string, number>): MafiaVoteResult {
 
 /**
  * المواطنين يفوزون إذا ما بقى مافيا، والمافيا يفوزون إذا صاروا أكثر من الباقين.
- * التساوي = فوز المافيا، إلا لو الدكتور حي (يقدر يكسر التعادل بحماية ناجحة) — حتى لو
+ * التساوي = فوز المافيا، إلا لو الطبيب حي (يقدر يكسر التعادل بحماية ناجحة) — حتى لو
  * التساوي جا من ذبح بالليل. الاستثناء: واحد ضد واحد، التصويت بينهم تعادل دايماً فتنتهي.
  */
 export function checkWinner(players: { alive: boolean; role: MafiaRole }[]): MafiaTeam | null {
@@ -415,8 +415,8 @@ export type MafiaNightShortcut = { kind: "end"; winner: MafiaTeam; resolution: N
  * لو نتيجة الليل تحسم اللعبة، ننهيها على طول بدون باقي الأدوار وبدون صباح.
  * إلا لو فيه دور باقي ممكن يغيّر النتيجة — نكمل الليل بترتيبه العادي (ولا نتخطى أي دور،
  * حتى أدوار الموتى، عشان محد يعرف مين حي)، ونفحص من جديد بعد كل دور:
- * - الانتحاري المذبوح: يختار هدفه الليلة (الضحية يكمل دوره)، وانفجاره ممكن يطلّع آخر مافيا.
- * - الساحر: لو المافيا فايزين بالتعادل، ممكن يصير دكتور ويكسره.
+ * - المنتقم المذبوح: يختار هدفه الليلة (الضحية يكمل دوره)، وانفجاره ممكن يطلّع آخر مافيا.
+ * - الساحر: لو المافيا فايزين بالتعادل، ممكن يصير طبيب ويكسره.
  */
 export function mafiaNightShortcut(
   players: EnginePlayer[],
