@@ -128,7 +128,7 @@ export const MAFIA_ROLES: Record<MafiaRole, MafiaRoleDef> = {
     key: "suicide",
     label: "المنتقم",
     team: "town",
-    description: "كل ليلة تختار لاعب. إذا المافيا ذبحوك، تنفجر وتاخذ آخر واحد اخترته معك.",
+    description: "كل ليلة تختار لاعب. إذا المافيا ذبحوك، تنفجر وتاخذ آخر واحد اخترته معك. ما تقدر تختار نفس الشخص ليلتين ورا بعض.",
     accent: "from-orange-500 to-red-700",
     art: "avenger",
     glow: "#f97316",

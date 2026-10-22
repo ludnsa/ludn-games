@@ -619,7 +619,7 @@ async function buildTask(
     step,
     mode: "pick",
     options,
-    selectedId: mine?.target_id ?? (step === "suicide" ? me.suicideTarget : null),
+    selectedId: mine?.target_id ?? null,
     locked: Boolean(mine),
   };
 
@@ -789,7 +789,7 @@ export async function submitMafiaDecoy(input: {
   return { success: true };
 }
 
-/** مافيا (غير القائد) يقترح ضحية — يقدر يغيّر اقتراحه لين القائد يحسم */
+/** مافيا (غير القائد) يقترح ضحية — مرة وحدة، وما يقدر يغيّر اقتراحه عشان ما يلخبط القائد */
 export async function suggestMafiaTarget(input: {
   roomCode: string;
   token: string;
@@ -809,17 +809,15 @@ export async function suggestMafiaTarget(input: {
   const target = allowedTargets(me, "mafia", engine).find((p) => p.id === input.targetId);
   if (!target) return fail("ما تقدر تقترح هذا اللاعب.");
 
-  const { error } = await admin.from("mafia_actions").upsert(
-    {
-      room_code: room.room_code,
-      night: room.night_number,
-      step: MAFIA_SUGGEST_STEP,
-      actor_id: me.id,
-      target_id: target.id,
-    },
-    { onConflict: "room_code,night,step,actor_id" }
-  );
+  const { error } = await admin.from("mafia_actions").insert({
+    room_code: room.room_code,
+    night: room.night_number,
+    step: MAFIA_SUGGEST_STEP,
+    actor_id: me.id,
+    target_id: target.id,
+  });
   if (error) {
+    if (error.code === "23505") return fail("اقتراحك وصل للقائد، ما تقدر تغيّره.");
     console.error("suggestMafiaTarget error:", error);
     return fail("تعذّر حفظ اقتراحك.");
   }
@@ -1181,10 +1179,7 @@ async function fillMissingActions(admin: Admin, room: MafiaRoom, step: MafiaNigh
       const suggested = rows.filter((r) => r.step === MAFIA_SUGGEST_STEP && r.target_id).map((r) => r.target_id!);
       targetId = pickMafiaSuggestion(suggested, new Set(allowed.map((a) => a.id)));
     }
-    // المنتقم: يظل على آخر هدف اختاره بنفسه، والعشوائي بس لو ما اختار أبد (أو هدفه مات)
-    if (step === "suicide" && p.suicideTarget && allowed.some((a) => a.id === p.suicideTarget)) {
-      targetId = p.suicideTarget;
-    }
+    // الباقي (ومنهم المنتقم): عشوائي من المسموح — والمنتقم ما يرجع لهدف الليلة اللي قبل
     targetId ??= pickRandom(allowed)?.id ?? null;
     if (!targetId) continue;
 

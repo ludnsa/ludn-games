@@ -102,7 +102,6 @@ function DetectiveResult({ result }: { result: { targetName: string; isMafia: bo
  * لما كل الأحياء يختارون (صاحب الدور + سؤال التمويه للباقين).
  */
 function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
-  // المنتقم يبدأ من آخر هدف اختاره، فيقدر يضغط استمرار على طول
   const [pending, setPending] = useState<string | null>(task.selectedId);
   const def = MAFIA_NIGHT_STEPS[task.step];
   const optional = OPTIONAL_STEPS.includes(task.step);
@@ -137,6 +136,11 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
           {task.step === "silencer" && (
             <p className="text-center text-xs font-bold text-slate-400 -mt-1 mb-3">
               ما تقدر تختار نفس الشخص اللي سكّته الليلة اللي قبل
+            </p>
+          )}
+          {task.step === "suicide" && (
+            <p className="text-center text-xs font-bold text-slate-400 -mt-1 mb-3">
+              ما تقدر تختار نفس هدفك الليلة اللي قبل
             </p>
           )}
           {task.step === "mafia" && task.suggestions && task.suggestions.length > 0 && (
@@ -240,14 +244,15 @@ function MafiaSuggestCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask })
       <PlayerPicker
         options={task.options}
         selectedId={task.selectedId}
-        disabled={task.locked || ctx.busy}
+        // اقتراح وحد بس: أول ما يختار يتقفل، عشان ما يلخبط القائد
+        disabled={task.locked || ctx.busy || Boolean(task.selectedId)}
         accent="red"
         onPick={(id) => ctx.suggest(id)}
       />
 
       {!task.locked && (
         <p className="mt-3 text-center text-xs font-bold text-slate-400">
-          {task.selectedId ? "وصل اقتراحك — تقدر تغيّره لين القائد يحسم" : "اضغط على اسم عشان تقترحه"}
+          {task.selectedId ? "وصل اقتراحك للقائد" : "اضغط على اسم عشان تقترحه — ما تقدر تغيّره بعدها"}
         </p>
       )}
       {needsAck && (

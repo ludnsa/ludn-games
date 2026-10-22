@@ -85,7 +85,7 @@ export interface EnginePlayer {
   soldierShieldUsed: boolean;
   abilityUsed: boolean;
   suicideTarget: string | null;
-  /** آخر واحد اختاره الليلة اللي قبل: الطبيب (حماه) أو المسكت (سكّته) — ما يختارونه ليلتين ورا بعض */
+  /** آخر واحد اختاره الليلة اللي قبل: الطبيب (حماه) أو المسكت (سكّته) أو المنتقم (هدفه) — ما يختارونه ليلتين ورا بعض */
   lastProtected: string | null;
 }
 
@@ -150,6 +150,9 @@ export function allowedTargets(actor: EnginePlayer, step: MafiaNightStep, player
     case "silencer":
       // المسكت: غيره، وبس مو نفس اللي سكّته الليلة اللي قبل
       return alive.filter((p) => p.id !== actor.id && p.id !== actor.lastProtected);
+    case "suicide":
+      // المنتقم: غيره، وبس مو نفس هدف الليلة اللي قبل
+      return alive.filter((p) => p.id !== actor.id && p.id !== actor.lastProtected);
     default:
       return alive.filter((p) => p.id !== actor.id);
   }
@@ -165,7 +168,7 @@ export interface NightResolution {
   shieldUsedBy: string[];
   abilityUsedBy: string[];
   roleChanges: { playerId: string; role: MafiaRole }[];
-  /** آخر اختيار للطبيب والمسكت — ينحفظ عشان ما يكررونه الليلة الجاية */
+  /** آخر اختيار للطبيب والمسكت والمنتقم — ينحفظ عشان ما يكررونه الليلة الجاية */
   lastProtected: { actorId: string; targetId: string | null }[];
   notes: { playerId: string; text: string }[];
 }
@@ -223,6 +226,12 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
       const act = acts("silencer").find((a) => a.actorId === s.id);
       out.lastProtected.push({ actorId: s.id, targetId: act?.targetId ?? null });
     });
+  players
+    .filter((p) => p.alive && p.role === "suicide")
+    .forEach((s) => {
+      const act = acts("suicide").find((a) => a.actorId === s.id);
+      out.lastProtected.push({ actorId: s.id, targetId: act?.targetId ?? null });
+    });
 
   // الذبح (نفس منطق mafiaKillOutcome — مصدر واحد)
   const victim = outcome.victimId ? byId.get(outcome.victimId) : undefined;
@@ -230,7 +239,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
   if (!victim || !outcome.fate) {
     out.announcements.push({ kind: "quiet", emoji: "🌙", text: "ليلة هادئة… المافيا ما ذبحوا أحد" });
   } else if (outcome.fate === "saved") {
-    out.announcements.push({ kind: "saved", emoji: "💉", text: "حماية ناجحة! الطبيب أنقذ أحد اللاعبين الليلة" });
+    out.announcements.push({ kind: "saved", emoji: "💉", text: `حماية صحيحة! محاولة الذبح كانت على ${victim.name}` });
   } else if (outcome.fate === "shield") {
     out.shieldUsedBy.push(victim.id);
     // الجندي ينكشف اسمه لما ينجو — مكافأة للمواطنين
