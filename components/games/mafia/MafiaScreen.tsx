@@ -312,6 +312,7 @@ const DEV_CUES: { label: string; sound: MafiaSound; fx?: MafiaFxKind }[] = [
   { label: "فوز المدينة", sound: "win", fx: "win_town" },
   { label: "فوز المافيا", sound: "evil", fx: "win_mafia" },
   { label: "رسالة الضحية", sound: "horror", fx: "victim" },
+  { label: "رسالة الغشاش", sound: "horror", fx: "victim_cheat" },
   { label: "بومة", sound: "owl" },
   { label: "الليل", sound: "night" },
   { label: "الصبح", sound: "rooster" },

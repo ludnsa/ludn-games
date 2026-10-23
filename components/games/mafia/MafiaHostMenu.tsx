@@ -4,10 +4,13 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Crown, X, SkipForward, Square, RotateCcw, Home, Loader2, UserX, DoorOpen } from "lucide-react";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
+import type { MafiaPlayer } from "@/types";
 import MafiaHomeButton from "./MafiaHomeButton";
 import { RoleIcon } from "./MafiaParts";
 
 type Confirmable = "end" | "restart" | "newRoom" | null;
+/** قائمة الأسماء المفتوحة: طرد (يطلع من الغرفة) أو ذبح غشاش (يموت ويظل بالغرفة) */
+type Picker = "kick" | "cheat" | null;
 
 /**
  * زر التخطي تحت الشاشة (للمنشئ بس) — لو أحد تأخر بالليل أو بالتصويت.
@@ -85,20 +88,22 @@ export function MafiaHostHush({ ctx }: { ctx: MafiaGameCtx }) {
 export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState<Confirmable>(null);
-  const [showKick, setShowKick] = useState(false);
-  const [kickTarget, setKickTarget] = useState<string | null>(null);
+  const [picker, setPicker] = useState<Picker>(null);
   const { room, host, busy, players } = ctx;
   if (!room) return null;
 
   const playing = room.phase !== "lobby" && room.phase !== "ended";
+  const day = room.phase === "morning" || room.phase === "discussion" || room.phase === "voting";
   const close = () => {
     setOpen(false);
     setConfirming(null);
-    setShowKick(false);
-    setKickTarget(null);
+    setPicker(null);
   };
+  const togglePicker = (p: Picker) => setPicker((cur) => (cur === p ? null : p));
 
   const kickable = players.filter((p) => p.id !== room.host_player_id);
+  // الغشاش ينذبح بس وقت النهار (مثل الممنوع من الكلام)
+  const cheatable = day ? kickable.filter((p) => p.is_alive) : [];
 
   const runAndClose = async (fn: () => Promise<unknown>) => {
     await fn();
@@ -174,42 +179,43 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
                     label="طرد لاعب"
                     hint="يطلع من الغرفة فوراً وما يقدر يرجع لين تخلص الجولة"
                     tone="danger"
-                    onClick={() => {
-                      setShowKick((v) => !v);
-                      setKickTarget(null);
-                    }}
+                    onClick={() => togglePicker("kick")}
                     disabled={busy}
                   />
                 )}
 
-                {showKick && (
-                  <div className="grid grid-cols-2 gap-2 p-2 rounded-2xl bg-slate-950/60 max-h-64 overflow-y-auto">
-                    {kickable.map((p) => {
-                      const armed = kickTarget === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          disabled={busy}
-                          onClick={async () => {
-                            if (!armed) {
-                              setKickTarget(p.id);
-                              return;
-                            }
-                            const res = await host.kick(p.id);
-                            if (res?.success) setKickTarget(null);
-                          }}
-                          className={`min-h-11 py-2.5 px-2 rounded-xl font-black text-sm leading-tight break-words border-b-4 transition-colors ${
-                            armed
-                              ? "bg-red-600 border-red-800 text-white animate-pulse"
-                              : "bg-slate-800 border-slate-950 text-slate-100"
-                          } ${p.is_alive ? "" : "opacity-60"}`}
-                        >
-                          {armed ? `اطرد ${p.display_name}؟` : p.display_name}
-                        </button>
-                      );
-                    })}
-                  </div>
+                {picker === "kick" && (
+                  <PlayerGrid
+                    players={kickable}
+                    busy={busy}
+                    armedLabel={(name) => `اطرد ${name}؟`}
+                    onConfirm={async (id) => Boolean((await host.kick(id))?.success)}
+                  />
+                )}
+
+                {cheatable.length > 0 && (
+                  <MenuButton
+                    icon={<RoleIcon role="mafia" className="w-6 h-6 -my-1" />}
+                    label="ذبح غشّاش"
+                    hint="يموت ويظل بالغرفة يتفرج — مو طرد. بس وقت النهار"
+                    tone="danger"
+                    onClick={() => togglePicker("cheat")}
+                    disabled={busy}
+                  />
+                )}
+
+                {picker === "cheat" && cheatable.length > 0 && (
+                  <PlayerGrid
+                    players={cheatable}
+                    busy={busy}
+                    armedLabel={(name) => `اذبح ${name}؟`}
+                    onConfirm={async (id) => {
+                      const ok = Boolean((await host.killCheater(id))?.success);
+                      // نقفل القائمة عشان المنشئ يشوف الإعلان والحركة
+                      if (ok) close();
+                      return ok;
+                    }}
+                  />
                 )}
 
                 {room.phase !== "lobby" && (
@@ -258,6 +264,49 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
           document.body
         )}
     </>
+  );
+}
+
+/** أسماء اللاعبين: ضغطة تحدد، والثانية تنفّذ — عشان ما ينضغط بالغلط */
+function PlayerGrid({
+  players,
+  busy,
+  armedLabel,
+  onConfirm,
+}: {
+  players: MafiaPlayer[];
+  busy: boolean;
+  armedLabel: (name: string) => string;
+  onConfirm: (playerId: string) => Promise<boolean>;
+}) {
+  const [armedId, setArmedId] = useState<string | null>(null);
+  return (
+    <div className="grid grid-cols-2 gap-2 p-2 rounded-2xl bg-slate-950/60 max-h-64 overflow-y-auto">
+      {players.map((p) => {
+        const armed = armedId === p.id;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              if (!armed) {
+                setArmedId(p.id);
+                return;
+              }
+              if (await onConfirm(p.id)) setArmedId(null);
+            }}
+            className={`min-h-11 py-2.5 px-2 rounded-xl font-black text-sm leading-tight break-words border-b-4 transition-colors ${
+              armed
+                ? "bg-red-600 border-red-800 text-white animate-pulse"
+                : "bg-slate-800 border-slate-950 text-slate-100"
+            } ${p.is_alive ? "" : "opacity-60"}`}
+          >
+            {armed ? armedLabel(p.display_name) : p.display_name}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

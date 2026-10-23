@@ -13,6 +13,7 @@ import {
   isMafiaDevMode,
   kickMafiaPlayer,
   killSilencedMafiaPlayer,
+  killCheaterMafiaPlayer,
   newMafiaRoom,
   playMafiaAgain,
   renameMafiaPlayer,
@@ -230,6 +231,15 @@ export function useMafiaGame(
   useEffect(() => {
     if (seq >= 0) fetchView();
   }, [seq, fetchView]);
+
+  // حالتي الخاصة ما لحقت المرحلة (الجلب تأخر أو فشل): نعيد المحاولة لين توصل —
+  // أدوار الليل تنتظرها قبل ما تعرض بطاقة صاحب الدور أو سؤال التمويه
+  const viewStale = Boolean(room && (!view || view.phaseSeq < room.phase_seq));
+  useEffect(() => {
+    if (!viewStale) return;
+    const id = setInterval(fetchView, 2000);
+    return () => clearInterval(id);
+  }, [viewStale, fetchView]);
 
   // المافيا يتابعون اختيار القائد والمصادقة أول بأول (استعلام خاص، ما يكشف شي للباقين)
   const isMafiaTurn = room?.phase === "night_act" && room.night_step === "mafia" && view?.me.role === "mafia";
@@ -504,6 +514,8 @@ export function useMafiaGame(
       skipPhase: () => run(() => skipMafiaPhase(roomCode)),
       /** الممنوع من الكلام تكلم: ينقتل */
       killSilenced: () => run(() => killSilencedMafiaPlayer(roomCode)),
+      /** لاعب غشّ: ينذبح ويظل بالغرفة كميت (مو طرد) */
+      killCheater: (playerId: string) => run(() => killCheaterMafiaPlayer({ roomCode, playerId })),
       endGame: () => run(() => endMafiaGameNow(roomCode)),
       kick: (playerId: string) => run(() => kickMafiaPlayer({ roomCode, playerId })),
       playAgain: () => run(() => playMafiaAgain(roomCode)),
@@ -534,17 +546,20 @@ export function useMafiaGame(
   const dayPhase = room?.phase === "morning" || room?.phase === "discussion" || room?.phase === "voting";
   const silencedId = dayPhase ? silencedPlayerId(room?.announcements, players) : null;
 
-  // الممنوع تكلم وانقتل: نفس صوت الذبح عند الكل، والحركة الخاصة على جواله هو
+  // الممنوع تكلم أو الغشاش، والمنشئ قتله وسط النهار: نفس صوت الذبح عند الكل، والحركة الخاصة على جواله هو
   const hushedSeen = useRef<number | null>(null);
-  const hushed = (room?.announcements ?? []).filter((a) => a.kind === "hushed_kill");
+  const hushed = (room?.announcements ?? []).filter((a) => a.kind === "hushed_kill" || a.kind === "cheat_kill");
   const hushedCount = hushed.length;
   const lastHushedId = hushed[hushedCount - 1]?.targetId;
+  const lastHushedCheat = hushed[hushedCount - 1]?.kind === "cheat_kill";
   useEffect(() => {
     const first = hushedSeen.current === null;
     const grew = !first && hushedCount > (hushedSeen.current ?? 0);
     hushedSeen.current = hushedCount;
-    if (grew) cueMafia("horror", lastHushedId && lastHushedId === meIdRef.current ? "victim_hushed" : "hushed");
-  }, [hushedCount, lastHushedId]);
+    if (!grew) return;
+    const mine = Boolean(lastHushedId && lastHushedId === meIdRef.current);
+    cueMafia("horror", mine ? (lastHushedCheat ? "victim_cheat" : "victim_hushed") : "hushed");
+  }, [hushedCount, lastHushedId, lastHushedCheat]);
 
   return {
     roomCode,

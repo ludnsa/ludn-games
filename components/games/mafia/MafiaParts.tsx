@@ -87,6 +87,8 @@ const ANNOUNCEMENT_ROLE: Partial<Record<MafiaAnnouncementKind, MafiaRole>> = {
   journalist: "journalist",
   silence: "silencer",
   hushed_kill: "silencer",
+  // المنشئ ذبح غشاش: أيقونة المافيا علامة اللعبة نفسها
+  cheat_kill: "mafia",
 };
 
 export function AnnouncementIcon({ kind, className = "w-12 h-12" }: { kind: MafiaAnnouncementKind; className?: string }) {

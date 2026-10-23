@@ -19,8 +19,8 @@ interface ActiveFx extends MafiaFxEvent {
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
-const BLOOD_KINDS: MafiaFxKind[] = ["kill", "win_mafia", "victim", "hushed", "victim_hushed"];
-const VICTIM_KINDS: MafiaFxKind[] = ["victim", "victim_bomb", "escaped", "victim_hushed"];
+const BLOOD_KINDS: MafiaFxKind[] = ["kill", "win_mafia", "victim", "hushed", "victim_hushed", "victim_cheat"];
+const VICTIM_KINDS: MafiaFxKind[] = ["victim", "victim_bomb", "escaped", "victim_hushed", "victim_cheat"];
 
 function prepare(e: MafiaFxEvent): ActiveFx {
   const d = Math.max(e.duration, 1);
@@ -74,6 +74,7 @@ const VICTIM_TEXT: Partial<Record<MafiaFxKind, { title: string; sub: string; rol
   victim_bomb: { title: "المنتقم أخذك معه!", sub: "كنت في المكان الغلط", role: "suicide" },
   escaped: { title: "المافيا حاولوا يذبحونك!", sub: "بس فكك الله", role: "mafia" },
   victim_hushed: { title: "تكلمت وأنت ممنوع!", sub: "المسكت سكّتك… وطلعت من اللعبة", role: "silencer" },
+  victim_cheat: { title: "انذبحت بسبب الغش!", sub: "المنشئ صادك… وطلعت من اللعبة", role: "mafia" },
 };
 
 export default function MafiaFxLayer() {
@@ -108,7 +109,9 @@ export default function MafiaFxLayer() {
 function sceneSeconds(e: MafiaFxEvent): number {
   const base = Math.max(e.duration, 1.2) + 1;
   if (e.kind === "escaped") return Math.min(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.6);
-  if (e.kind === "victim" || e.kind === "victim_bomb" || e.kind === "victim_hushed") return Math.max(base, 6);
+  if (e.kind === "victim" || e.kind === "victim_bomb" || e.kind === "victim_hushed" || e.kind === "victim_cheat") {
+    return Math.max(base, 6);
+  }
   // الحماية تملأ شاشة "تمت الحماية" (5 ثواني) بدل ما تخلص بعد ثانيتين
   if (e.kind === "saved") return Math.max(base, MAFIA_CONFIG.NIGHT_DONE_SECONDS - 0.4);
   return base;
@@ -156,7 +159,14 @@ function FxScene({ fx }: { fx: ActiveFx }) {
       ))}
 
       {/* وميض على كل ذروة */}
-      {(k === "kill" || k === "slash" || k === "win_mafia" || k === "victim" || k === "escaped" || k === "hushed" || k === "victim_hushed") &&
+      {(k === "kill" ||
+        k === "slash" ||
+        k === "win_mafia" ||
+        k === "victim" ||
+        k === "escaped" ||
+        k === "hushed" ||
+        k === "victim_hushed" ||
+        k === "victim_cheat") &&
         fx.peaks.map((p, i) => <div key={i} className="mfx-flash mfx-flash-red" style={{ animationDelay: `${p}s` }} />)}
       {k === "miss" &&
         fx.peaks.map((p, i) => <div key={i} className="mfx-flash mfx-flash-blue" style={{ animationDelay: `${p}s` }} />)}

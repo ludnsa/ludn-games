@@ -220,7 +220,9 @@ export type MafiaAnnouncementKind =
   /** المسكت: فلان ممنوع من الكلام اليوم (targetId = الممنوع) */
   | "silence"
   /** الممنوع تكلم والمنشئ قتله (ينضاف وسط النهار) */
-  | "hushed_kill";
+  | "hushed_kill"
+  /** لاعب غشّ والمنشئ ذبحه — يظل بالغرفة كميت (ينضاف وسط النهار) */
+  | "cheat_kill";
 
 export interface MafiaAnnouncement {
   kind: MafiaAnnouncementKind;

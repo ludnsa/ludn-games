@@ -40,7 +40,9 @@ export type MafiaFxKind =
   /** الممنوع من الكلام تكلم وانقتل */
   | "hushed"
   /** على شاشة الممنوع اللي انقتل بس */
-  | "victim_hushed";
+  | "victim_hushed"
+  /** على شاشة الغشاش اللي ذبحه المنشئ بس */
+  | "victim_cheat";
 
 export interface MafiaFxEvent {
   id: number;

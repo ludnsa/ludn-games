@@ -26,6 +26,9 @@ export function MafiaNightAct({ ctx }: { ctx: MafiaGameCtx }) {
   if (!room?.night_step) return null;
   const step = room.night_step;
   const task = view?.task && view.task.step === step ? view.task : null;
+  // حالتي الخاصة توصل بعد بداية الدور بلحظة: قبلها ما نعرف إذا الدور دوري، فما نعرض
+  // سؤال التمويه لصاحب الدور بالغلط (يختار فيه، وبعدين تطلع بطاقته ويختفي اختياره)
+  const fresh = view?.phaseSeq === room.phase_seq;
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,7 +37,12 @@ export function MafiaNightAct({ ctx }: { ctx: MafiaGameCtx }) {
         <RoleIcon role={step} className="w-20 h-20 mfx-step-icon mfx-step-pulse" />
         <p className="text-center font-black text-lg text-indigo-200">{MAFIA_NIGHT_STEPS[step].headline}</p>
       </div>
-      {task ? (
+      {!fresh ? (
+        // نفس الشكل عند الكل — ما يفضح مين صاحب الدور
+        <Panel className="border-indigo-800 flex justify-center py-12">
+          <Loader2 size={34} className="animate-spin text-indigo-300" />
+        </Panel>
+      ) : task ? (
         task.mode === "suggest" ? (
           <MafiaSuggestCard ctx={ctx} task={task} />
         ) : (

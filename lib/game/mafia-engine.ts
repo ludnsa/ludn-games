@@ -72,6 +72,22 @@ export function mafiaNightSteps(s: MafiaSettings): MafiaNightStep[] {
   });
 }
 
+/** الفئات اللي دورها بالليل ينشال لما يخلص قدام الكل */
+const SPENDABLE_STEPS: readonly MafiaNightStep[] = ["magician", "suicide"] as const;
+
+/**
+ * أدوار الليلة: أدوار الإعداد ناقص اللي خلص دورها قدام الكل، عشان اللعب يمشي أسرع —
+ * الساحر بعد ما اختار فئة (ينعلن الصبح)، والمنتقم بعد ما انفجر.
+ * لو مات بدون ما ينكشف (الساحر قبل ما يختار، المنتقم بدون انفجار) دوره يظل، عشان محد يعرف.
+ */
+export function activeNightSteps(s: MafiaSettings, players: EnginePlayer[]): MafiaNightStep[] {
+  return mafiaNightSteps(s).filter((step) => {
+    if (!SPENDABLE_STEPS.includes(step)) return true;
+    const holders = players.filter((p) => p.originalRole === step);
+    return holders.length === 0 || holders.some((p) => !p.abilityUsed);
+  });
+}
+
 // ---------------------------------------------------------------------
 // اللاعبون كما يراهم المحرك
 // ---------------------------------------------------------------------
@@ -82,7 +98,10 @@ export interface EnginePlayer {
   seat: number;
   alive: boolean;
   role: MafiaRole;
+  /** الفئة من بداية اللعبة (الساحر يظل ساحر هنا حتى بعد ما ياخذ فئة) */
+  originalRole: MafiaRole;
   soldierShieldUsed: boolean;
+  /** الصحفي والساحر: استخدم قدرته. المنتقم: انفجر */
   abilityUsed: boolean;
   suicideTarget: string | null;
   /** آخر واحد اختاره الليلة اللي قبل: الطبيب (حماه) أو المسكت (سكّته) أو المنتقم (هدفه) — ما يختارونه ليلتين ورا بعض */
@@ -258,6 +277,8 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     const boom = boomId ? byId.get(boomId) : undefined;
     if (boom && boom.alive && boom.id !== victim.id) {
       out.deaths.push(boom.id);
+      // انفجر قدام الكل — دوره بالليل ينشال من الليالي الجاية
+      out.abilityUsedBy.push(victim.id);
       out.announcements.push({
         kind: "bomb",
         emoji: "💣",
@@ -301,12 +322,13 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
   });
 
   // الساحر — ياخذ مكان المحقق أو الطبيب أو الجندي اللي مات، بشرط إنه نجا من الليلة.
-  // ما يطلع أي إعلان للكل: هو يحاول يقنعهم بدوره وقت النقاش.
+  // الإعلان يقول إنه اختار بس، بدون الفئة: يربك المافيا، وهو يحاول يقنعهم بدوره وقت النقاش.
   acts("magician").forEach((a) => {
     const magician = byId.get(a.actorId);
     const target = byId.get(a.targetId!);
     if (!magician || !target || !MAFIA_MAGICIAN_ROLES.includes(target.role) || target.alive) return;
     out.abilityUsedBy.push(magician.id);
+    out.announcements.push({ kind: "magic", emoji: "", text: "الساحر اختار فئة" });
     if (out.deaths.includes(magician.id)) return;
 
     const newRole = target.role;
@@ -371,10 +393,14 @@ export function groupVoters(votes: { voterId: string; targetId: string | null }[
   return voters;
 }
 
-/** طلع بالتصويت وهو المنتقم: يطير معه آخر واحد اختاره (لو للحين حي)، وإلا يطلع لحاله */
+/**
+ * طلع بالتصويت وهو المنتقم: يطير معه آخر واحد اختاره (لو للحين حي)، وإلا يطلع لحاله.
+ * لازم يكون حي لحظة نهاية التصويت: لو المنشئ ذبحه (غش أو تكلم وهو ممنوع) وصوت متأخر
+ * انحسب عليه، ما ينفجر — عشان محد يتعمد الغش وينفجر على غيره.
+ */
 export function voteBombTarget(players: EnginePlayer[], eliminatedId: string | null): string | null {
   const out = players.find((p) => p.id === eliminatedId);
-  if (!out || out.role !== "suicide" || !out.suicideTarget) return null;
+  if (!out || !out.alive || out.role !== "suicide" || !out.suicideTarget) return null;
   const boom = players.find((p) => p.id === out.suicideTarget);
   return boom && boom.alive && boom.id !== out.id ? boom.id : null;
 }

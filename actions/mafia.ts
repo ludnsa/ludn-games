@@ -12,6 +12,7 @@ import {
   MafiaSettingsSchema,
 } from "@/lib/schemas";
 import {
+  activeNightSteps,
   allowedTargets,
   buildRoleDeck,
   canActOnStep,
@@ -34,6 +35,7 @@ import {
   type NightResolution,
 } from "@/lib/game/mafia-engine";
 import type {
+  MafiaAnnouncement,
   MafiaFinalRole,
   MafiaNightStep,
   MafiaPlayer,
@@ -146,6 +148,7 @@ async function loadEngine(admin: Admin, roomCode: string) {
       seat: p.seat,
       alive: p.is_alive,
       role: (s?.role ?? "citizen") as MafiaRole,
+      originalRole: (s?.original_role ?? s?.role ?? "citizen") as MafiaRole,
       soldierShieldUsed: s?.soldier_shield_used ?? false,
       abilityUsed: s?.ability_used ?? false,
       suicideTarget: s?.suicide_target ?? null,
@@ -937,8 +940,6 @@ async function afterStepStart(admin: Admin, roomCode: string): Promise<void> {
 }
 
 async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
-  const steps = mafiaNightSteps(room.settings);
-
   switch (room.phase) {
     case "reveal": {
       if (await guardedRoomUpdate(admin, room, enterNight(room, 1))) await afterStepStart(admin, room.room_code);
@@ -956,10 +957,12 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
     }
 
     case "night_done": {
+      const { engine, secretOf } = await loadEngine(admin, room.room_code);
+      // الساحر اللي اختار والمنتقم اللي انفجر: دورهم ما يجي بالليالي اللي بعدها
+      const steps = activeNightSteps(room.settings, engine);
       const idx = room.night_step ? steps.indexOf(room.night_step) : -1;
       const remaining = idx >= 0 ? steps.slice(idx + 1) : [];
 
-      const { engine, secretOf } = await loadEngine(admin, room.room_code);
       const { data: acts } = await admin
         .from("mafia_actions")
         .select("*")
@@ -1041,6 +1044,10 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
       const out = [result.eliminatedId, bombId].filter((id): id is string => Boolean(id));
       if (won && out.length > 0) {
         await admin.from("mafia_players").update({ is_alive: false }).in("id", out);
+      }
+      // المنتقم انفجر قدام الكل — دوره بالليل ينشال من الليالي الجاية
+      if (won && bombId && result.eliminatedId) {
+        await admin.from("mafia_secrets").update({ ability_used: true }).eq("player_id", result.eliminatedId);
       }
       return;
     }
@@ -1392,27 +1399,65 @@ export async function skipMafiaPhase(roomCode: string): Promise<ActionResult> {
   return { success: true };
 }
 
-/**
- * الممنوع من الكلام (المسكت) تكلم: المنشئ يقتله. يظل بالغرفة كميت، ويطلع للكل إعلان،
- * وبعدها نفحص الفوز على طول. لو صار وقت التصويت، ينشال صوته والأصوات اللي عليه.
- * ما ينفجر لو كان المنتقم (الانفجار بس بالذبح أو التصويت).
- */
+const isDayPhase = (room: MafiaRoom) =>
+  room.phase === "morning" || room.phase === "discussion" || room.phase === "voting";
+
+/** الممنوع من الكلام (المسكت) تكلم: المنشئ يقتله */
 export async function killSilencedMafiaPlayer(roomCode: string): Promise<ActionResult> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
-  if (room.phase !== "morning" && room.phase !== "discussion" && room.phase !== "voting") {
-    return fail("المنع من الكلام بس وقت النهار.");
-  }
+  if (!isDayPhase(room)) return fail("المنع من الكلام بس وقت النهار.");
 
   const players = await loadPlayers(admin, room.room_code);
   const targetId = silencedPlayerId(room.announcements, players);
   const target = players.find((p) => p.id === targetId);
   if (!target) return fail("ما فيه أحد ممنوع من الكلام الحين.");
 
+  return hostDayKill(admin, room, target, {
+    kind: "hushed_kill",
+    emoji: "☠️",
+    text: `${target.display_name} تكلم وهو ممنوع… وانقتل!`,
+    targetId: target.id,
+  });
+}
+
+/**
+ * لاعب غشّ: المنشئ يذبحه. مو طرد — يظل بالغرفة كميت ويكمل يتفرج.
+ */
+export async function killCheaterMafiaPlayer(input: { roomCode: string; playerId: string }): Promise<ActionResult> {
+  const ctx = await requireHost(input.roomCode);
+  if (!ctx.ok) return fail(ctx.error);
+  const { admin, room } = ctx;
+  if (!isDayPhase(room)) return fail("ذبح الغشاش بس وقت النهار.");
+  if (input.playerId === room.host_player_id) return fail("ما تقدر تذبح نفسك");
+
+  const players = await loadPlayers(admin, room.room_code);
+  const target = players.find((p) => p.id === input.playerId && p.is_alive);
+  if (!target) return fail("اللاعب مو موجود أو ميت أصلاً.");
+
+  return hostDayKill(admin, room, target, {
+    kind: "cheat_kill",
+    emoji: "",
+    text: `${target.display_name} غشّ… وانذبح!`,
+    targetId: target.id,
+  });
+}
+
+/**
+ * المنشئ يقتل لاعب وسط النهار (الممنوع تكلم، أو غشاش): يظل بالغرفة كميت، ويطلع للكل إعلان،
+ * وبعدها نفحص الفوز على طول. لو صار وقت التصويت، ينشال صوته والأصوات اللي عليه.
+ * ما ينفجر لو كان المنتقم (الانفجار بس بالذبح أو التصويت).
+ */
+async function hostDayKill(
+  admin: Admin,
+  room: MafiaRoom,
+  target: MafiaPlayer,
+  announcement: MafiaAnnouncement
+): Promise<ActionResult> {
   const { error } = await admin.from("mafia_players").update({ is_alive: false }).eq("id", target.id).eq("is_alive", true);
   if (error) {
-    console.error("killSilencedMafiaPlayer error:", error);
+    console.error("hostDayKill error:", error);
     return fail("تعذّر تنفيذها، حاول مرة ثانية.");
   }
 
@@ -1427,10 +1472,7 @@ export async function killSilencedMafiaPlayer(roomCode: string): Promise<ActionR
     await admin.from("mafia_rooms").update({ vote_counts: counts }).eq("room_code", room.room_code).eq("phase_seq", room.phase_seq);
   }
 
-  const announcements = [
-    ...(room.announcements ?? []),
-    { kind: "hushed_kill" as const, emoji: "☠️", text: `${target.display_name} تكلم وهو ممنوع… وانقتل!`, targetId: target.id },
-  ];
+  const announcements = [...(room.announcements ?? []), announcement];
   await admin.from("mafia_rooms").update({ announcements }).eq("room_code", room.room_code).eq("phase_seq", room.phase_seq);
 
   const winner = await currentWinner(admin, room.room_code);
