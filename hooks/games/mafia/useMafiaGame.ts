@@ -354,6 +354,17 @@ export function useMafiaGame(
             setTimeout(() => cueMafia("bomb", bombId === meIdRef.current ? "victim_bomb" : "bomb"), 1800)
           );
         }
+        // انفجر بس هدفه نجا: الانفجار، وبعده الحماية أو درع الجندي
+        const blocked = result?.bombBlocked;
+        if (blocked) {
+          timers.push(setTimeout(() => cueMafia("bomb", "bomb"), 1800));
+          timers.push(
+            setTimeout(
+              () => (blocked.fate === "shield" ? cueMafia("shield", "shield") : cueMafia("heal", "saved")),
+              1800 + getMafiaSoundTiming("bomb").duration * 1000
+            )
+          );
+        }
         break;
       }
       case "ended": {

@@ -19,7 +19,7 @@ import {
   ListChecks,
   type LucideIcon,
 } from "lucide-react";
-import { MAFIA_SKIP_KEY } from "@/lib/game/mafia-engine";
+import { MAFIA_SKIP_KEY, blastText } from "@/lib/game/mafia-engine";
 import { mafiaMorningSchedule, type MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import {
   AnnouncementIcon,
@@ -238,16 +238,21 @@ export function MafiaVoteResult({ ctx }: { ctx: MafiaGameCtx }) {
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <Icon size={112} strokeWidth={1.4} className="mb-6 text-slate-200 animate-in zoom-in-50 duration-500" />
       <p className="text-3xl font-black animate-in fade-in slide-in-from-bottom-4 duration-700">{text}</p>
-      {result.reason === "player" && !result.bombId && (
+      {result.reason === "player" && !result.bombId && !result.bombBlocked && (
         <p className="mt-3 font-bold text-slate-400">وش كانت فئته؟ ما راح نقول</p>
       )}
-      {result.bombId && (
+      {(result.bombId || result.bombBlocked) && (
         <p
           className="mt-5 p-4 rounded-2xl bg-orange-950/70 border-2 border-orange-700 text-2xl font-black animate-in zoom-in-95 duration-500 flex items-center gap-3 text-right"
           style={{ animationDelay: "1800ms", animationFillMode: "both" }}
         >
           <RoleIcon role="suicide" className="w-14 h-14" />
-          <span>طلع المنتقم! فجّر نفسه وأخذ معه {ctx.nameOf(result.bombId)}</span>
+          <span>
+            طلع المنتقم!{" "}
+            {result.bombBlocked
+              ? blastText(ctx.nameOf(result.bombBlocked.targetId), result.bombBlocked.fate)
+              : blastText(ctx.nameOf(result.bombId), "killed")}
+          </span>
         </p>
       )}
       {ctx.room && <VoteBreakdown ctx={ctx} room={ctx.room} />}

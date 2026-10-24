@@ -237,6 +237,8 @@ export interface MafiaVoteResult {
   reason: "player" | "skip" | "tie" | "none";
   /** اللي طلع بالتصويت وهو المنتقم: يطير معه آخر واحد اختاره */
   bombId?: string | null;
+  /** المنتقم انفجر بس هدفه نجا: الطبيب حماه الليلة اللي قبل (saved)، أو الجندي ودرعه راح (shield) */
+  bombBlocked?: { targetId: string; fate: "saved" | "shield" } | null;
 }
 
 export interface MafiaFinalRole {

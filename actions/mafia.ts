@@ -29,7 +29,7 @@ import {
   resolveVotes,
   silencedPlayerId,
   validateMafiaSettings,
-  voteBombTarget,
+  voteBlast,
   MAFIA_SKIP_KEY,
   type EnginePlayer,
   type NightResolution,
@@ -939,6 +939,17 @@ async function afterStepStart(admin: Admin, roomCode: string): Promise<void> {
   await finishStepIfAllDone(admin, roomCode, room.phase_seq);
 }
 
+/** اللي حماهم الطبيب الليلة اللي قبل — حمايته تظل للتصويت اللي بعدها (انفجار المنتقم) */
+async function lastNightProtections(admin: Admin, room: MafiaRoom): Promise<string[]> {
+  const { data } = await admin
+    .from("mafia_actions")
+    .select("target_id")
+    .eq("room_code", room.room_code)
+    .eq("night", room.night_number)
+    .eq("step", "doctor");
+  return ((data ?? []) as { target_id: string | null }[]).map((r) => r.target_id).filter((id): id is string => Boolean(id));
+}
+
 async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
   switch (room.phase) {
     case "reveal": {
@@ -1031,23 +1042,31 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
     }
 
     case "voting": {
-      const [counts, { engine }] = await Promise.all([recountVotes(admin, room), loadEngine(admin, room.room_code)]);
+      const [counts, { engine }, protectedIds] = await Promise.all([
+        recountVotes(admin, room),
+        loadEngine(admin, room.room_code),
+        lastNightProtections(admin, room),
+      ]);
       const result = resolveVotes(counts);
-      const bombId = voteBombTarget(engine, result.eliminatedId);
-      if (bombId) result.bombId = bombId;
+      const blast = voteBlast(engine, result.eliminatedId, protectedIds);
+      if (blast?.fate === "killed") result.bombId = blast.targetId;
+      else if (blast) result.bombBlocked = { targetId: blast.targetId, fate: blast.fate };
       const won = await guardedRoomUpdate(admin, room, {
         phase: "vote_result",
         vote_counts: counts,
         vote_result: result,
         phase_ends_at: mafiaDeadline("vote_result"),
       });
-      const out = [result.eliminatedId, bombId].filter((id): id is string => Boolean(id));
+      const out = [result.eliminatedId, result.bombId].filter((id): id is string => Boolean(id));
       if (won && out.length > 0) {
         await admin.from("mafia_players").update({ is_alive: false }).in("id", out);
       }
-      // المنتقم انفجر قدام الكل — دوره بالليل ينشال من الليالي الجاية
-      if (won && bombId && result.eliminatedId) {
+      if (won && blast && result.eliminatedId) {
+        // المنتقم انفجر قدام الكل (حتى لو هدفه نجا) — دوره بالليل ينشال من الليالي الجاية
         await admin.from("mafia_secrets").update({ ability_used: true }).eq("player_id", result.eliminatedId);
+        if (blast.fate === "shield") {
+          await admin.from("mafia_secrets").update({ soldier_shield_used: true }).eq("player_id", blast.targetId);
+        }
       }
       return;
     }

@@ -73,12 +73,13 @@ export function mafiaNightSteps(s: MafiaSettings): MafiaNightStep[] {
 }
 
 /** الفئات اللي دورها بالليل ينشال لما يخلص قدام الكل */
-const SPENDABLE_STEPS: readonly MafiaNightStep[] = ["magician", "suicide"] as const;
+const SPENDABLE_STEPS: readonly MafiaNightStep[] = ["magician", "journalist", "suicide"] as const;
 
 /**
  * أدوار الليلة: أدوار الإعداد ناقص اللي خلص دورها قدام الكل، عشان اللعب يمشي أسرع —
- * الساحر بعد ما اختار فئة (ينعلن الصبح)، والمنتقم بعد ما انفجر.
- * لو مات بدون ما ينكشف (الساحر قبل ما يختار، المنتقم بدون انفجار) دوره يظل، عشان محد يعرف.
+ * الساحر بعد ما اختار فئة (ينعلن الصبح)، والصحفي بعد ما كشف لاعب، والمنتقم بعد ما انفجر.
+ * لو مات بدون ما ينكشف (الساحر أو الصحفي قبل ما يستخدمون قدرتهم، المنتقم بدون انفجار)
+ * دوره يظل، عشان محد يعرف.
  */
 export function activeNightSteps(s: MafiaSettings, players: EnginePlayer[]): MafiaNightStep[] {
   return mafiaNightSteps(s).filter((step) => {
@@ -199,6 +200,33 @@ export interface MafiaKillOutcome {
   fate: "killed" | "saved" | "shield" | null;
 }
 
+/** اللي حماهم الطبيب الليلة (أكثر من طبيب لو الساحر أخذ فئة الطبيب) */
+export function doctorProtectedIds(players: EnginePlayer[], actions: EngineAction[]): string[] {
+  const byId = new Map(players.map((p) => [p.id, p]));
+  return actions
+    .filter((a) => a.step === "doctor" && a.targetId && byId.get(a.actorId)?.alive && byId.get(a.actorId)?.role === "doctor")
+    .map((a) => a.targetId!);
+}
+
+export type MafiaHitFate = "killed" | "saved" | "shield";
+
+/**
+ * مصير اللي انضرب (ذبح المافيا أو انفجار المنتقم): يموت، إلا لو الطبيب حماه (saved)،
+ * أو كان الجندي ودرعه باقي (shield — يروح الدرع).
+ */
+export function hitFate(target: EnginePlayer, protectedIds: string[]): MafiaHitFate {
+  if (protectedIds.includes(target.id)) return "saved";
+  if (target.role === "soldier" && !target.soldierShieldUsed) return "shield";
+  return "killed";
+}
+
+/** نص انفجار المنتقم حسب مصير هدفه (بعد "المنتقم" أو "طلع المنتقم!") */
+export function blastText(targetName: string, fate: MafiaHitFate): string {
+  if (fate === "saved") return `فجّر نفسه على ${targetName}… بس كان محمي ونجا!`;
+  if (fate === "shield") return `فجّر نفسه على ${targetName}… بس طلع الجندي ونجا!`;
+  return `فجّر نفسه وأخذ معه ${targetName}!`;
+}
+
 export function mafiaKillOutcome(players: EnginePlayer[], actions: EngineAction[]): MafiaKillOutcome {
   const byId = new Map(players.map((p) => [p.id, p]));
   const aliveActor = (a: EngineAction) => byId.get(a.actorId)?.alive === true;
@@ -207,12 +235,7 @@ export function mafiaKillOutcome(players: EnginePlayer[], actions: EngineAction[
   const victim = killTargetId ? byId.get(killTargetId) : undefined;
   if (!victim || !victim.alive) return { victimId: null, fate: null };
 
-  const protectedByDoctor = actions.some(
-    (a) => a.step === "doctor" && a.targetId === victim.id && byId.get(a.actorId)?.alive && byId.get(a.actorId)?.role === "doctor"
-  );
-  if (protectedByDoctor) return { victimId: victim.id, fate: "saved" };
-  if (victim.role === "soldier" && !victim.soldierShieldUsed) return { victimId: victim.id, fate: "shield" };
-  return { victimId: victim.id, fate: "killed" };
+  return { victimId: victim.id, fate: hitFate(victim, doctorProtectedIds(players, actions)) };
 }
 
 export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): NightResolution {
@@ -272,18 +295,21 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
       targetId: victim.id,
     });
 
-    // المنتقم ينفجر بس لو انذبح (مو بالتصويت)، وهدفه يموت حتى لو محمي
+    // المنتقم المذبوح ينفجر على آخر واحد اختاره — إلا لو الطبيب حماه الليلة، أو كان الجندي (يروح درعه)
     const boomId = victim.role === "suicide" ? victim.suicideTarget : null;
     const boom = boomId ? byId.get(boomId) : undefined;
     if (boom && boom.alive && boom.id !== victim.id) {
-      out.deaths.push(boom.id);
+      const fate = hitFate(boom, doctorProtectedIds(players, actions));
+      if (fate === "killed") out.deaths.push(boom.id);
+      if (fate === "shield") out.shieldUsedBy.push(boom.id);
       // انفجر قدام الكل — دوره بالليل ينشال من الليالي الجاية
       out.abilityUsedBy.push(victim.id);
       out.announcements.push({
         kind: "bomb",
         emoji: "💣",
-        text: `المنتقم فجّر نفسه وأخذ معه ${boom.name}!`,
-        targetId: boom.id,
+        text: `المنتقم ${blastText(boom.name, fate)}`,
+        // الهدف يشوف رسالة "المنتقم أخذك معه" بس لو مات
+        ...(fate === "killed" ? { targetId: boom.id } : {}),
       });
     }
   }
@@ -394,15 +420,21 @@ export function groupVoters(votes: { voterId: string; targetId: string | null }[
 }
 
 /**
- * طلع بالتصويت وهو المنتقم: يطير معه آخر واحد اختاره (لو للحين حي)، وإلا يطلع لحاله.
+ * طلع بالتصويت وهو المنتقم: ينفجر على آخر واحد اختاره (لو للحين حي)، وإلا يطلع لحاله.
+ * هدفه ينجو لو الطبيب حماه الليلة اللي قبل (protectedIds)، أو كان الجندي ودرعه باقي (يروح الدرع).
  * لازم يكون حي لحظة نهاية التصويت: لو المنشئ ذبحه (غش أو تكلم وهو ممنوع) وصوت متأخر
  * انحسب عليه، ما ينفجر — عشان محد يتعمد الغش وينفجر على غيره.
  */
-export function voteBombTarget(players: EnginePlayer[], eliminatedId: string | null): string | null {
+export function voteBlast(
+  players: EnginePlayer[],
+  eliminatedId: string | null,
+  protectedIds: string[]
+): { targetId: string; fate: MafiaHitFate } | null {
   const out = players.find((p) => p.id === eliminatedId);
   if (!out || !out.alive || out.role !== "suicide" || !out.suicideTarget) return null;
   const boom = players.find((p) => p.id === out.suicideTarget);
-  return boom && boom.alive && boom.id !== out.id ? boom.id : null;
+  if (!boom || !boom.alive || boom.id === out.id) return null;
+  return { targetId: boom.id, fate: hitFate(boom, protectedIds) };
 }
 
 /** الأكثر أصواتاً يعتمد (لاعب أو تخطي). التعادل = محد يطلع. */
