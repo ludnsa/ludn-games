@@ -104,7 +104,9 @@ const MAFIA_SUGGEST_STEP = "mafia_suggest";
 /** اختيار سؤال التمويه لباقي اللاعبين — ينحفظ عشان الدور ما يمشي إلا لما الكل يختارون */
 type DecoyStep = `decoy:${MafiaNightStep}`;
 const decoyStep = (step: MafiaNightStep): DecoyStep => `decoy:${step}`;
-type ActionStep = MafiaNightStep | typeof MAFIA_SUGGEST_STEP | DecoyStep;
+/** اختيار الشيخ لنوع نقاش اليوم (night = رقم الليلة اللي قبل الصباح). target_id = الشيخ نفسه لو منظم، null لو عشوائي */
+const SHEIKH_STEP = "sheikh";
+type ActionStep = MafiaNightStep | typeof MAFIA_SUGGEST_STEP | DecoyStep | typeof SHEIKH_STEP;
 /** أفعال الأدوار الحقيقية بس (بدون الاقتراحات واختيارات التمويه) */
 const isRoleStep = (step: string): step is MafiaNightStep => (MAFIA_NIGHT_ORDER as readonly string[]).includes(step);
 
@@ -484,6 +486,8 @@ export interface MafiaMyView {
   myVote: string | null;
   /** اختياري في سؤال التمويه لدور الليل الحالي (null = ما اخترت للحين) */
   decoyId: string | null;
+  /** الشيخ بالصباح: true = نقاش منظم، false = عشوائي، null = ما اختار للحين */
+  sheikhLed: boolean | null;
   notes: string[];
 }
 
@@ -513,8 +517,21 @@ export async function getMafiaMyView(input: {
     detectiveResult: null,
     myVote: null,
     decoyId: null,
+    sheikhLed: null,
     notes: Array.isArray(secret.notes) ? secret.notes : [],
   };
+
+  if (role === "sheikh" && room.phase === "morning" && player.is_alive) {
+    const { data: pick } = await admin
+      .from("mafia_actions")
+      .select("target_id")
+      .eq("room_code", room.room_code)
+      .eq("night", room.night_number)
+      .eq("step", SHEIKH_STEP)
+      .eq("actor_id", player.id)
+      .maybeSingle();
+    view.sheikhLed = pick ? Boolean(pick.target_id) : null;
+  }
 
   if (room.phase === "night_act" && room.night_step && player.is_alive) {
     const { data: decoy } = await admin
@@ -939,6 +956,62 @@ async function afterStepStart(admin: Admin, roomCode: string): Promise<void> {
   await finishStepIfAllDone(admin, roomCode, room.phase_seq);
 }
 
+/**
+ * الشيخ يختار نوع نقاش اليوم بالصباح (يقدر يغيّره لين يبدأ النقاش).
+ * led = true: منظم — الكل ساكت، وهو يسأل ويعطي الإذن بالكلام، واسمه يطلع للكل.
+ */
+export async function chooseMafiaSheikhMode(input: {
+  roomCode: string;
+  token: string;
+  led: boolean;
+}): Promise<ActionResult> {
+  const ctx = await requirePlayer(input);
+  if (!ctx.ok) return fail(ctx.error);
+  const { admin, room, player, secret } = ctx;
+  if (room.phase !== "morning") return fail("الاختيار بس بالصباح قبل ما يبدأ النقاش.");
+  if (secret.role !== "sheikh" || !player.is_alive) return fail("مو دورك.");
+
+  const { error } = await admin.from("mafia_actions").upsert(
+    {
+      room_code: room.room_code,
+      night: room.night_number,
+      step: SHEIKH_STEP,
+      actor_id: player.id,
+      target_id: input.led ? player.id : null,
+    },
+    { onConflict: "room_code,night,step,actor_id" }
+  );
+  if (error) {
+    console.error("chooseMafiaSheikhMode error:", error);
+    return fail("تعذّر حفظ اختيارك، حاول مرة ثانية.");
+  }
+  return { success: true };
+}
+
+/**
+ * إعلان نوع النقاش لما يبدأ (بس لو الشيخ ضمن الفئات): منظم باسم الشيخ لو هو حي واختاره،
+ * وإلا عشوائي — نفس النص حتى لو الشيخ ميت أو ما اختار، عشان محد يعرف.
+ */
+async function sheikhAnnouncement(admin: Admin, room: MafiaRoom): Promise<MafiaAnnouncement | null> {
+  if (!room.settings.optionalRoles?.includes("sheikh")) return null;
+  const [{ engine }, { data }] = await Promise.all([
+    loadEngine(admin, room.room_code),
+    admin
+      .from("mafia_actions")
+      .select("actor_id, target_id")
+      .eq("room_code", room.room_code)
+      .eq("night", room.night_number)
+      .eq("step", SHEIKH_STEP),
+  ]);
+  const rows = (data ?? []) as { actor_id: string; target_id: string | null }[];
+  const leader = engine.find(
+    (p) => p.alive && p.role === "sheikh" && rows.some((r) => r.actor_id === p.id && r.target_id)
+  );
+  return leader
+    ? { kind: "sheikh_led", emoji: "", text: `النقاش منظم: الشيخ ${leader.name} يدير النقاش`, targetId: leader.id }
+    : { kind: "sheikh_open", emoji: "", text: "نقاش عشوائي: الكل يتكلم" };
+}
+
 /** اللي حماهم الطبيب الليلة اللي قبل — حمايته تظل للتصويت اللي بعدها (انفجار المنتقم) */
 async function lastNightProtections(admin: Admin, room: MafiaRoom): Promise<string[]> {
   const { data } = await admin
@@ -1019,9 +1092,11 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         await endGame(admin, room, winner);
         return;
       }
+      const sheikh = await sheikhAnnouncement(admin, room);
       await guardedRoomUpdate(admin, room, {
         phase: "discussion",
         phase_ends_at: mafiaDeadline("discussion", Date.now(), room.settings),
+        ...(sheikh ? { announcements: [...(room.announcements ?? []), sheikh] } : {}),
       });
       return;
     }

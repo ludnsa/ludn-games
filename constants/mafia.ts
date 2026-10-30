@@ -142,6 +142,16 @@ export const MAFIA_ROLES: Record<MafiaRole, MafiaRoleDef> = {
     art: "silencer",
     glow: "#7dd3fc",
   },
+  sheikh: {
+    key: "sheikh",
+    label: "الشيخ",
+    team: "town",
+    description:
+      "مواطن عادي، وكل صباح تقرر نوع نقاش اليوم: عشوائي (الكل يتكلم)، أو منظم (الكل ساكت، وأنت تسأل وتعطي الإذن بالكلام). لو اخترت المنظم، اسمك يطلع للكل.",
+    accent: "from-amber-500 to-yellow-700",
+    art: "sheikh",
+    glow: "#d4a537",
+  },
 };
 
 /** صور الأدوار: البطاقة كاملة (فيها اسم الدور) والأيقونة الدائرية بدون كلام */
@@ -161,9 +171,10 @@ export const MAFIA_OPTIONAL_ROLES: readonly MafiaOptionalRole[] = [
   "soldier",
   "suicide",
   "silencer",
+  "sheikh",
 ] as const;
 
-/** ترتيب أدوار الليل. الجندي ما له دور بالليل لأن درعه تلقائي. */
+/** ترتيب أدوار الليل. الجندي ما له دور بالليل لأن درعه تلقائي، والشيخ دوره بالنهار. */
 export const MAFIA_NIGHT_ORDER: readonly MafiaNightStep[] = [
   "doctor",
   "mafia",

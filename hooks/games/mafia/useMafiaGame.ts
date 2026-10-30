@@ -14,6 +14,7 @@ import {
   kickMafiaPlayer,
   killSilencedMafiaPlayer,
   killCheaterMafiaPlayer,
+  chooseMafiaSheikhMode,
   newMafiaRoom,
   playMafiaAgain,
   renameMafiaPlayer,
@@ -484,6 +485,20 @@ export function useMafiaGame(
     [roomCode, token, fetchView, phaseSeq]
   );
 
+  /** الشيخ يختار نوع نقاش اليوم — يتحدد على شاشته فوراً، ويقدر يغيّره لين يبدأ النقاش */
+  const chooseSheikh = useCallback(
+    async (led: boolean) => {
+      setError("");
+      setView((v) => (v ? { ...v, sheikhLed: led } : v));
+      const res = await chooseMafiaSheikhMode({ roomCode, token, led });
+      if (!res.success) {
+        setError(res.error);
+        fetchView();
+      }
+    },
+    [roomCode, token, fetchView]
+  );
+
   const rename = useCallback(
     async (displayName: string) => {
       const res = await run(() => renameMafiaPlayer({ roomCode, token, displayName }));
@@ -591,6 +606,7 @@ export function useMafiaGame(
     act,
     suggest,
     decoy,
+    chooseSheikh,
     rename,
     vote,
     host,

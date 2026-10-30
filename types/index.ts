@@ -175,9 +175,10 @@ export type MafiaRole =
   | "journalist"
   | "soldier"
   | "suicide"
-  | "silencer";
+  | "silencer"
+  | "sheikh";
 
-export type MafiaOptionalRole = "magician" | "journalist" | "soldier" | "suicide" | "silencer";
+export type MafiaOptionalRole = "magician" | "journalist" | "soldier" | "suicide" | "silencer" | "sheikh";
 
 export type MafiaNightStep = "doctor" | "mafia" | "detective" | "magician" | "journalist" | "suicide" | "silencer";
 
@@ -222,7 +223,10 @@ export type MafiaAnnouncementKind =
   /** الممنوع تكلم والمنشئ قتله (ينضاف وسط النهار) */
   | "hushed_kill"
   /** لاعب غشّ والمنشئ ذبحه — يظل بالغرفة كميت (ينضاف وسط النهار) */
-  | "cheat_kill";
+  | "cheat_kill"
+  /** الشيخ: نوع نقاش اليوم (ينضاف لما يبدأ النقاش). منظم = targetId هو الشيخ */
+  | "sheikh_open"
+  | "sheikh_led";
 
 export interface MafiaAnnouncement {
   kind: MafiaAnnouncementKind;

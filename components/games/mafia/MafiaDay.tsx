@@ -17,6 +17,8 @@ import {
   Scale,
   CircleSlash,
   ListChecks,
+  Hand,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import { MAFIA_SKIP_KEY, blastText } from "@/lib/game/mafia-engine";
@@ -30,8 +32,8 @@ import {
   VoteCount,
   VoterNames,
 } from "./MafiaParts";
-import { MAFIA_CONFIG } from "@/constants/mafia";
-import type { MafiaRoom } from "@/types";
+import { MAFIA_CONFIG, mafiaCardSrc } from "@/constants/mafia";
+import type { MafiaAnnouncement, MafiaRoom } from "@/types";
 
 /** أسماء اللي صوّتوا على هدف معيّن (لاعب أو "skip") */
 function votersOf(room: MafiaRoom, key: string, nameOf: (id: string) => string): string[] {
@@ -70,6 +72,7 @@ export function MafiaMorning({ ctx }: { ctx: MafiaGameCtx }) {
           اقروا النتائج… النقاش يبدأ لما يضغط المنشئ
         </p>
       )}
+      {ctx.me?.role === "sheikh" && ctx.me.alive && <SheikhPicker ctx={ctx} />}
       <Sunrise size={64} strokeWidth={1.6} className="mx-auto mb-1 text-amber-300 animate-in zoom-in-50 duration-500" />
       <h2 className="text-center text-3xl font-black mb-2">صباح الخير! هذا اللي صار بالليل</h2>
       {announcements.map((a, i) => (
@@ -86,10 +89,82 @@ export function MafiaMorning({ ctx }: { ctx: MafiaGameCtx }) {
   );
 }
 
+/** الشيخ: يختار نوع نقاش اليوم قبل ما يبدأ — يطلع له بس */
+function SheikhPicker({ ctx }: { ctx: MafiaGameCtx }) {
+  const led = ctx.view?.sheikhLed ?? null;
+  const options: { led: boolean; title: string; hint: string; Icon: LucideIcon }[] = [
+    { led: false, title: "نقاش عشوائي", hint: "الكل يتكلم", Icon: MessagesSquare },
+    { led: true, title: "نقاش منظم", hint: "الكل ساكت، وأنت تسأل وتعطي الإذن — واسمك يطلع للكل", Icon: Hand },
+  ];
+  return (
+    <Panel className="border-amber-600">
+      <p className="font-black text-lg mb-1 flex items-center gap-2">
+        <RoleIcon role="sheikh" className="w-10 h-10" /> أنت الشيخ: كيف يكون نقاش اليوم؟
+      </p>
+      <p className="text-xs font-bold text-slate-400 mb-3">تقدر تغيّر لين يبدأ النقاش — وإذا ما اخترت يكون عشوائي</p>
+      <div className="grid grid-cols-2 gap-2">
+        {options.map(({ led: value, title, hint, Icon }) => {
+          const on = led === value;
+          return (
+            <button
+              key={title}
+              type="button"
+              aria-pressed={on}
+              onClick={() => ctx.chooseSheikh(value)}
+              className={`p-3 rounded-2xl border-2 border-b-4 text-right transition-all ${
+                on
+                  ? "bg-amber-500/20 border-amber-400 text-white"
+                  : "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-600"
+              }`}
+            >
+              <span className="flex items-center justify-between mb-1.5">
+                <Icon size={24} />
+                {on && <Check size={20} className="text-amber-300" />}
+              </span>
+              <span className="font-black block">{title}</span>
+              <span className="text-[11px] font-bold opacity-75 leading-snug block">{hint}</span>
+            </button>
+          );
+        })}
+      </div>
+    </Panel>
+  );
+}
+
+/** نوع النقاش اللي اختاره الشيخ — منظم: بطاقته واسمه للكل */
+function SheikhRule({ ctx, rule }: { ctx: MafiaGameCtx; rule: MafiaAnnouncement }) {
+  if (rule.kind === "sheikh_open") {
+    return (
+      <p className="flex items-center justify-center gap-2 text-center font-black text-amber-100 bg-amber-950/50 border border-amber-800 rounded-2xl p-2.5">
+        <RoleIcon role="sheikh" className="w-9 h-9" /> نقاش عشوائي: الكل يتكلم
+      </p>
+    );
+  }
+  return (
+    <Panel className="border-amber-500 flex items-center gap-4 animate-in zoom-in-95 duration-500">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={mafiaCardSrc("sheikh")} alt="الشيخ" draggable={false} className="w-24 sm:w-28 shrink-0 rounded-xl" />
+      <div className="min-w-0">
+        <p className="text-sm font-black text-amber-300 flex items-center gap-1.5">
+          <Hand size={16} /> نقاش منظم
+        </p>
+        <p className="text-2xl font-black leading-tight break-words">الشيخ {ctx.nameOf(rule.targetId)}</p>
+        <p className="text-sm font-bold text-slate-300 mt-1 leading-snug">
+          يدير النقاش: الكل ساكت، وهو يسأل ويعطي الإذن بالكلام
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
+const isSheikhRule = (a: MafiaAnnouncement) => a.kind === "sheikh_open" || a.kind === "sheikh_led";
+
 export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
   const { alivePlayers, players, isHost, host, busy, secondsLeft, room } = ctx;
   const dead = players.filter((p) => !p.is_alive);
-  const results = room?.announcements ?? [];
+  const all = room?.announcements ?? [];
+  const sheikhRule = all.find(isSheikhRule);
+  const results = all.filter((a) => !isSheikhRule(a));
   return (
     <div className="flex flex-col gap-4">
       <Panel className="text-center">
@@ -108,6 +183,8 @@ export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
           </p>
         )}
       </Panel>
+
+      {sheikhRule && <SheikhRule ctx={ctx} rule={sheikhRule} />}
 
       {/* نتائج الليل تظل قدامهم طول النقاش عشان يحللون */}
       {results.length > 0 && (
