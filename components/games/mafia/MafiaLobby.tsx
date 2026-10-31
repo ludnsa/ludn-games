@@ -2,9 +2,25 @@
 "use client";
 
 import React, { useState } from "react";
-import { Copy, Check, Crown, X, Play, Loader2, Settings2, Bot, QrCode, Pencil, Users, Hourglass, Shuffle } from "lucide-react";
-import { MAFIA_GAME, MAFIA_ROLES } from "@/constants/mafia";
-import { mafiaCitizenCount } from "@/lib/game/mafia-engine";
+import {
+  Copy,
+  Check,
+  Crown,
+  X,
+  Play,
+  Loader2,
+  Settings2,
+  Bot,
+  QrCode,
+  Pencil,
+  Users,
+  Hourglass,
+  Shuffle,
+  Flame,
+  Zap,
+} from "lucide-react";
+import { MAFIA_GAME, MAFIA_MODES, MAFIA_ROLES } from "@/constants/mafia";
+import { isFastMafia, mafiaCitizenCount } from "@/lib/game/mafia-engine";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import type { MafiaRole } from "@/types";
 import MafiaSetupForm from "./MafiaSetupForm";
@@ -26,6 +42,8 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
   const max = room.settings.maxPlayers;
   const full = players.length === max;
   const citizens = mafiaCitizenCount(room.settings);
+  const fast = isFastMafia(room.settings);
+  const modeDef = MAFIA_MODES.find((m) => m.key === (fast ? "fast" : "hype"))!;
   const devRoles: MafiaRole[] = [
     "mafia",
     "detective",
@@ -196,7 +214,14 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
       </Panel>
 
       <Panel className="p-3">
-        <p className={`${LABEL} mb-2`}>التوزيعة</p>
+        <p className={`${LABEL} mb-2 flex items-center justify-between gap-2`}>
+          التوزيعة
+          {/* نمط اللعب معلن للكل — الغرف القديمة بدونه = حماسي */}
+          <span className="flex items-center gap-1 text-ludn-gold-text">
+            {fast ? <Zap size={15} /> : <Flame size={15} />}
+            نمط {modeDef.label}
+          </span>
+        </p>
         <div className="flex flex-wrap gap-1.5">
           {mix.map((m) => (
             <span key={m.role} className={`${CHIP} ${m.optional ? "border-ludn-gold/35 text-ludn-gold-text" : ""}`}>

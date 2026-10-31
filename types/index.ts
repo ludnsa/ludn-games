@@ -197,10 +197,15 @@ export type MafiaPhase =
 
 export type MafiaTeam = "mafia" | "town";
 
+/** نمط اللعب: حماسي = كل فئة تصحى بدورها، سريع = الكل يختار بنفس الوقت */
+export type MafiaMode = "hype" | "fast";
+
 export interface MafiaSettings {
   maxPlayers: number;
   mafiaCount: number;
   optionalRoles: MafiaOptionalRole[];
+  /** نمط اللعب — الغرف القديمة بدونه = حماسي */
+  mode?: MafiaMode;
   /** وقت النقاش بالثواني (120 / 180 / 300) — الغرف القديمة بدونه = 120 */
   discussionSeconds?: number;
   /** الغرفة انقفلت والمنشئ فتح غرفة جديدة بهذا الكود */
@@ -269,7 +274,8 @@ export interface MafiaRoom {
    * مين باقي ما اختار في دور الليل الحالي (waiting = معرّفاتهم).
    * يحتاج 0007_mafia_night_ready.sql
    */
-  night_ready?: { night: number; step: MafiaNightStep; done: number; total: number; waiting?: string[] } | null;
+  /** النمط السريع: step = null (الكل بنفس الوقت) وبدون waiting — العدد بس */
+  night_ready?: { night: number; step: MafiaNightStep | null; done: number; total: number; waiting?: string[] } | null;
   vote_result: MafiaVoteResult | null;
   winner: MafiaTeam | null;
   final_roles: MafiaFinalRole[] | null;

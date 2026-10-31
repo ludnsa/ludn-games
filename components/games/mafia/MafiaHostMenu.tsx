@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Crown, X, SkipForward, Square, RotateCcw, Home, Loader2, UserX, DoorOpen } from "lucide-react";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
+import { isFastMafia } from "@/lib/game/mafia-engine";
 import type { MafiaPlayer } from "@/types";
 import MafiaHomeButton from "./MafiaHomeButton";
 import { RoleIcon } from "./MafiaParts";
@@ -25,6 +26,7 @@ export function MafiaHostSkip({ ctx }: { ctx: MafiaGameCtx }) {
     return () => clearTimeout(id);
   }, [armed]);
   const night = ctx.room?.phase === "night_act";
+  const fast = ctx.room ? isFastMafia(ctx.room.settings) : false;
 
   return (
     <button
@@ -43,7 +45,9 @@ export function MafiaHostSkip({ ctx }: { ctx: MafiaGameCtx }) {
       {armed
         ? "متأكد؟ اضغط مرة ثانية"
         : night
-          ? "تخطي الدور (اللي ما اختار يختار له النظام)"
+          ? fast
+            ? "إنهاء الليل (اللي ما اختار يختار له النظام)"
+            : "تخطي الدور (اللي ما اختار يختار له النظام)"
           : "إنهاء التصويت الحين"}
     </button>
   );

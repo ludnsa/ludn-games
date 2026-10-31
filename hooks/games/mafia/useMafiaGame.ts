@@ -27,7 +27,7 @@ import {
   updateMafiaSettings,
   type MafiaMyView,
 } from "@/actions/mafia";
-import { MAFIA_SKIP_KEY, mafiaNightSteps, silencedPlayerId } from "@/lib/game/mafia-engine";
+import { MAFIA_SKIP_KEY, isFastMafia, mafiaNightSteps, silencedPlayerId } from "@/lib/game/mafia-engine";
 import { getMafiaSoundTiming, playMafiaSound, unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
 import type {
@@ -327,7 +327,8 @@ export function useMafiaGame(
         cueMafia("reveal");
         break;
       case "night_act":
-        if (room.night_step === mafiaNightSteps(room.settings)[0]) playMafiaSound("owl");
+        // النمط السريع: الليل دور واحد (بدون night_step) — البومة مع بدايته
+        if (isFastMafia(room.settings) || room.night_step === mafiaNightSteps(room.settings)[0]) playMafiaSound("owl");
         break;
       case "night_done":
         // "تم الاغتيال" نفسها عند الكل — حتى الضحية ما تعرف إلا مع نتائج الصباح

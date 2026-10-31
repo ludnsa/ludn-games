@@ -18,7 +18,9 @@ import {
   canActOnStep,
   checkWinner,
   countVotes,
+  fastNightStep,
   groupVoters,
+  isFastMafia,
   mafiaDeadline,
   mafiaLeaderId,
   mafiaNightShortcut,
@@ -104,9 +106,11 @@ interface SecretRow {
  */
 type DecoyStep = `decoy:${MafiaNightStep}`;
 const decoyStep = (step: MafiaNightStep): DecoyStep => `decoy:${step}`;
+/** النمط السريع: سؤال التمويه مرة وحدة لليلة كلها */
+const FAST_DECOY = "decoy:fast";
 /** اختيار الشيخ لنوع نقاش اليوم (night = رقم الليلة اللي قبل الصباح). target_id = الشيخ نفسه لو منظم، null لو عشوائي */
 const SHEIKH_STEP = "sheikh";
-type ActionStep = MafiaNightStep | DecoyStep | typeof SHEIKH_STEP;
+type ActionStep = MafiaNightStep | DecoyStep | typeof FAST_DECOY | typeof SHEIKH_STEP;
 /** أفعال الأدوار الحقيقية بس (بدون اختيارات التمويه) */
 const isRoleStep = (step: string): step is MafiaNightStep => (MAFIA_NIGHT_ORDER as readonly string[]).includes(step);
 
@@ -526,13 +530,16 @@ export async function getMafiaMyView(input: {
     view.sheikhLed = pick ? Boolean(pick.target_id) : null;
   }
 
-  if (room.phase === "night_act" && room.night_step && player.is_alive) {
+  // النمط السريع: الليل دور واحد للكل — مهمة كل واحد حسب فئته، وسؤال تمويه واحد لليلة
+  const fast = isFastMafia(room.settings);
+
+  if (room.phase === "night_act" && (room.night_step || fast) && player.is_alive) {
     const { data: decoy } = await admin
       .from("mafia_actions")
       .select("target_id")
       .eq("room_code", room.room_code)
       .eq("night", room.night_number)
-      .eq("step", decoyStep(room.night_step))
+      .eq("step", fast ? FAST_DECOY : decoyStep(room.night_step!))
       .eq("actor_id", player.id)
       .maybeSingle();
     view.decoyId = decoy?.target_id ?? null;
@@ -540,7 +547,8 @@ export async function getMafiaMyView(input: {
 
   if (!role) return { success: true, data: view };
 
-  const myStepNow = (room.phase === "night_act" || room.phase === "night_done") && room.night_step === role;
+  const myStepNow =
+    (room.phase === "night_act" || room.phase === "night_done") && (fast ? isRoleStep(role) : room.night_step === role);
   const needsEngine = role === "mafia" || myStepNow;
   if (needsEngine) {
     const { engine } = await loadEngine(admin, room.room_code);
@@ -566,6 +574,8 @@ export async function getMafiaMyView(input: {
 
     if (room.phase === "night_act" && room.night_step && player.is_alive) {
       view.task = await buildTask(admin, room, room.night_step, engine, player.id);
+    } else if (room.phase === "night_act" && fast && isRoleStep(role) && player.is_alive) {
+      view.task = await buildTask(admin, room, role, engine, player.id);
     }
   }
 
@@ -638,14 +648,16 @@ export async function submitMafiaNightAction(input: {
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room, player } = ctx;
 
-  if (room.phase !== "night_act" || !room.night_step) return fail("انتهى وقت هذا الدور.");
+  const fast = isFastMafia(room.settings);
+  if (room.phase !== "night_act" || (!room.night_step && !fast)) return fail("انتهى وقت هذا الدور.");
   if (room.phase_ends_at && Date.now() > Date.parse(room.phase_ends_at) + 1000) return fail("انتهى الوقت.");
-  const step = room.night_step;
 
   const { engine } = await loadEngine(admin, room.room_code);
   const me = engine.find((p) => p.id === player.id);
   const leaderId = mafiaLeaderId(engine, room.night_number);
-  if (!me || !canActOnStep(me, step, leaderId, engine)) return fail("مو دورك الحين.");
+  // النمط السريع: الكل بنفس الوقت — دور كل واحد حسب فئته
+  const step = fast ? (me ? fastNightStep(me, leaderId, engine) : null) : room.night_step;
+  if (!me || !step || !canActOnStep(me, step, leaderId, engine)) return fail("مو دورك الحين.");
 
   let target: EnginePlayer | undefined;
   if (input.targetId === null) {
@@ -714,16 +726,35 @@ async function nightProgress(
   return { done: alive.length - waiting.length, total: alive.length, waiting };
 }
 
+/**
+ * النمط السريع: الليل كله دور واحد، ويخلص لما كل الأحياء يختارون — صاحب المهمة من مهمته
+ * (كل واحد حسب فئته)، والباقين سؤال التمويه مرة وحدة. أو لما يخلص المؤقت، أو المنشئ ينهيه.
+ */
+async function fastNightProgress(admin: Admin, room: MafiaRoom): Promise<{ done: number; total: number }> {
+  const [{ engine }, { data }] = await Promise.all([
+    loadEngine(admin, room.room_code),
+    admin.from("mafia_actions").select("actor_id, step").eq("room_code", room.room_code).eq("night", room.night_number),
+  ]);
+  const rows = (data ?? []) as { actor_id: string; step: string }[];
+  const has = (id: string, s: string) => rows.some((r) => r.actor_id === id && r.step === s);
+  const leaderId = mafiaLeaderId(engine, room.night_number);
+  const alive = engine.filter((p) => p.alive);
+  const done = alive.filter((p) => has(p.id, fastNightStep(p, leaderId, engine) ?? FAST_DECOY)).length;
+  return { done, total: alive.length };
+}
+
 async function finishStepIfAllDone(admin: Admin, roomCode: string, seq: number): Promise<void> {
   const room = await loadRoom(admin, roomCode);
-  if (!room || room.phase_seq !== seq || room.phase !== "night_act" || !room.night_step) return;
+  const fast = room ? isFastMafia(room.settings) : false;
+  if (!room || room.phase_seq !== seq || room.phase !== "night_act" || (!room.night_step && !fast)) return;
 
-  const progress = await nightProgress(admin, room);
+  const progress = fast ? await fastNightProgress(admin, room) : await nightProgress(admin, room);
   if (progress.done >= progress.total) {
     await runTransition(admin, room);
     return;
   }
   // مين باقي ما اختار (تحديث مستقل: لو ملف 0007 ما انشغّل، اللعبة تمشي عادي بدون القائمة)
+  // النمط السريع: العدد بس، بدون أسماء اللي باقين
   const { error } = await admin
     .from("mafia_rooms")
     .update({ night_ready: { night: room.night_number, step: room.night_step, ...progress } })
@@ -744,7 +775,12 @@ export async function submitMafiaDecoy(input: {
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room, player } = ctx;
   // طلب متأخر (الدور خلص أو بدأ دور ثاني): سؤال التمويه ما ينحسب بشي، فنتجاهله بصمت
-  if (room.phase !== "night_act" || !room.night_step || (input.seq !== undefined && input.seq !== room.phase_seq)) {
+  const fast = isFastMafia(room.settings);
+  if (
+    room.phase !== "night_act" ||
+    (!room.night_step && !fast) ||
+    (input.seq !== undefined && input.seq !== room.phase_seq)
+  ) {
     return { success: true };
   }
   const step = room.night_step;
@@ -753,11 +789,19 @@ export async function submitMafiaDecoy(input: {
   const me = engine.find((p) => p.id === player.id);
   if (!me || !me.alive) return fail("الموتى ما يختارون");
   const leaderId = mafiaLeaderId(engine, room.night_number);
-  if (canActOnStep(me, step, leaderId, engine)) return fail("اختر من مهمتك.");
+  // النمط السريع: اللي عنده مهمة (حسب فئته) يختار منها، مو من سؤال التمويه
+  const hasTask = fast ? fastNightStep(me, leaderId, engine) !== null : canActOnStep(me, step!, leaderId, engine);
+  if (hasTask) return fail("اختر من مهمتك.");
   if (!engine.some((p) => p.alive && p.id === input.targetId && p.id !== me.id)) return fail("اختر لاعب ثاني.");
 
   const { error } = await admin.from("mafia_actions").upsert(
-    { room_code: room.room_code, night: room.night_number, step: decoyStep(step), actor_id: me.id, target_id: input.targetId },
+    {
+      room_code: room.room_code,
+      night: room.night_number,
+      step: fast ? FAST_DECOY : decoyStep(step!),
+      actor_id: me.id,
+      target_id: input.targetId,
+    },
     { onConflict: "room_code,night,step,actor_id", ignoreDuplicates: true }
   );
   if (error) {
@@ -860,12 +904,14 @@ export async function advanceMafiaPhase(input: {
 }
 
 function enterNight(room: MafiaRoom, night: number): Partial<MafiaRoom> {
+  // النمط السريع: كل الأدوار بدور واحد (بدون night_step) ومؤقت قصير
+  const fast = isFastMafia(room.settings);
   return {
     phase: "night_act",
-    night_step: mafiaNightSteps(room.settings)[0],
+    night_step: fast ? null : mafiaNightSteps(room.settings)[0],
     night_number: night,
-    // أدوار الليل بدون مؤقت: تمشي لما الكل يختارون
-    phase_ends_at: null,
+    // الحماسي: أدوار الليل بدون مؤقت، تمشي لما الكل يختارون. السريع: تمشي لما الكل يختارون أو يخلص المؤقت
+    phase_ends_at: fast ? new Date(Date.now() + MAFIA_CONFIG.FAST_NIGHT_SECONDS * 1000).toISOString() : null,
     vote_counts: {},
     vote_result: null,
   };
@@ -956,6 +1002,10 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
     case "night_act": {
       // اللي ما اختار، يختار له النظام (إلا الساحر والصحفي: قدرتهم تظل لليلة الجاية)
       if (room.night_step) await fillMissingActions(admin, room, room.night_step);
+      // النمط السريع: نفس الشي لكل الأدوار مرة وحدة
+      else if (isFastMafia(room.settings)) {
+        await Promise.all(mafiaNightSteps(room.settings).map((step) => fillMissingActions(admin, room, step)));
+      }
       await guardedRoomUpdate(admin, room, {
         phase: "night_done",
         phase_ends_at: mafiaDeadline("night_done"),
@@ -980,7 +1030,11 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         .map((a) => ({ step: a.step as MafiaNightStep, actorId: a.actor_id, targetId: a.target_id }));
 
       // بعد دور المافيا: لو الليلة حسمت اللعبة ننهيها على طول
-      const shortcut = idx >= steps.indexOf("mafia") ? mafiaNightShortcut(engine, actions, remaining) : null;
+      // (النمط السريع: كل الأدوار خلصت مع بعض — remaining فاضي، مثل آخر دور بالحماسي)
+      const shortcut =
+        isFastMafia(room.settings) || idx >= steps.indexOf("mafia")
+          ? mafiaNightShortcut(engine, actions, remaining)
+          : null;
       if (shortcut) {
         await endGame(admin, room, shortcut.winner, { resolution: shortcut.resolution, secretOf });
         return;
@@ -1221,6 +1275,7 @@ async function fillMissingActions(admin: Admin, room: MafiaRoom, step: MafiaNigh
 
 /** البوتات (وضع التجربة): أول ما يبدأ الدور يختارون كلهم — صاحب دور أو تمويه */
 async function botsNightTurn(admin: Admin, room: MafiaRoom): Promise<void> {
+  if (isFastMafia(room.settings)) return botsFastNight(admin, room);
   const step = room.night_step;
   if (!step) return;
   const { engine, players } = await loadEngine(admin, room.room_code);
@@ -1239,6 +1294,33 @@ async function botsNightTurn(admin: Admin, room: MafiaRoom): Promise<void> {
       }
     } else {
       row = { step: decoyStep(step), target_id: pickRandom(alive.filter((x) => x.id !== p.id))?.id ?? null };
+    }
+    await admin.from("mafia_actions").upsert(
+      { room_code: room.room_code, night: room.night_number, step: row.step, actor_id: p.id, target_id: row.target_id },
+      { onConflict: "room_code,night,step,actor_id", ignoreDuplicates: true }
+    );
+  }
+}
+
+/** النمط السريع: البوتات يختارون كلهم أول ما يبدأ الليل — كل بوت مهمته حسب فئته، أو التمويه */
+async function botsFastNight(admin: Admin, room: MafiaRoom): Promise<void> {
+  const { engine, players } = await loadEngine(admin, room.room_code);
+  const bots = new Set(players.filter((p) => p.is_bot).map((p) => p.id));
+  if (bots.size === 0) return;
+  const leaderId = mafiaLeaderId(engine, room.night_number);
+  const alive = engine.filter((p) => p.alive);
+
+  for (const p of alive.filter((x) => bots.has(x.id))) {
+    const step = fastNightStep(p, leaderId, engine);
+    let row: { step: ActionStep; target_id: string | null };
+    if (step) {
+      const skip = (step === "magician" || step === "journalist") && Math.random() < 0.6;
+      row = { step, target_id: skip ? null : pickRandom(autoTargets(step, p, engine))?.id ?? null };
+      if (step === "suicide" && row.target_id) {
+        await admin.from("mafia_secrets").update({ suicide_target: row.target_id }).eq("player_id", p.id);
+      }
+    } else {
+      row = { step: FAST_DECOY, target_id: pickRandom(alive.filter((x) => x.id !== p.id))?.id ?? null };
     }
     await admin.from("mafia_actions").upsert(
       { room_code: room.room_code, night: room.night_number, step: row.step, actor_id: p.id, target_id: row.target_id },

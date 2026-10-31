@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Loader2, Minus, Plus, AlertCircle, Users, MessagesSquare, Check, Play } from "lucide-react";
-import { MAFIA_CONFIG, MAFIA_OPTIONAL_ROLES, MAFIA_ROLES, mafiaCardSrc } from "@/constants/mafia";
+import { Loader2, Minus, Plus, AlertCircle, Users, MessagesSquare, Check, Play, Flame, Zap } from "lucide-react";
+import { MAFIA_CONFIG, MAFIA_MODES, MAFIA_OPTIONAL_ROLES, MAFIA_ROLES, mafiaCardSrc } from "@/constants/mafia";
 import { mafiaCitizenCount, mafiaMaxMafia, validateMafiaSettings } from "@/lib/game/mafia-engine";
-import type { MafiaOptionalRole, MafiaRole, MafiaSettings } from "@/types";
+import type { MafiaMode, MafiaOptionalRole, MafiaRole, MafiaSettings } from "@/types";
 import { DiscussionTimePicker, RoleIcon } from "./MafiaParts";
 import { BTN_GOLD, CARD, CHIP, CTA_BAR, INSET, LABEL, NOTE } from "./mafiaUi";
 
@@ -58,6 +58,40 @@ function Stepper({
           <Minus size={18} />
         </button>
       </div>
+    </div>
+  );
+}
+
+const MODE_ICON: Record<MafiaMode, React.ReactNode> = {
+  hype: <Flame size={18} className="shrink-0" />,
+  fast: <Zap size={18} className="shrink-0" />,
+};
+
+/** حماسي (كل فئة بدورها) أو سريع (الكل مع بعض) — نفس شكل اختيار وقت النقاش، وتحت كل واحد سطر يشرحه */
+function ModePicker({ value, onChange }: { value: MafiaMode; onChange: (mode: MafiaMode) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-ludn-surface-2" role="radiogroup" aria-label="نمط اللعب">
+      {MAFIA_MODES.map((m) => {
+        const on = m.key === value;
+        return (
+          <button
+            key={m.key}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(m.key)}
+            className={`min-h-[58px] px-2 py-1.5 rounded-xl grid justify-items-center content-center gap-0.5 transition-colors ${
+              on ? "bg-ludn-gold text-ludn-gold-ink" : "text-ludn-muted hover:text-ludn-fg"
+            }`}
+          >
+            <span className="flex items-center gap-1.5 text-[15px] font-black">
+              {MODE_ICON[m.key]}
+              {m.label}
+            </span>
+            <span className={`text-xs font-bold ${on ? "text-ludn-gold-ink/75" : ""}`}>{m.hint}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -132,6 +166,14 @@ export default function MafiaSetupForm({
     >
       <div className={`${CARD} grid gap-4`}>
         {children}
+
+        <div>
+          <p className={`${LABEL} mb-2`}>نمط اللعب</p>
+          <ModePicker
+            value={settings.mode ?? "hype"}
+            onChange={(mode) => setSettings((s) => ({ ...s, mode }))}
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           <Stepper

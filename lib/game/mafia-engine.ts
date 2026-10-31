@@ -155,6 +155,20 @@ export function canActOnStep(
   return true;
 }
 
+/** النمط السريع: كل أدوار الليل بنفس الوقت (الغرف القديمة بدون نمط = حماسي) */
+export function isFastMafia(s: MafiaSettings): boolean {
+  return s.mode === "fast";
+}
+
+/**
+ * النمط السريع: مهمة اللاعب الليلة حسب فئته — بنفس شروط النمط الحماسي (canActOnStep).
+ * null = ما عنده مهمة (مواطن، مافيا مو قائد، صحفي استخدم قدرته…): يجاوب سؤال التمويه.
+ */
+export function fastNightStep(p: EnginePlayer, leaderId: string | null, players: EnginePlayer[]): MafiaNightStep | null {
+  const step = MAFIA_NIGHT_ORDER.find((s) => s === p.role);
+  return step && canActOnStep(p, step, leaderId, players) ? step : null;
+}
+
 /** الأهداف المسموحة لصاحب الدور */
 export function allowedTargets(actor: EnginePlayer, step: MafiaNightStep, players: EnginePlayer[]): EnginePlayer[] {
   const alive = players.filter((p) => p.alive);

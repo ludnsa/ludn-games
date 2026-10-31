@@ -1,4 +1,4 @@
-import type { MafiaNightStep, MafiaOptionalRole, MafiaRole, MafiaTeam } from "@/types";
+import type { MafiaMode, MafiaNightStep, MafiaOptionalRole, MafiaRole, MafiaTeam } from "@/types";
 
 /**
  * المصدر الوحيد لهوية لعبة "المافيا".
@@ -31,6 +31,8 @@ export const MAFIA_CONFIG = {
   ROLE_REVEAL_SECONDS: 4,
   /** أدوار الليل ما لها مؤقت: الدور يمشي لما كل الأحياء يختارون (أو المنشئ يتخطى) */
   NIGHT_DONE_SECONDS: 5,
+  /** النمط السريع: الليل كله دور واحد بهذا المؤقت — بعده النظام يختار عن اللي ما اختار */
+  FAST_NIGHT_SECONDS: 15,
   /** الصباح ما له وقت: النتائج تظل لين المنشئ يختار وقت النقاش ويضغط "ابدأ النقاش" */
   /** وقت النقاش الافتراضي، والخيارات اللي يقدر المنشئ يختار منها (0 = مفتوح، ينتهي بزر المنشئ) */
   DISCUSSION_SECONDS: 120,
@@ -165,6 +167,12 @@ export const MAFIA_BACKGROUNDS = {
   night: "/games/mafia/night_background.webp",
   day: "/games/mafia/day_background.webp",
 } as const;
+
+/** أنماط اللعب بشاشة الإعداد — الأول هو الافتراضي */
+export const MAFIA_MODES: readonly { key: MafiaMode; label: string; hint: string }[] = [
+  { key: "hype", label: "حماسي", hint: "كل فئة تصحى بدورها" },
+  { key: "fast", label: "سريع", hint: `الكل مع بعض · ${MAFIA_CONFIG.FAST_NIGHT_SECONDS} ثانية` },
+] as const;
 
 /** الفئات الاختيارية بالترتيب اللي تظهر فيه في شاشة الإعداد */
 export const MAFIA_OPTIONAL_ROLES: readonly MafiaOptionalRole[] = [
