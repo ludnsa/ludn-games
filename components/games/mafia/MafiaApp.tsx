@@ -3,7 +3,13 @@
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Cairo } from "next/font/google";
 import { LogIn, Loader2, AlertCircle, DoorOpen, Undo2 } from "lucide-react";
-import { createMafiaRoom, getMafiaRoomPublicInfo, joinMafiaRoom, leaveMafiaRoom } from "@/actions/mafia";
+import {
+  createMafiaRoom,
+  getMafiaRoomPublicInfo,
+  isMafiaRoomFromOtherAccount,
+  joinMafiaRoom,
+  leaveMafiaRoom,
+} from "@/actions/mafia";
 import { MAFIA_CONFIG, MAFIA_GAME } from "@/constants/mafia";
 import { useMafiaGame, type MafiaSession } from "@/hooks/games/mafia/useMafiaGame";
 import { unlockMafiaAudio } from "@/lib/game/mafia-sounds";
@@ -45,6 +51,24 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
   const [resumeChosen, setResumeChosen] = useState(false);
   const askResume = mode === "host" && session !== null && !session.host && !resumeChosen;
 
+  // غرفة منشئ محفوظة بحساب ثاني (سجّل دخول بحساب غير اللي سوّاها): أزرار المنشئ ما تشتغل له،
+  // فنطلّعه منها ويسوي غرفته بدل ما يضغط وما يصير شي
+  const [foreignRoom, setForeignRoom] = useState<string | null>(null);
+  const hostCode = mode === "host" && session?.host ? session.roomCode : null;
+  useEffect(() => {
+    if (!hostCode) return;
+    let active = true;
+    isMafiaRoomFromOtherAccount(hostCode)
+      .then((other) => {
+        if (active && other) setForeignRoom(hostCode);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [hostCode]);
+  const foreign = hostCode !== null && foreignRoom === hostCode;
+
   // رسالة تطلع في شاشة الدخول بعد ما يطلع اللاعب (مثل: انطردت)
   const [notice, setNotice] = useState("");
 
@@ -62,8 +86,10 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
       dir="rtl"
     >
       {/* شاشات الدخول: خلفية الليل (داخل اللعبة MafiaInGame يحط خلفيته حسب المرحلة) */}
-      {(!session || askResume) && <MafiaBackdrop night />}
-      {session && askResume ? (
+      {(!session || askResume || foreign) && <MafiaBackdrop night />}
+      {session && foreign ? (
+        <MafiaForeignRoom roomCode={session.roomCode} onNew={() => lost()} />
+      ) : session && askResume ? (
         <MafiaResumeOrNew
           roomCode={session.roomCode}
           onResume={() => setResumeChosen(true)}
@@ -172,6 +198,31 @@ function MafiaResumeOrNew({
             <Undo2 size={22} /> ارجع للغرفة {roomCode}
           </button>
         </div>
+      </Panel>
+    </div>
+  );
+}
+
+/** الغرفة المحفوظة انسوّت بحساب ثاني — أزرار المنشئ ما تشتغل بهذا الحساب */
+function MafiaForeignRoom({ roomCode, onNew }: { roomCode: string; onNew: () => void }) {
+  return (
+    <div className="w-full max-w-md mx-auto my-auto">
+      <Header subtitle="هذي الغرفة انسوّت بحساب ثاني" />
+      <Panel className="text-center">
+        <p className="text-4xl font-black tracking-[0.3em] text-red-400 mb-3" dir="ltr">
+          {roomCode}
+        </p>
+        <p className="font-bold text-slate-400 text-sm leading-relaxed mb-5">
+          جوالك حافظ هالغرفة، بس أنت داخل الحين بحساب غير اللي سوّاها، فأزرار المنشئ ما تشتغل لك.
+          سوّ غرفة جديدة بحسابك، أو سجّل دخول بالحساب اللي سوّاها.
+        </p>
+        <button
+          type="button"
+          onClick={onNew}
+          className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
+        >
+          <DoorOpen size={22} /> سوّ غرفة جديدة
+        </button>
       </Panel>
     </div>
   );

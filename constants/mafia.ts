@@ -22,7 +22,9 @@ export const MAFIA_CONFIG = {
 
   MIN_PLAYERS: 7,
   MAX_PLAYERS: 20,
-  MIN_MAFIA: 2,
+  MIN_MAFIA: 1,
+  /** عدد المافيا اللي يطلع أول ما يفتح شاشة الإعداد */
+  DEFAULT_MAFIA: 2,
   MIN_CITIZENS: 3,
 
   /** مدد المراحل بالثواني */

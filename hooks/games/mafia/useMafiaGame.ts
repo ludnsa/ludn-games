@@ -23,7 +23,6 @@ import {
   startMafiaDiscussion,
   startMafiaGame,
   submitMafiaNightAction,
-  suggestMafiaTarget,
   submitMafiaDecoy,
   updateMafiaSettings,
   type MafiaMyView,
@@ -88,6 +87,9 @@ export function mafiaMorningSchedule(announcements: MafiaAnnouncement[]): number
   return schedule;
 }
 
+/** اختيار الليل ما وصل للسيرفر (النت انقطع): نرجّع الشاشة عشان يضغط من جديد بدل ما يعلق */
+const OFFLINE = { success: false, error: "ما وصل اختيارك — تأكد من النت واضغط مرة ثانية" } as const;
+
 /** صوتي ينحسب على الشاشة فوراً (العداد وأسماء المصوّتين)، والسيرفر يأكده بعدين */
 function withLocalVote(room: MafiaRoom, voterId: string, prev: string | null, next: string): MafiaRoom {
   const counts = { ...(room.vote_counts ?? {}) };
@@ -151,7 +153,7 @@ export function useMafiaGame(
     if (roster) setPlayers(roster as MafiaPlayer[]);
   }, [supabase, roomCode]);
 
-  const fetchView = useCallback(async () => {
+  const fetchViewOnce = useCallback(async () => {
     if (!roomCode || !token) return;
     const sentAt = Date.now();
     const res = await getMafiaMyView({ roomCode, token });
@@ -166,14 +168,39 @@ export function useMafiaGame(
     setView(res.data);
   }, [roomCode, token]);
 
+  /**
+   * جلب حالتي الخاصة — طلب واحد بس بالمرة. طلبات الجوال للسيرفر تمشي بالدور وحدة ورا الثانية،
+   * فلو تكدّست طلبات الجلب، ضغطة اللاعب (اختياره بالليل) تنتظر وراها وتحس اللعبة معلقة.
+   * لو انطلب جلب والجلب الحالي ما خلص، نعيده مرة وحدة بعده عشان آخر حالة توصل.
+   */
+  const fetchViewLatest = useRef(fetchViewOnce);
+  useEffect(() => {
+    fetchViewLatest.current = fetchViewOnce;
+  }, [fetchViewOnce]);
+  const viewRun = useRef<Promise<void> | null>(null);
+  const viewAgain = useRef(false);
+  const fetchView = useCallback((): Promise<void> => {
+    if (viewRun.current) {
+      viewAgain.current = true;
+      return viewRun.current;
+    }
+    const run = (async () => {
+      try {
+        do {
+          viewAgain.current = false;
+          await fetchViewLatest.current();
+        } while (viewAgain.current);
+      } finally {
+        viewRun.current = null;
+      }
+    })();
+    viewRun.current = run;
+    return run;
+  }, []);
+
   // -------------------------------------------------------------------
   // الإقلاع والبث اللحظي
   // -------------------------------------------------------------------
-
-  // قناة إشارات بين الأجهزة (اسمها ثابت للغرفة): "فيه اقتراح جديد" — بدون أي محتوى،
-  // فالقائد يجيب الاقتراح على طول بدل ما ينتظر الاستعلام الدوري
-  const signalRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const mafiaTurnRef = useRef(false);
 
   useEffect(() => {
     if (!roomCode) return;
@@ -207,14 +234,6 @@ export function useMafiaGame(
     };
     document.addEventListener("visibilitychange", onVisible);
 
-    const signals = supabase
-      .channel(`mafia_signal_${roomCode}`)
-      .on("broadcast", { event: "mafia_suggest" }, () => {
-        if (mafiaTurnRef.current) fetchView();
-      })
-      .subscribe();
-    signalRef.current = signals;
-
     // شبكة أمان لو البث اللحظي انقطع بصمت
     const safety = setInterval(fetchPublic, 5000);
 
@@ -222,8 +241,6 @@ export function useMafiaGame(
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(safety);
       supabase.removeChannel(channel);
-      supabase.removeChannel(signals);
-      signalRef.current = null;
     };
   }, [supabase, roomCode, fetchPublic, fetchView]);
 
@@ -241,15 +258,6 @@ export function useMafiaGame(
     const id = setInterval(fetchView, 2000);
     return () => clearInterval(id);
   }, [viewStale, fetchView]);
-
-  // المافيا يتابعون اختيار القائد والمصادقة أول بأول (استعلام خاص، ما يكشف شي للباقين)
-  const isMafiaTurn = room?.phase === "night_act" && room.night_step === "mafia" && view?.me.role === "mafia";
-  useEffect(() => {
-    mafiaTurnRef.current = isMafiaTurn;
-    if (!isMafiaTurn) return;
-    const id = setInterval(fetchView, 1500);
-    return () => clearInterval(id);
-  }, [isMafiaTurn, fetchView]);
 
   // وضع التجربة: المنشئ يشوف كل الأدوار
   const isHost = Boolean(view?.me.isHost);
@@ -419,63 +427,44 @@ export function useMafiaGame(
     []
   );
 
+  const phaseSeq = room?.phase_seq;
+
   /**
-   * صاحب الدور يختار ويضغط "استمرار" (null = الساحر/الصحفي يعدّي الليلة).
-   * الحركة تطلع على شاشته بس وبدون صوت — أي صوت من جوال واحد يفضح فئته.
+   * صاحب الدور يضغط على اسم (null = الساحر/الصحفي يعدّي الليلة) — ضغطة وحدة والاختيار نهائي.
+   * بدون صوت وبدون حركة ولا لون خاص: شاشته لازم تكون مثل شاشات الباقين بالضبط،
+   * لأن اللي جنبه يقدر يلمحها. ينرسل مرة وحدة بس لكل دور (لو ضغط مرتين بسرعة).
    */
+  const actSeq = useRef<number | null>(null);
   const act = useCallback(
     async (targetId: string | null) => {
-      const step = room?.night_step;
+      if (phaseSeq === undefined || actSeq.current === phaseSeq) return;
+      actSeq.current = phaseSeq;
       unlockMafiaAudio();
       setError("");
       // الشاشة تتقفل على اختياره فوراً، والسيرفر يحفظ بالخلفية (لو فشل نرجّعها)
       setView((v) => (v?.task ? { ...v, task: { ...v.task, locked: true, selectedId: targetId } } : v));
-      const silent = { silent: true };
-      if (step === "mafia") cueMafia("slash", "slash", silent);
-      else if (step === "doctor") cueMafia("heal", "saved", silent);
-      else if (step === "magician" && targetId) cueMafia("magic", "magic", silent);
-      else if (step === "journalist" && targetId) cueMafia("camera", "flash", silent);
-
-      const res = await submitMafiaNightAction({ roomCode, token, targetId });
-      if (!res.success) setError(res.error);
-      else if (step === "detective") {
-        if (res.data.detectiveResult?.isMafia) cueMafia("dramatic", "reveal_mafia", silent);
-        else cueMafia("womp", "miss", silent);
+      const res = await submitMafiaNightAction({ roomCode, token, targetId }).catch(() => OFFLINE);
+      if (!res.success) {
+        actSeq.current = null;
+        setError(res.error);
       }
       await fetchView();
     },
-    [roomCode, token, room?.night_step, fetchView]
-  );
-
-  /** مافيا (غير القائد) يقترح على قائده — بدون صوت */
-  const suggest = useCallback(
-    async (targetId: string) => {
-      setError("");
-      setView((v) => (v?.task ? { ...v, task: { ...v.task, selectedId: targetId } } : v));
-      const res = await suggestMafiaTarget({ roomCode, token, targetId });
-      if (!res.success) {
-        setError(res.error);
-        fetchView();
-        return;
-      }
-      signalRef.current?.send({ type: "broadcast", event: "mafia_suggest", payload: {} });
-    },
-    [roomCode, token, fetchView]
+    [roomCode, token, fetchView, phaseSeq]
   );
 
   /**
-   * سؤال التمويه: لازم كل الأحياء يجاوبون عشان يمشي الدور — يتقفل فوراً على الشاشة.
+   * سؤال التمويه: لازم كل الأحياء يجاوبون عشان يمشي الدور — ضغطة وحدة ويتقفل فوراً على الشاشة.
    * ينرسل مرة وحدة بس لكل دور، ومعه رقم الدور عشان السيرفر يتجاهله لو وصل متأخر.
    */
   const decoySeq = useRef<number | null>(null);
-  const phaseSeq = room?.phase_seq;
   const decoy = useCallback(
     async (targetId: string) => {
       if (phaseSeq === undefined || decoySeq.current === phaseSeq) return;
       decoySeq.current = phaseSeq;
       setError("");
       setView((v) => (v ? { ...v, decoyId: targetId } : v));
-      const res = await submitMafiaDecoy({ roomCode, token, targetId, seq: phaseSeq });
+      const res = await submitMafiaDecoy({ roomCode, token, targetId, seq: phaseSeq }).catch(() => OFFLINE);
       if (!res.success) {
         decoySeq.current = null;
         setError(res.error);
@@ -535,7 +524,8 @@ export function useMafiaGame(
 
   const host = useMemo(
     () => ({
-      start: () => run(() => startMafiaGame(roomCode)),
+      /** devRole: وضع التجربة — فئة المنشئ */
+      start: (devRole?: MafiaRole | null) => run(() => startMafiaGame(roomCode, devRole)),
       updateSettings: (settings: MafiaSettings) => run(() => updateMafiaSettings({ roomCode, settings })),
       skipPhase: () => run(() => skipMafiaPhase(roomCode)),
       /** الممنوع من الكلام تكلم: ينقتل */
@@ -604,7 +594,6 @@ export function useMafiaGame(
     nameOf,
     silencedId,
     act,
-    suggest,
     decoy,
     chooseSheikh,
     rename,

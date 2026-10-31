@@ -17,31 +17,31 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
   const roleOf = new Map((room.final_roles ?? []).map((r) => [r.playerId, r]));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div
-        className={`relative overflow-hidden rounded-[2rem] p-8 text-center shadow-2xl animate-in zoom-in-50 duration-500 bg-gradient-to-br ${
+        className={`relative overflow-hidden rounded-[2rem] p-5 text-center shadow-2xl animate-in zoom-in-50 duration-500 bg-gradient-to-br ${
           stopped ? "from-slate-600 to-slate-800" : mafiaWon ? "from-red-600 to-red-900" : "from-emerald-500 to-sky-700"
         }`}
       >
         {mafiaWon && <BloodDrips />}
-        <div className="relative flex justify-center mb-3">
+        <div className="relative flex justify-center mb-2">
           {stopped ? (
             // المنشئ أنهى اللعبة: أيقونة المافيا علامة اللعبة
-            <RoleIcon role="mafia" className="w-32 h-32 drop-shadow-[0_0_24px_rgba(0,0,0,0.6)]" />
+            <RoleIcon role="mafia" className="w-24 h-24 drop-shadow-[0_0_24px_rgba(0,0,0,0.6)]" />
           ) : mafiaWon ? (
-            <RoleIcon role="mafia" className="w-32 h-32 drop-shadow-[0_0_24px_rgba(0,0,0,0.6)]" />
+            <RoleIcon role="mafia" className="w-24 h-24 drop-shadow-[0_0_24px_rgba(0,0,0,0.6)]" />
           ) : (
             // فوز المدينة: أيقونات المحقق والمواطن والطبيب مع بعض
             (["detective", "citizen", "doctor"] as const).map((r, i) => (
               <RoleIcon
                 key={r}
                 role={r}
-                className={`drop-shadow-[0_0_18px_rgba(0,0,0,0.5)] ${i === 1 ? "w-28 h-28 relative z-10" : "w-20 h-20 self-end -mx-3"}`}
+                className={`drop-shadow-[0_0_18px_rgba(0,0,0,0.5)] ${i === 1 ? "w-20 h-20 relative z-10" : "w-14 h-14 self-end -mx-2"}`}
               />
             ))
           )}
         </div>
-        <h2 className="relative text-4xl font-black mb-2">
+        <h2 className="relative text-3xl font-black mb-1">
           {stopped ? "انتهت اللعبة" : mafiaWon ? "المافيا فازوا!" : "المواطنين فازوا!"}
         </h2>
         <p className="relative font-bold opacity-90">
@@ -56,13 +56,13 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
       {/* اللعبة انحسمت بالليل: مين مات في ليلة الحسم */}
       {(room.announcements ?? []).length > 0 && (
         <Panel className="border-red-900">
-          <h3 className="font-black text-xl mb-3 flex items-center gap-2">
+          <h3 className="font-black text-lg mb-2 flex items-center gap-2">
             <Moon size={20} /> ليلة الحسم
           </h3>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-1.5">
             {room.announcements.map((a, i) => (
-              <li key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-red-950/60 font-black">
-                <AnnouncementIcon kind={a.kind} className="w-11 h-11" />
+              <li key={i} className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-red-950/60 font-black">
+                <AnnouncementIcon kind={a.kind} className="w-9 h-9" />
                 <span className="flex-1 min-w-0 break-words leading-snug">{a.text}</span>
               </li>
             ))}
@@ -71,10 +71,11 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
       )}
 
       <Panel>
-        <h3 className="font-black text-xl mb-3 flex items-center gap-2">
+        <h3 className="font-black text-lg mb-2 flex items-center gap-2">
           <VenetianMask size={22} /> كشف كل الأدوار
         </h3>
-        <ul className="flex flex-col gap-2">
+        {/* عمودين بأيقونات أصغر — القائمة تنقص للنص تقريباً على الجوال */}
+        <ul className="grid grid-cols-2 gap-1.5">
           {players.map((p) => {
             const r = roleOf.get(p.id);
             if (!r) return null;
@@ -83,17 +84,17 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
             return (
               <li
                 key={p.id}
-                className={`flex items-center gap-3 p-3 rounded-2xl ${
+                className={`flex items-center gap-2 p-2 rounded-2xl ${
                   p.id === me?.id ? "bg-slate-700" : "bg-slate-800"
                 } ${p.is_alive ? "" : "opacity-60"}`}
               >
-                <RoleIcon role={r.role} className="w-12 h-12" />
+                <RoleIcon role={r.role} className="w-9 h-9" />
                 <span className="flex-1 min-w-0">
-                  <span className="block font-black break-words leading-tight">
+                  <span className="block text-sm font-black break-words leading-tight">
                     {p.display_name}
-                    {!p.is_alive && <Ghost size={15} className="inline -mt-1 ms-1.5 text-slate-400" />}
+                    {!p.is_alive && <Ghost size={13} className="inline -mt-1 ms-1 text-slate-400" />}
                   </span>
-                  <span className={`block text-sm font-bold ${def.team === "mafia" ? "text-red-400" : "text-slate-400"}`}>
+                  <span className={`block text-xs font-bold ${def.team === "mafia" ? "text-red-400" : "text-slate-400"}`}>
                     {changed ? `${MAFIA_ROLES[r.originalRole].label} ← ` : ""}
                     {def.label}
                   </span>
@@ -109,7 +110,7 @@ export default function MafiaGameOver({ ctx }: { ctx: MafiaGameCtx }) {
           type="button"
           onClick={() => host.playAgain()}
           disabled={busy}
-          className="w-full py-5 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-black text-xl rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
+          className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-black text-xl rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
         >
           {busy ? <Loader2 className="animate-spin" size={24} /> : <RotateCcw size={24} />}
           جولة جديدة بنفس اللاعبين

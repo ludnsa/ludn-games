@@ -9,7 +9,7 @@ import { DiscussionTimePicker, RoleIcon } from "./MafiaParts";
 
 export const DEFAULT_MAFIA_SETTINGS: MafiaSettings = {
   maxPlayers: MAFIA_CONFIG.MIN_PLAYERS,
-  mafiaCount: MAFIA_CONFIG.MIN_MAFIA,
+  mafiaCount: MAFIA_CONFIG.DEFAULT_MAFIA,
   optionalRoles: [],
 };
 

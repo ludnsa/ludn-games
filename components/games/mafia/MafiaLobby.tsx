@@ -2,11 +2,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { Copy, Check, Crown, X, Play, Loader2, Settings2, Bot, QrCode, Pencil, Users, Hourglass } from "lucide-react";
-import { MAFIA_GAME } from "@/constants/mafia";
+import { Copy, Check, Crown, X, Play, Loader2, Settings2, Bot, QrCode, Pencil, Users, Hourglass, Shuffle } from "lucide-react";
+import { MAFIA_GAME, MAFIA_ROLES } from "@/constants/mafia";
+import { mafiaCitizenCount } from "@/lib/game/mafia-engine";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
+import type { MafiaRole } from "@/types";
 import MafiaSetupForm from "./MafiaSetupForm";
-import { Panel } from "./MafiaParts";
+import { Panel, RoleIcon } from "./MafiaParts";
 
 export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
   const { room, players, isHost, me, host, busy, devMode } = ctx;
@@ -16,10 +18,21 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
   // الطرد يحتاج ضغطتين: الأولى تسأل "طرد؟"، والثانية تطرد
   const [kickArmed, setKickArmed] = useState<string | null>(null);
   const [newName, setNewName] = useState<string | null>(null);
+  // وضع التجربة: فئة المنشئ (null = عشوائي)
+  const [devRole, setDevRole] = useState<MafiaRole | null>(null);
 
   if (!room) return null;
   const max = room.settings.maxPlayers;
   const full = players.length === max;
+  const devRoles: MafiaRole[] = [
+    "mafia",
+    "detective",
+    "doctor",
+    ...(mafiaCitizenCount(room.settings) > 0 ? (["citizen"] as const) : []),
+    ...room.settings.optionalRoles,
+  ];
+  // لو تغيّرت الإعدادات وفئتي ما عادت موجودة: عشوائي
+  const myDevRole = devRole && devRoles.includes(devRole) ? devRole : null;
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}${MAFIA_GAME.joinPath}?room=${room.room_code}` : "";
 
   const copyLink = async () => {
@@ -168,7 +181,7 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={() => host.start()}
+            onClick={() => host.start(devMode ? myDevRole : null)}
             disabled={!full || busy}
             className="w-full py-5 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xl rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
           >
@@ -209,6 +222,40 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
             >
               <Bot size={18} /> عبّي الغرفة بلاعبين وهميين (localhost فقط)
             </button>
+          )}
+
+          {devMode && (
+            <div className="p-3 bg-indigo-900/60 border-2 border-dashed border-indigo-500 rounded-2xl">
+              <p className="font-black text-indigo-200 text-sm text-center mb-3">فئتي بالتجربة (localhost فقط)</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2" role="radiogroup" aria-label="فئتي بالتجربة">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={myDevRole === null}
+                  onClick={() => setDevRole(null)}
+                  className={`min-h-11 p-2 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 border-b-4 ${
+                    myDevRole === null ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950"
+                  }`}
+                >
+                  <Shuffle size={22} /> عشوائي
+                </button>
+                {devRoles.map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    role="radio"
+                    aria-checked={myDevRole === role}
+                    onClick={() => setDevRole(role)}
+                    className={`min-h-11 p-2 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 border-b-4 ${
+                      myDevRole === role ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950"
+                    }`}
+                  >
+                    <RoleIcon role={role} className="w-8 h-8" />
+                    {MAFIA_ROLES[role].label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       ) : (

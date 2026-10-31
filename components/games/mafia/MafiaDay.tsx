@@ -49,7 +49,23 @@ export function MafiaMorning({ ctx }: { ctx: MafiaGameCtx }) {
   );
   return (
     <div className="flex flex-col gap-3">
-      {/* النتائج تظل بدون وقت، لين المنشئ يختار وقت النقاش ويبدأه */}
+      {ctx.me?.role === "sheikh" && ctx.me.alive && <SheikhPicker ctx={ctx} />}
+      <Sunrise size={44} strokeWidth={1.6} className="mx-auto text-amber-300 animate-in zoom-in-50 duration-500" />
+      {/* سطر واحد بكل المقاسات: الخط يصغر مع عرض الشاشة */}
+      <h2 className="text-center whitespace-nowrap text-[clamp(1rem,5.5vw,1.75rem)] font-black mb-1">
+        صباح الخير! هذا اللي صار بالليل
+      </h2>
+      {announcements.map((a, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900/90 border-2 border-slate-800 animate-in fade-in slide-in-from-bottom-4"
+          style={{ animationDelay: `${schedule[i]}ms`, animationDuration: "600ms", animationFillMode: "both" }}
+        >
+          <AnnouncementIcon kind={a.kind} className="w-11 h-11" />
+          <p className="font-black text-base leading-snug">{a.text}</p>
+        </div>
+      ))}
+      {/* تحت النتائج: النتائج تظل بدون وقت، لين المنشئ يختار وقت النقاش ويبدأه */}
       {ctx.isHost ? (
         <Panel className="border-amber-700">
           <p className="font-black mb-2 flex items-center gap-2">
@@ -72,19 +88,6 @@ export function MafiaMorning({ ctx }: { ctx: MafiaGameCtx }) {
           اقروا النتائج… النقاش يبدأ لما يضغط المنشئ
         </p>
       )}
-      {ctx.me?.role === "sheikh" && ctx.me.alive && <SheikhPicker ctx={ctx} />}
-      <Sunrise size={64} strokeWidth={1.6} className="mx-auto mb-1 text-amber-300 animate-in zoom-in-50 duration-500" />
-      <h2 className="text-center text-3xl font-black mb-2">صباح الخير! هذا اللي صار بالليل</h2>
-      {announcements.map((a, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/90 border-2 border-slate-800 animate-in fade-in slide-in-from-bottom-4"
-          style={{ animationDelay: `${schedule[i]}ms`, animationDuration: "600ms", animationFillMode: "both" }}
-        >
-          <AnnouncementIcon kind={a.kind} className="w-14 h-14" />
-          <p className="font-black text-lg leading-snug">{a.text}</p>
-        </div>
-      ))}
     </div>
   );
 }
@@ -166,22 +169,25 @@ export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
   const sheikhRule = all.find(isSheikhRule);
   const results = all.filter((a) => !isSheikhRule(a));
   return (
-    <div className="flex flex-col gap-4">
-      <Panel className="text-center">
-        <MessagesSquare size={56} strokeWidth={1.6} className="mx-auto mb-2 text-amber-300" />
-        <h2 className="text-3xl font-black mb-1">وقت النقاش</h2>
-        <p className="font-bold text-slate-400">تناقشوا مين تشكّون فيه… بعدها التصويت</p>
-        {secondsLeft !== null ? (
-          <p className="text-6xl font-black tabular-nums mt-4" dir="ltr">
-            {`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`}
-          </p>
-        ) : (
-          <p className="text-3xl font-black mt-4 text-amber-300">
-            <InfinityIcon size={30} className="inline -mt-1 me-2" />
-            نقاش مفتوح
-            <span className="block text-sm font-bold text-slate-400 mt-1">التصويت يبدأ لما يضغط المنشئ</span>
-          </p>
-        )}
+    <div className="flex flex-col gap-3">
+      {/* العنوان والعداد بسطر واحد بدل مربع كبير */}
+      <Panel>
+        <div className="flex items-center gap-3">
+          <MessagesSquare size={30} strokeWidth={1.6} className="shrink-0 text-amber-300" />
+          <h2 className="flex-1 min-w-0 text-2xl font-black">وقت النقاش</h2>
+          {secondsLeft !== null ? (
+            <p className="text-4xl font-black tabular-nums" dir="ltr">
+              {`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`}
+            </p>
+          ) : (
+            <InfinityIcon size={34} className="shrink-0 text-amber-300" aria-label="نقاش مفتوح" />
+          )}
+        </div>
+        <p className="mt-1 text-sm font-bold text-slate-400">
+          {secondsLeft !== null
+            ? "تناقشوا مين تشكّون فيه… بعدها التصويت"
+            : "نقاش مفتوح — التصويت يبدأ لما يضغط المنشئ"}
+        </p>
       </Panel>
 
       {sheikhRule && <SheikhRule ctx={ctx} rule={sheikhRule} />}
@@ -189,14 +195,14 @@ export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
       {/* نتائج الليل تظل قدامهم طول النقاش عشان يحللون */}
       {results.length > 0 && (
         <Panel>
-          <h3 className="font-black mb-3 flex items-center gap-2">
+          <h3 className="font-black mb-2 flex items-center gap-2">
             <Sunrise size={18} /> نتائج الليلة {room?.night_number}
           </h3>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-1.5">
             {results.map((a, i) => (
-              <li key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-800">
-                <AnnouncementIcon kind={a.kind} className="w-10 h-10" />
-                <span className="font-bold leading-snug">{a.text}</span>
+              <li key={i} className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-800">
+                <AnnouncementIcon kind={a.kind} className="w-9 h-9" />
+                <span className="font-bold text-sm leading-snug">{a.text}</span>
               </li>
             ))}
           </ul>
@@ -204,24 +210,24 @@ export function MafiaDiscussion({ ctx }: { ctx: MafiaGameCtx }) {
       )}
 
       <Panel>
-        <h3 className="font-black mb-3 flex items-center gap-2">
+        <h3 className="font-black mb-2 flex items-center gap-2">
           <HeartPulse size={18} className="text-emerald-400" /> الأحياء ({alivePlayers.length})
         </h3>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {alivePlayers.map((p) => (
-            <span key={p.id} className="px-3 py-1.5 rounded-xl bg-slate-800 font-black">
+            <span key={p.id} className="px-2.5 py-1 rounded-xl bg-slate-800 font-black text-sm">
               {p.display_name}
             </span>
           ))}
         </div>
         {dead.length > 0 && (
           <>
-            <h3 className="font-black mt-4 mb-3 text-slate-500 flex items-center gap-2">
+            <h3 className="font-black mt-3 mb-2 text-slate-500 flex items-center gap-2">
               <Ghost size={18} /> برا اللعبة ({dead.length})
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {dead.map((p) => (
-                <span key={p.id} className="px-3 py-1.5 rounded-xl bg-slate-900 text-slate-500 font-black line-through">
+                <span key={p.id} className="px-2.5 py-1 rounded-xl bg-slate-900 text-slate-500 font-black text-sm line-through">
                   {p.display_name}
                 </span>
               ))}
@@ -254,10 +260,10 @@ export function MafiaVoting({ ctx }: { ctx: MafiaGameCtx }) {
 
   return (
     <Panel>
-      <h2 className="text-3xl font-black text-center mb-1 flex items-center justify-center gap-2">
-        <Vote size={30} /> التصويت
+      <h2 className="text-2xl font-black text-center mb-1 flex items-center justify-center gap-2">
+        <Vote size={24} /> التصويت
       </h2>
-      <p className="text-center font-bold text-slate-400 mb-4">
+      <p className="text-center text-sm font-bold text-slate-400 mb-3">
         {canVote ? "مين تطلّعون؟ التصويت مكشوف، وتقدر تغيّر صوتك لين ينتهي الوقت" : "الموتى يتفرجون بس"}
       </p>
 
@@ -312,9 +318,9 @@ export function MafiaVoteResult({ ctx }: { ctx: MafiaGameCtx }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <Icon size={112} strokeWidth={1.4} className="mb-6 text-slate-200 animate-in zoom-in-50 duration-500" />
-      <p className="text-3xl font-black animate-in fade-in slide-in-from-bottom-4 duration-700">{text}</p>
+    <div className="flex flex-col items-center justify-center py-6 text-center">
+      <Icon size={72} strokeWidth={1.4} className="mb-4 text-slate-200 animate-in zoom-in-50 duration-500" />
+      <p className="text-2xl font-black animate-in fade-in slide-in-from-bottom-4 duration-700">{text}</p>
       {result.reason === "player" && !result.bombId && !result.bombBlocked && (
         <p className="mt-3 font-bold text-slate-400">وش كانت فئته؟ ما راح نقول</p>
       )}
@@ -345,13 +351,13 @@ function VoteBreakdown({ ctx, room }: { ctx: MafiaGameCtx; room: MafiaRoom }) {
   if (rows.length === 0) return null;
 
   return (
-    <Panel className="mt-6 text-right animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <h3 className="font-black mb-3 flex items-center gap-2">
+    <Panel className="mt-4 text-right animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <h3 className="font-black mb-2 flex items-center gap-2">
         <ListChecks size={18} /> مين صوّت على مين؟
       </h3>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-1.5">
         {rows.map(([key, n]) => (
-          <li key={key} className="p-3 rounded-2xl bg-slate-800">
+          <li key={key} className="p-2.5 rounded-2xl bg-slate-800">
             <span className="flex items-center gap-2 mb-1.5">
               <span className="flex-1 font-black">
                 {key === MAFIA_SKIP_KEY ? (

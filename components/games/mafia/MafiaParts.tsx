@@ -16,7 +16,7 @@ export function Panel({
 }) {
   return (
     <section
-      className={`w-full bg-slate-900/80 border-2 border-slate-800 rounded-[2rem] p-5 md:p-6 shadow-2xl animate-in zoom-in-95 ${className}`}
+      className={`w-full bg-slate-900/80 border-2 border-slate-800 rounded-[2rem] p-4 md:p-6 shadow-2xl animate-in zoom-in-95 ${className}`}
     >
       {children}
     </section>
@@ -295,7 +295,10 @@ export interface PickerOption {
   name: string;
 }
 
-/** قائمة اللاعبين للاختيار — تُستخدم في أدوار الليل وفي التصويت */
+/**
+ * قائمة اللاعبين للاختيار — تُستخدم في أدوار الليل وفي التصويت.
+ * أكثر من 8 أسماء: 3 أعمدة بخط أصغر، عشان القائمة تبان كاملة على الجوال بدون سكرول
+ */
 export function PlayerPicker({
   options,
   selectedId,
@@ -323,8 +326,9 @@ export function PlayerPicker({
     amber: "bg-amber-600 border-amber-800",
     orange: "bg-orange-600 border-orange-800",
   };
+  const dense = options.length > 8;
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className={`grid gap-2 ${dense ? "grid-cols-3" : "grid-cols-2"}`}>
       {options.map((o) => {
         const selected = o.id === selectedId;
         const count = badge?.(o.id);
@@ -336,7 +340,9 @@ export function PlayerPicker({
             disabled={disabled}
             onClick={() => onPick(o.id)}
             aria-pressed={selected}
-            className={`flex flex-col items-stretch gap-1.5 py-3.5 px-3 rounded-2xl font-black border-b-4 transition-all text-base ${
+            className={`flex flex-col items-stretch gap-1 py-2.5 rounded-2xl font-black border-b-4 transition-all ${
+              dense ? "px-2 text-sm" : "px-3 text-base"
+            } ${
               selected
                 ? `${selectedStyle[accent]} text-white scale-[1.03]`
                 : "bg-slate-800 border-slate-950 text-slate-100 hover:bg-slate-700"

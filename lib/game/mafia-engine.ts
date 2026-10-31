@@ -163,7 +163,8 @@ export function allowedTargets(actor: EnginePlayer, step: MafiaNightStep, player
       // يقدر يحمي نفسه، بس مو نفس الشخص ليلتين ورا بعض
       return alive.filter((p) => p.id !== actor.lastProtected);
     case "mafia":
-      return alive.filter((p) => p.role !== "mafia");
+      // القائد يقدر يذبح زميله (تمويه) — بس مو نفسه. لو الطبيب حماه ينجو مثل أي أحد
+      return alive.filter((p) => p.id !== actor.id);
     case "magician":
       // الساحر ما يختار لاعب حي — يختار فئة فاضية (ممثلة بصاحبها الميت)
       return magicianVacancies(players);
@@ -535,20 +536,6 @@ export function mafiaDeadline(phase: MafiaPhase, from = Date.now(), settings?: M
     phase === "discussion" ? (settings?.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS) : mafiaPhaseSeconds(phase);
   // null أو 0 = بدون مؤقت (الصباح، والنقاش المفتوح) — المنشئ هو اللي يكمّل
   return !secs ? null : new Date(from + secs * 1000).toISOString();
-}
-
-/**
- * لو قائد المافيا ما اختار: الاسم اللي عليه اقتراحات أكثر من زملائه،
- * وإذا تعادلوا عشوائي بينهم، وإذا ما فيه اقتراح يرجع null (والنظام يختار عشوائي).
- */
-export function pickMafiaSuggestion(suggestedTargetIds: string[], allowedIds: Set<string>): string | null {
-  const counts = new Map<string, number>();
-  suggestedTargetIds
-    .filter((id) => allowedIds.has(id))
-    .forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
-  if (counts.size === 0) return null;
-  const top = Math.max(...counts.values());
-  return pickRandom([...counts.entries()].filter(([, n]) => n === top).map(([id]) => id));
 }
 
 /** اختيار عشوائي لبوت، وأحياناً ما يختار أحد */
