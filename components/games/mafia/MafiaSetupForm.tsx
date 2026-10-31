@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { Loader2, Minus, Plus, AlertCircle, Users, MessagesSquare } from "lucide-react";
-import { MAFIA_CONFIG, MAFIA_OPTIONAL_ROLES, MAFIA_ROLES } from "@/constants/mafia";
+import { Loader2, Minus, Plus, AlertCircle, Users, MessagesSquare, Check, Play } from "lucide-react";
+import { MAFIA_CONFIG, MAFIA_OPTIONAL_ROLES, MAFIA_ROLES, mafiaCardSrc } from "@/constants/mafia";
 import { mafiaCitizenCount, mafiaMaxMafia, validateMafiaSettings } from "@/lib/game/mafia-engine";
 import type { MafiaOptionalRole, MafiaRole, MafiaSettings } from "@/types";
 import { DiscussionTimePicker, RoleIcon } from "./MafiaParts";
+import { BTN_GOLD, CARD, CHIP, CTA_BAR, INSET, LABEL, NOTE } from "./mafiaUi";
 
 export const DEFAULT_MAFIA_SETTINGS: MafiaSettings = {
   maxPlayers: MAFIA_CONFIG.MIN_PLAYERS,
@@ -28,31 +29,33 @@ function Stepper({
   max: number;
   onChange: (v: number) => void;
 }) {
+  const btn =
+    "w-[34px] h-[34px] shrink-0 rounded-[11px] bg-ludn-surface border border-ludn-line flex items-center justify-center disabled:opacity-30";
   return (
-    <div className="flex items-center justify-between gap-3 bg-slate-900 border-2 border-slate-800 rounded-2xl p-3">
-      <span className="font-black text-slate-200 flex items-center gap-2">
+    <div className={`${INSET} p-2.5 grid gap-1.5`}>
+      <span className={`${LABEL} flex items-center gap-1.5`}>
         {icon}
         {label}
       </span>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between">
         <button
           type="button"
           aria-label={`زيادة ${label}`}
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
-          className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 flex items-center justify-center"
+          className={btn}
         >
-          <Plus size={20} />
+          <Plus size={18} />
         </button>
-        <span className="w-8 text-center text-2xl font-black tabular-nums">{value}</span>
+        <span className="font-display text-[32px] leading-none tabular-nums">{value}</span>
         <button
           type="button"
           aria-label={`إنقاص ${label}`}
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
-          className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 flex items-center justify-center"
+          className={btn}
         >
-          <Minus size={20} />
+          <Minus size={18} />
         </button>
       </div>
     </div>
@@ -61,13 +64,15 @@ function Stepper({
 
 /**
  * نموذج إعداد الفئات — يُستخدم عند إنشاء الغرفة، وداخل غرفة الانتظار لتعديلها.
- * المحقق والطبيب والمافيا (2 على الأقل) إجباريين، والباقي مواطنين تلقائياً.
+ * المحقق والطبيب والمافيا إجباريين، والباقي مواطنين تلقائياً.
+ * sticky: زر الحفظ ثابت تحت الشاشة (شاشة إنشاء الغرفة)
  */
 export default function MafiaSetupForm({
   initial,
   submitLabel,
   busy,
   minPlayers = MAFIA_CONFIG.MIN_PLAYERS,
+  sticky = false,
   onSubmit,
   children,
 }: {
@@ -76,6 +81,7 @@ export default function MafiaSetupForm({
   busy: boolean;
   /** في غرفة الانتظار: ما ينفع العدد يكون أقل من اللي داخلين */
   minPlayers?: number;
+  sticky?: boolean;
   onSubmit: (settings: MafiaSettings) => void;
   children?: React.ReactNode;
 }) {
@@ -103,113 +109,134 @@ export default function MafiaSetupForm({
     });
 
   const fixedRows: { role: MafiaRole; label: string; count: number }[] = [
+    { role: "mafia", label: MAFIA_ROLES.mafia.label, count: settings.mafiaCount },
     { role: "detective", label: MAFIA_ROLES.detective.label, count: 1 },
     { role: "doctor", label: MAFIA_ROLES.doctor.label, count: 1 },
-    { role: "mafia", label: MAFIA_ROLES.mafia.label, count: settings.mafiaCount },
     { role: "citizen", label: "مواطنين", count: citizens },
   ];
 
+  const submit = (
+    <button type="submit" disabled={busy || Boolean(problem)} className={BTN_GOLD}>
+      {busy ? <Loader2 className="animate-spin" size={20} /> : <Play size={18} className="fill-current" />}
+      {submitLabel}
+    </button>
+  );
+
   return (
     <form
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault();
         if (!problem) onSubmit(settings);
       }}
     >
-      {children}
+      <div className={`${CARD} grid gap-4`}>
+        {children}
 
-      <Stepper
-        label="عدد اللاعبين"
-        icon={<Users size={22} className="text-slate-400" />}
-        value={settings.maxPlayers}
-        min={Math.max(MAFIA_CONFIG.MIN_PLAYERS, minPlayers, minForRoles)}
-        max={MAFIA_CONFIG.MAX_PLAYERS}
-        onChange={setPlayers}
-      />
-      <Stepper
-        label="عدد المافيا"
-        icon={<RoleIcon role="mafia" className="w-8 h-8" />}
-        value={settings.mafiaCount}
-        min={MAFIA_CONFIG.MIN_MAFIA}
-        max={maxMafia}
-        onChange={(mafiaCount) => setSettings((s) => ({ ...s, mafiaCount }))}
-      />
-
-      <div>
-        <p className="font-bold text-sm text-slate-400 mb-2">
-          فئات اختيارية (وحدة من كل فئة بالكثير) — كل فئة تاخذ مكان مواطن
-        </p>
         <div className="grid grid-cols-2 gap-2">
-          {MAFIA_OPTIONAL_ROLES.map((role) => {
-            const def = MAFIA_ROLES[role];
-            const on = settings.optionalRoles.includes(role);
-            // ما بقى مواطن عادي يتحول لها
-            const full = !on && citizens <= 0;
-            return (
-              <button
-                key={role}
-                type="button"
-                aria-pressed={on}
-                disabled={full}
-                onClick={() => toggleRole(role)}
-                className={`p-3 rounded-2xl border-2 border-b-4 text-right transition-all disabled:opacity-40 ${
-                  on
-                    ? "bg-red-600/20 border-red-500 text-white"
-                    : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-600"
-                }`}
-              >
-                <RoleIcon role={role} className={`w-12 h-12 mb-1.5 transition-all ${on ? "" : "grayscale-60 opacity-80"}`} />
-                <span className="font-black block">{def.label}</span>
-                <span className="text-[11px] font-bold opacity-70">
-                  {on ? "مضاف ✓" : full ? "ما بقى مواطن — زد اللاعبين" : "اضغط للإضافة"}
-                </span>
-              </button>
-            );
-          })}
+          <Stepper
+            label="اللاعبين"
+            icon={<Users size={16} />}
+            value={settings.maxPlayers}
+            min={Math.max(MAFIA_CONFIG.MIN_PLAYERS, minPlayers, minForRoles)}
+            max={MAFIA_CONFIG.MAX_PLAYERS}
+            onChange={setPlayers}
+          />
+          <Stepper
+            label="المافيا"
+            icon={<RoleIcon role="mafia" className="w-[22px] h-[22px]" />}
+            value={settings.mafiaCount}
+            min={MAFIA_CONFIG.MIN_MAFIA}
+            max={maxMafia}
+            onChange={(mafiaCount) => setSettings((s) => ({ ...s, mafiaCount }))}
+          />
         </div>
-      </div>
 
-      <div>
-        <p className="font-bold text-sm text-slate-400 mb-2 flex items-center gap-1.5">
-          <MessagesSquare size={16} className="shrink-0" /> وقت النقاش (تقدر تغيّره بعدين لحظة نتائج الصباح)
-        </p>
-        <DiscussionTimePicker
-          value={settings.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS}
-          onChange={(discussionSeconds) => setSettings((s) => ({ ...s, discussionSeconds }))}
-        />
-      </div>
+        <div>
+          <p className={`${LABEL} flex items-center justify-between mb-2`}>
+            الفئات الإضافية
+            <span className="text-ludn-gold-text">
+              {settings.optionalRoles.length} من {MAFIA_OPTIONAL_ROLES.length}
+            </span>
+          </p>
+          {/* بطاقات الفئات نفسها: المختارة بإطار ذهبي وعلامة ✓، والباقي باهت */}
+          <div className="grid grid-cols-3 gap-2">
+            {MAFIA_OPTIONAL_ROLES.map((role) => {
+              const def = MAFIA_ROLES[role];
+              const on = settings.optionalRoles.includes(role);
+              // ما بقى مواطن عادي يتحول لها
+              const full = !on && citizens <= 0;
+              return (
+                <button
+                  key={role}
+                  type="button"
+                  aria-pressed={on}
+                  aria-label={def.label}
+                  disabled={full}
+                  onClick={() => toggleRole(role)}
+                  className="relative rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={mafiaCardSrc(role)}
+                    alt=""
+                    draggable={false}
+                    className={`block w-full aspect-[512/752] rounded-[11px] select-none transition-[filter,box-shadow] ${
+                      on
+                        ? "shadow-[0_0_0_2px_var(--ludn-gold),0_10px_24px_rgba(226,184,74,0.22)]"
+                        : "grayscale-[55%] brightness-[0.55]"
+                    }`}
+                  />
+                  {on && (
+                    <span className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-ludn-gold text-ludn-gold-ink grid place-items-center shadow-md">
+                      <Check size={14} strokeWidth={3.2} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className={`${NOTE} mt-2`}>
+            {citizens <= 0 ? "ما بقى مواطن — زد اللاعبين عشان تضيف فئة" : "كل فئة تاخذ مكان مواطن"}
+          </p>
+        </div>
 
-      <div className="bg-slate-900/60 border-2 border-dashed border-slate-800 rounded-2xl p-3">
-        <p className="font-bold text-xs text-slate-500 mb-2">التوزيعة</p>
-        <div className="flex flex-wrap gap-2">
-          {fixedRows.map((r) => (
-            <span key={r.label} className="ps-1 pe-3 py-1 rounded-xl bg-slate-800 font-black text-sm flex items-center gap-1.5">
-              <RoleIcon role={r.role} className="w-7 h-7" /> {r.label} × {r.count}
-            </span>
-          ))}
-          {settings.optionalRoles.map((role) => (
-            <span key={role} className="ps-1 pe-3 py-1 rounded-xl bg-red-900/40 font-black text-sm flex items-center gap-1.5">
-              <RoleIcon role={role} className="w-7 h-7" /> {MAFIA_ROLES[role].label} × 1
-            </span>
-          ))}
+        <div>
+          <p className={`${LABEL} flex items-center gap-1.5 mb-2`}>
+            <MessagesSquare size={16} className="shrink-0" /> وقت النقاش
+            <span className="font-semibold">(تقدر تغيّره بالصباح)</span>
+          </p>
+          <DiscussionTimePicker
+            value={settings.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS}
+            onChange={(discussionSeconds) => setSettings((s) => ({ ...s, discussionSeconds }))}
+          />
+        </div>
+
+        <div>
+          <p className={`${LABEL} mb-2`}>التوزيعة</p>
+          <div className="flex flex-wrap gap-1.5">
+            {fixedRows.map((r) => (
+              <span key={r.label} className={CHIP}>
+                <RoleIcon role={r.role} className="w-[22px] h-[22px]" /> {r.label}
+                {(r.role === "mafia" || r.role === "citizen") && ` ×${r.count}`}
+              </span>
+            ))}
+            {settings.optionalRoles.map((role) => (
+              <span key={role} className={`${CHIP} border-ludn-gold/35 text-ludn-gold-text`}>
+                <RoleIcon role={role} className="w-[22px] h-[22px]" /> {MAFIA_ROLES[role].label}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
       {problem && (
-        <p className="flex items-center gap-2 text-sm font-bold text-amber-300 bg-amber-950/40 rounded-xl p-3">
+        <p className="flex items-center gap-2 text-[13px] font-bold text-ludn-gold-text bg-ludn-gold/8 border border-ludn-gold/25 rounded-2xl p-2.5">
           <AlertCircle size={18} className="shrink-0" /> {problem}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={busy || Boolean(problem)}
-        className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
-      >
-        {busy && <Loader2 className="animate-spin" size={22} />}
-        {submitLabel}
-      </button>
+      {sticky ? <div className={CTA_BAR}>{submit}</div> : submit}
     </form>
   );
 }

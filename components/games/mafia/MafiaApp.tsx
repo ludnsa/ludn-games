@@ -10,14 +10,15 @@ import {
   joinMafiaRoom,
   leaveMafiaRoom,
 } from "@/actions/mafia";
-import { MAFIA_CONFIG, MAFIA_GAME } from "@/constants/mafia";
+import { MAFIA_CONFIG, MAFIA_GAME, mafiaCardSrc } from "@/constants/mafia";
 import { useMafiaGame, type MafiaSession } from "@/hooks/games/mafia/useMafiaGame";
 import { unlockMafiaAudio } from "@/lib/game/mafia-sounds";
 import { readMafiaSession, writeMafiaSession } from "@/lib/game/mafia-session";
 import MafiaSetupForm, { DEFAULT_MAFIA_SETTINGS } from "./MafiaSetupForm";
 import MafiaScreen from "./MafiaScreen";
 import MafiaFxLayer, { MafiaBackdrop, MAFIA_STAGE_ID } from "./MafiaFxLayer";
-import { Panel, RoleIcon } from "./MafiaParts";
+import { Panel } from "./MafiaParts";
+import { BTN_GOLD, BTN_SOFT, ERROR, FIELD, H_PAGE, INFO, LABEL } from "./mafiaUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -81,8 +82,9 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
   if (!mounted) return null;
 
   return (
+    // dark: اللعبة ليلية دايماً — ألوان لدن الليلية حتى لو الموقع على الوضع النهاري
     <main
-      className={`min-h-[100dvh] bg-slate-950 text-white p-4 md:p-6 flex flex-col relative z-10 ${cairo.className}`}
+      className={`dark min-h-[100dvh] bg-ludn-bg text-ludn-fg p-4 md:p-6 flex flex-col relative z-10 ${cairo.className}`}
       dir="rtl"
     >
       {/* شاشات الدخول: خلفية الليل (داخل اللعبة MafiaInGame يحط خلفيته حسب المرحلة) */}
@@ -177,27 +179,17 @@ function MafiaResumeOrNew({
   return (
     <div className="w-full max-w-md mx-auto my-auto">
       <Header subtitle="جوالك داخل غرفة ثانية كلاعب" />
-      <Panel className="text-center">
-        <p className="font-bold text-slate-400 mb-1">أنت داخل الغرفة</p>
-        <p className="text-4xl font-black tracking-[0.3em] text-red-400 mb-5" dir="ltr">
+      <Panel className="text-center grid gap-3">
+        <p className={LABEL}>أنت داخل الغرفة</p>
+        <p className="font-display text-[44px] leading-none tracking-[0.22em] text-ludn-gold-text" dir="ltr">
           {roomCode}
         </p>
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={onNew}
-            className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
-          >
-            <DoorOpen size={22} /> سوّ غرفة جديدة
-          </button>
-          <button
-            type="button"
-            onClick={onResume}
-            className="w-full py-4 bg-slate-800 rounded-2xl border-b-4 border-slate-950 font-black text-lg active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
-          >
-            <Undo2 size={22} /> ارجع للغرفة {roomCode}
-          </button>
-        </div>
+        <button type="button" onClick={onNew} className={BTN_GOLD}>
+          <DoorOpen size={20} /> سوّ غرفة جديدة
+        </button>
+        <button type="button" onClick={onResume} className={`${BTN_SOFT} w-full`}>
+          <Undo2 size={18} /> ارجع للغرفة {roomCode}
+        </button>
       </Panel>
     </div>
   );
@@ -208,56 +200,59 @@ function MafiaForeignRoom({ roomCode, onNew }: { roomCode: string; onNew: () => 
   return (
     <div className="w-full max-w-md mx-auto my-auto">
       <Header subtitle="هذي الغرفة انسوّت بحساب ثاني" />
-      <Panel className="text-center">
-        <p className="text-4xl font-black tracking-[0.3em] text-red-400 mb-3" dir="ltr">
+      <Panel className="text-center grid gap-3">
+        <p className="font-display text-[44px] leading-none tracking-[0.22em] text-ludn-gold-text" dir="ltr">
           {roomCode}
         </p>
-        <p className="font-bold text-slate-400 text-sm leading-relaxed mb-5">
+        <p className={`${LABEL} leading-relaxed`}>
           جوالك حافظ هالغرفة، بس أنت داخل الحين بحساب غير اللي سوّاها، فأزرار المنشئ ما تشتغل لك.
           سوّ غرفة جديدة بحسابك، أو سجّل دخول بالحساب اللي سوّاها.
         </p>
-        <button
-          type="button"
-          onClick={onNew}
-          className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
-        >
-          <DoorOpen size={22} /> سوّ غرفة جديدة
+        <button type="button" onClick={onNew} className={BTN_GOLD}>
+          <DoorOpen size={20} /> سوّ غرفة جديدة
         </button>
       </Panel>
     </div>
   );
 }
 
+/** رأس شاشات الدخول: مروحة بطاقات (المحقق، المافيا، الطبيب) مثل الصفحة الرئيسية */
 function Header({ subtitle }: { subtitle: string }) {
+  const card = "shrink-0 aspect-[512/752] rounded-xl shadow-[0_14px_30px_rgba(0,0,0,0.6)] select-none";
   return (
-    <div className="text-center mb-6">
-      <RoleIcon role="mafia" className="w-32 h-32 mx-auto mb-3 drop-shadow-[0_0_28px_rgba(220,38,38,0.55)]" />
-      <h1 className="text-4xl font-black mb-2">{MAFIA_GAME.title}</h1>
-      <p className="font-bold text-slate-400 text-sm">{subtitle}</p>
+    <div className="grid justify-items-center gap-1 text-center mb-4">
+      {/* eslint-disable @next/next/no-img-element */}
+      <div aria-hidden className="flex justify-center items-end h-[186px] mb-1.5">
+        <img src={mafiaCardSrc("detective")} alt="" draggable={false} className={`${card} w-[92px] ludn-fan-r`} />
+        <img
+          src={mafiaCardSrc("mafia")}
+          alt=""
+          draggable={false}
+          className={`${card} w-[112px] relative z-[2] ludn-fan-mid shadow-[0_16px_36px_rgba(0,0,0,0.7),0_0_0_1px_rgba(226,184,74,0.5),0_0_34px_rgba(210,59,59,0.35)]`}
+        />
+        <img src={mafiaCardSrc("doctor")} alt="" draggable={false} className={`${card} w-[92px] ludn-fan-l`} />
+      </div>
+      {/* eslint-enable @next/next/no-img-element */}
+      <p className="text-[13px] font-bold tracking-wide text-ludn-gold-text">ليل ونهار · كل واحد على جواله</p>
+      <h1 className={H_PAGE}>{MAFIA_GAME.title}</h1>
+      <p className="text-sm font-semibold leading-relaxed text-ludn-muted max-w-[28ch]">{subtitle}</p>
     </div>
   );
 }
 
 function NoticeLine({ notice }: { notice: string }) {
   if (!notice) return null;
-  return (
-    <p className="mb-4 text-center text-sm font-bold text-amber-200 bg-amber-950/60 border border-amber-800 rounded-xl p-3 animate-in fade-in">
-      {notice}
-    </p>
-  );
+  return <p className={`${INFO} mb-3 animate-in fade-in`}>{notice}</p>;
 }
 
 function ErrorLine({ error }: { error: string }) {
   if (!error) return null;
   return (
-    <p className="flex items-center gap-2 text-sm font-bold text-red-200 bg-red-950/60 rounded-xl p-3">
+    <p className={ERROR}>
       <AlertCircle size={18} className="shrink-0" /> {error}
     </p>
   );
 }
-
-const inputClass =
-  "w-full p-4 bg-slate-900 border-2 border-slate-800 rounded-2xl font-black text-lg focus:border-red-500 outline-none transition-colors";
 
 function MafiaCreate({ onCreated, notice }: { onCreated: (s: MafiaSession) => void; notice: string }) {
   const [name, setName] = useState("");
@@ -268,11 +263,11 @@ function MafiaCreate({ onCreated, notice }: { onCreated: (s: MafiaSession) => vo
     <div className="w-full max-w-md mx-auto my-auto">
       <Header subtitle="جهّز الغرفة، اختر الفئات، وخل الشباب يدخلون من جوالاتهم" />
       <NoticeLine notice={notice} />
-      <Panel>
-        <MafiaSetupForm
+      <MafiaSetupForm
           initial={DEFAULT_MAFIA_SETTINGS}
           busy={busy}
           submitLabel="إنشاء الغرفة"
+          sticky
           onSubmit={async (settings) => {
             unlockMafiaAudio();
             setError("");
@@ -288,18 +283,17 @@ function MafiaCreate({ onCreated, notice }: { onCreated: (s: MafiaSession) => vo
           }}
         >
           <label className="flex flex-col gap-2">
-            <span className="font-bold text-sm text-slate-400">اسمك (أنت تلعب معهم)</span>
+            <span className={LABEL}>اسمك (أنت تلعب معهم)</span>
             <input
               value={name}
               maxLength={16}
               onChange={(e) => setName(e.target.value)}
               placeholder="اكتب اسمك"
-              className={inputClass}
+              className={FIELD}
             />
           </label>
           <ErrorLine error={error} />
-        </MafiaSetupForm>
-      </Panel>
+      </MafiaSetupForm>
     </div>
   );
 }
@@ -354,9 +348,9 @@ function MafiaJoin({ onJoined, notice }: { onJoined: (s: MafiaSession) => void; 
       <Header subtitle="ادخل كود الغرفة واسمك، وخل جوالك بعيد عن عيون الباقين" />
       <NoticeLine notice={notice} />
       <Panel>
-        <form onSubmit={join} className="flex flex-col gap-5">
+        <form onSubmit={join} className="flex flex-col gap-4">
           <label className="flex flex-col gap-2">
-            <span className="font-bold text-sm text-slate-400">رمز الغرفة</span>
+            <span className={LABEL}>كود الغرفة</span>
             <input
               value={roomCode}
               maxLength={MAFIA_CONFIG.ROOM_CODE_LENGTH}
@@ -364,13 +358,13 @@ function MafiaJoin({ onJoined, notice }: { onJoined: (s: MafiaSession) => void; 
               autoCapitalize="characters"
               onChange={(e) => setRoomCode(e.target.value.toUpperCase().trim())}
               placeholder="MABCD"
-              className={`${inputClass} text-2xl text-center tracking-[0.3em]`}
+              className={`${FIELD} min-h-14 font-display text-[30px] text-center tracking-[0.22em] text-ludn-gold-text placeholder:text-[22px]`}
             />
             {lookupDone && !info && (
-              <span className="text-xs font-bold text-red-400">لم نجد غرفة بهذا الرمز.</span>
+              <span className="text-xs font-bold text-rose-400">لم نجد غرفة بهذا الرمز.</span>
             )}
             {info && (
-              <span className={`text-xs font-bold ${closed || full ? "text-amber-400" : "text-emerald-400"}`}>
+              <span className={`text-xs font-bold ${closed || full ? "text-ludn-gold-text" : "text-ludn-green"}`}>
                 {info.phase === "closed"
                   ? "هذي الغرفة انقفلت، اطلب الكود الجديد من المنشئ."
                   : info.phase !== "lobby"
@@ -383,24 +377,20 @@ function MafiaJoin({ onJoined, notice }: { onJoined: (s: MafiaSession) => void; 
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="font-bold text-sm text-slate-400">اسمك</span>
+            <span className={LABEL}>اسمك</span>
             <input
               value={name}
               maxLength={16}
               onChange={(e) => setName(e.target.value)}
               placeholder="اكتب اسمك"
-              className={inputClass}
+              className={FIELD}
             />
           </label>
 
           <ErrorLine error={error} />
 
-          <button
-            type="submit"
-            disabled={busy || !info || Boolean(closed)}
-            className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
-          >
-            {busy ? <Loader2 className="animate-spin" size={22} /> : <LogIn size={22} />}
+          <button type="submit" disabled={busy || !info || Boolean(closed)} className={BTN_GOLD}>
+            {busy ? <Loader2 className="animate-spin" size={20} /> : <LogIn size={20} />}
             ادخل اللعبة
           </button>
         </form>

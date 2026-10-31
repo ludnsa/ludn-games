@@ -7,6 +7,7 @@ import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import type { MafiaTask } from "@/actions/mafia";
 import type { MafiaNightStep } from "@/types";
 import { Panel, PlayerPicker, RoleIcon } from "./MafiaParts";
+import { BTN_SOFT, H_PROMPT, INFO, NOTE } from "./mafiaUi";
 
 const STEP_ACCENT: Record<MafiaNightStep, "red" | "emerald" | "sky" | "purple" | "amber" | "orange"> = {
   doctor: "emerald",
@@ -35,12 +36,12 @@ export function MafiaNightAct({ ctx }: { ctx: MafiaGameCtx }) {
       {/* أيقونة صاحب الدور تتوهج جنب العنوان — سطر واحد عشان القائمة تبان كاملة */}
       <div className="flex items-center justify-center gap-3" style={{ "--glow": MAFIA_ROLES[step].glow } as React.CSSProperties}>
         <RoleIcon role={step} className="w-12 h-12 mfx-step-icon mfx-step-pulse" />
-        <p className="font-black text-base text-indigo-200">{MAFIA_NIGHT_STEPS[step].headline}</p>
+        <p className="text-[15px] font-black text-ludn-fg/85">{MAFIA_NIGHT_STEPS[step].headline}</p>
       </div>
       {!fresh ? (
         // نفس الشكل عند الكل — ما يفضح مين صاحب الدور
-        <Panel className="border-indigo-800 flex justify-center py-12">
-          <Loader2 size={34} className="animate-spin text-indigo-300" />
+        <Panel className="flex justify-center py-12">
+          <Loader2 size={34} className="animate-spin text-ludn-gold" />
         </Panel>
       ) : task ? (
         <MafiaTaskCard ctx={ctx} task={task} />
@@ -72,16 +73,16 @@ export function NightWaiting({ ctx }: { ctx: MafiaGameCtx }) {
     const left = Math.max(0, r.total - r.done);
     if (left === 0) return null;
     return (
-      <p className="text-center font-black text-amber-200 bg-amber-950/40 border border-amber-900 rounded-2xl p-3 animate-in fade-in">
-        <Hourglass size={18} className="inline -mt-1 me-1" />
+      <p className={`${INFO} animate-in fade-in`}>
+        <Hourglass size={16} className="inline -mt-1 me-1" />
         باقي {left === 1 ? "واحد ما اختار" : `${left} ما اختاروا`}
       </p>
     );
   }
   if (names.length === 0) return null;
   return (
-    <p className="text-center font-black text-amber-200 bg-amber-950/40 border border-amber-900 rounded-2xl p-3 animate-in fade-in break-words">
-      <Hourglass size={18} className="inline -mt-1 me-1" />
+    <p className={`${INFO} animate-in fade-in break-words`}>
+      <Hourglass size={16} className="inline -mt-1 me-1" />
       باقي {names.length === 1 ? "ما اختار" : "ما اختاروا"}: {names.join("، ")}
     </p>
   );
@@ -117,31 +118,31 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
       : def.prompt;
 
   return (
-    <Panel className="border-indigo-800">
-      <h2 className="text-xl font-black text-center mb-2">{prompt}</h2>
+    <Panel>
+      <h2 className={`${H_PROMPT} mb-2`}>{prompt}</h2>
 
       {detectiveResult && <DetectiveResult result={detectiveResult} />}
 
       {!task.locked && (
         <>
           {task.step === "mafia" && (
-            <p className="text-center text-sm font-bold text-red-300 -mt-1 mb-3">
-              <Crown size={15} className="inline -mt-1 me-1 text-amber-400" />
+            <p className="text-center text-[13px] font-black text-rose-300 -mt-1 mb-2.5">
+              <Crown size={15} className="inline -mt-1 me-1 text-ludn-gold" />
               أنت قائد المافيا الليلة — اختيارك هو المعتمد
             </p>
           )}
           {task.step === "doctor" && (
-            <p className="text-center text-xs font-bold text-slate-400 -mt-1 mb-3">
+            <p className={`${NOTE} -mt-1 mb-2.5`}>
               تقدر تحمي نفسك، بس مو نفس الشخص اللي حميته الليلة اللي قبل
             </p>
           )}
           {task.step === "silencer" && (
-            <p className="text-center text-xs font-bold text-slate-400 -mt-1 mb-3">
+            <p className={`${NOTE} -mt-1 mb-2.5`}>
               ما تقدر تختار نفس الشخص اللي سكّته الليلة اللي قبل
             </p>
           )}
           {task.step === "suicide" && (
-            <p className="text-center text-xs font-bold text-slate-400 -mt-1 mb-3">
+            <p className={`${NOTE} -mt-1 mb-2.5`}>
               ما تقدر تختار نفس هدفك الليلة اللي قبل
             </p>
           )}
@@ -157,7 +158,7 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
       />
 
       {task.locked ? (
-        <p className="mt-4 text-center font-black text-emerald-300">
+        <p className="mt-3 text-center text-[15px] font-black text-ludn-green">
           <Check size={18} className="inline -mt-1 me-1" />
           تم{chosenName ? `: ${chosenName}` : " — عدّيت الليلة"}
           {task.step === "magician" && chosenName && " — من الليلة الجاية هذا دورك"}
@@ -173,14 +174,14 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
               type="button"
               disabled={ctx.busy}
               onClick={() => ctx.act(null)}
-              className="w-full mt-3 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 font-black rounded-2xl border-b-4 border-slate-950 flex items-center justify-center gap-2"
+              className={`${BTN_SOFT} w-full mt-3`}
             >
               <SkipForward size={18} /> عدّي الليلة واحتفظ بقدرتي
             </button>
           )}
 
           {optional && (
-            <p className="mt-3 text-center text-xs font-bold text-slate-400">
+            <p className={`${NOTE} mt-2`}>
               إذا عدّيت، قدرتك تظل لليلة الجاية
             </p>
           )}
@@ -192,7 +193,7 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
 
 /** نفس السطر تحت القائمة عند صاحب الدور وعند سؤال التمويه */
 function OneTapNote() {
-  return <p className="mt-3 text-center text-xs font-bold text-slate-400">اضغط على الاسم — اختيارك نهائي</p>;
+  return <p className={`${NOTE} mt-2.5`}>اضغط على الاسم — اختيارك نهائي</p>;
 }
 
 /**
@@ -208,9 +209,9 @@ function FunQuestion({ ctx }: { ctx: MafiaGameCtx }) {
   const chosenName = options.find((o) => o.id === locked)?.name;
 
   return (
-    <Panel className="border-indigo-800">
-      <h2 className="text-xl font-black text-center mb-1">{MAFIA_CONFIG.FUN_QUESTION}</h2>
-      <p className="text-center text-xs font-bold text-slate-400 mb-3">{MAFIA_CONFIG.FUN_QUESTION_NOTE}</p>
+    <Panel>
+      <h2 className={`${H_PROMPT} mb-1`}>{MAFIA_CONFIG.FUN_QUESTION}</h2>
+      <p className={`${NOTE} mb-3`}>{MAFIA_CONFIG.FUN_QUESTION_NOTE}</p>
       <PlayerPicker
         options={options}
         selectedId={locked}
@@ -219,7 +220,7 @@ function FunQuestion({ ctx }: { ctx: MafiaGameCtx }) {
         accent="purple"
       />
       {locked ? (
-        <p className="mt-4 text-center font-black text-emerald-300">
+        <p className="mt-3 text-center text-[15px] font-black text-ludn-green">
           <Check size={18} className="inline -mt-1 me-1" />
           تم{chosenName ? `: ${chosenName}` : ""}
         </p>
@@ -242,7 +243,7 @@ export function MafiaNightDone({ ctx }: { ctx: MafiaGameCtx }) {
       style={{ "--glow": MAFIA_ROLES[step].glow } as React.CSSProperties}
     >
       <RoleIcon role={step} className="w-28 h-28 mb-4 mfx-step-icon animate-in zoom-in-50 duration-500" />
-      <p className="text-3xl font-black animate-in fade-in slide-in-from-bottom-4 duration-700">{def.doneText}</p>
+      <p className="font-display text-[34px] leading-tight animate-in fade-in slide-in-from-bottom-4 duration-700">{def.doneText}</p>
       {result && (
         <div className="w-full mt-6">
           <DetectiveResult result={result} />

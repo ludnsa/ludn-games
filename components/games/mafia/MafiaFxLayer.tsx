@@ -298,7 +298,7 @@ function FxScene({ fx }: { fx: ActiveFx }) {
  */
 export function MafiaBackdrop({ night }: { night: boolean }) {
   return (
-    <div aria-hidden className="fixed inset-0 -z-10 bg-slate-950 overflow-hidden">
+    <div aria-hidden className="fixed inset-0 -z-10 bg-ludn-bg overflow-hidden">
       <div
         className="mfx-bg mfx-bg-day"
         style={{ backgroundImage: `url(${MAFIA_BACKGROUNDS.day})`, opacity: night ? 0 : 1 }}

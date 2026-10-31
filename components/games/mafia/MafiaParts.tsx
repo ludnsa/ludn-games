@@ -6,6 +6,7 @@ import { Volume2, VolumeX, Eye, Users, VenetianMask, Moon } from "lucide-react";
 import { MAFIA_CONFIG, MAFIA_ROLES, mafiaCardSrc, mafiaIconSrc } from "@/constants/mafia";
 import { isMafiaMuted, setMafiaMuted, subscribeMafiaMuted, unlockMafiaAudio } from "@/lib/game/mafia-sounds";
 import type { MafiaAnnouncementKind, MafiaRole } from "@/types";
+import { BAR_BTN, CARD } from "./mafiaUi";
 
 export function Panel({
   children,
@@ -14,13 +15,7 @@ export function Panel({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <section
-      className={`w-full bg-slate-900/80 border-2 border-slate-800 rounded-[2rem] p-4 md:p-6 shadow-2xl animate-in zoom-in-95 ${className}`}
-    >
-      {children}
-    </section>
-  );
+  return <section className={`w-full ${CARD} animate-in zoom-in-95 ${className}`}>{children}</section>;
 }
 
 export function TimerBadge({ seconds, danger = 5 }: { seconds: number | null; danger?: number }) {
@@ -30,8 +25,8 @@ export function TimerBadge({ seconds, danger = 5 }: { seconds: number | null; da
   const ss = seconds % 60;
   return (
     <span
-      className={`min-w-16 px-3 py-1.5 rounded-2xl font-black text-xl tabular-nums text-center border-b-4 ${
-        hot ? "bg-red-600 border-red-800 animate-pulse" : "bg-slate-800 border-slate-950"
+      className={`min-w-14 px-3 py-1 rounded-xl font-display text-[22px] leading-tight tabular-nums text-center ${
+        hot ? "bg-rose-600 text-white animate-pulse" : "bg-ludn-surface-2 text-ludn-fg"
       }`}
       dir="ltr"
       aria-live="off"
@@ -52,11 +47,9 @@ export function SoundToggle() {
       }}
       aria-label={muted ? "تشغيل الصوت" : "كتم الصوت"}
       title={muted ? "تشغيل الصوت" : "كتم الصوت"}
-      className={`w-11 h-11 rounded-2xl flex items-center justify-center border-b-4 transition-colors ${
-        muted ? "bg-slate-800 border-slate-950 text-slate-400" : "bg-emerald-600 border-emerald-800 text-white"
-      }`}
+      className={`${BAR_BTN} ${muted ? "text-ludn-muted" : "text-ludn-green"}`}
     >
-      {muted ? <VolumeX size={22} /> : <Volume2 size={22} />}
+      {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
     </button>
   );
 }
@@ -99,7 +92,7 @@ export function AnnouncementIcon({ kind, className = "w-12 h-12" }: { kind: Mafi
   // ليلة هادئة: ما أحد سوّى شي
   return (
     <span
-      className={`shrink-0 rounded-full bg-indigo-950 border-2 border-indigo-700 text-indigo-200 flex items-center justify-center ${className}`}
+      className={`shrink-0 rounded-full bg-ludn-surface-2 border-2 border-ludn-line text-ludn-gold-text flex items-center justify-center ${className}`}
     >
       <Moon className="w-1/2 h-1/2" />
     </span>
@@ -207,27 +200,27 @@ export function RoleCard({
 
       <div className={`flex flex-col items-center gap-3 text-center w-full max-w-sm ${flip ? "mfx-card-after" : ""}`}>
         <span
-          className={`px-4 py-1 rounded-full text-sm font-black border ${
-            isMafia ? "bg-red-950/80 border-red-700 text-red-200" : "bg-amber-950/50 border-amber-700/60 text-amber-100"
+          className={`px-4 py-1 rounded-full text-[13px] font-black border ${
+            isMafia ? "bg-rose-950/80 border-rose-700/70 text-rose-200" : "bg-ludn-gold/10 border-ludn-gold/35 text-ludn-gold-text"
           }`}
         >
           {isMafia ? "فريق المافيا" : "فريق المدينة"}
         </span>
         {teammates.length > 0 && (
-          <div className="w-full p-3 rounded-2xl bg-red-950/60 border border-red-800">
-            <p className="font-black text-sm mb-2 flex items-center justify-center gap-1.5 text-red-200">
+          <div className="w-full p-3 rounded-2xl bg-rose-950/60 border border-rose-800/70">
+            <p className="font-black text-[13px] mb-2 flex items-center justify-center gap-1.5 text-rose-200">
               <Users size={16} /> عصابتك
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {teammates.map((n) => (
-                <span key={n} className="px-3 py-1.5 rounded-xl bg-white text-red-800 font-black text-base">
+                <span key={n} className="px-3 py-1.5 rounded-xl bg-ludn-fg text-rose-800 font-black text-[15px]">
                   {n}
                 </span>
               ))}
             </div>
           </div>
         )}
-        <p className={`font-bold text-slate-300 leading-relaxed ${small ? "text-xs" : "text-sm"}`}>{def.description}</p>
+        <p className={`font-bold text-ludn-muted leading-relaxed ${small ? "text-xs" : "text-[13px]"}`}>{def.description}</p>
       </div>
     </div>
   );
@@ -245,14 +238,17 @@ export function RolePeek({ role, teammates = [] }: { role: MafiaRole | null; tea
         onPointerUp={() => setShow(false)}
         onPointerLeave={() => setShow(false)}
         onContextMenu={(e) => e.preventDefault()}
-        className="h-11 px-3 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm flex items-center gap-1.5 select-none touch-none"
+        className={`${BAR_BTN} touch-none`}
       >
-        <Eye size={18} /> دوري
+        <Eye size={17} /> دوري
       </button>
-      {/* على body مباشرة: بنص الشاشة فوق كل شي، وصغيرة عشان اللي جنبك ما يشوفها */}
+      {/* على body مباشرة: بنص الشاشة فوق كل شي، وصغيرة عشان اللي جنبك ما يشوفها (dark: اللعبة ليلية دايماً) */}
       {show &&
         createPortal(
-          <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-slate-950/95 text-white pointer-events-none animate-in fade-in duration-150">
+          <div
+            dir="rtl"
+            className="dark fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-ludn-bg/95 text-ludn-fg pointer-events-none animate-in fade-in duration-150"
+          >
             <RoleCard small role={role} teammates={teammates} />
           </div>,
           document.body
@@ -266,7 +262,7 @@ export function VoteCount({ count }: { count: number }) {
   return (
     <span
       key={count}
-      className="shrink-0 min-w-9 h-8 px-2 rounded-xl bg-amber-400 text-slate-950 text-base font-black flex items-center justify-center gap-0.5 shadow-md animate-in zoom-in-50"
+      className="shrink-0 min-w-9 h-8 px-2 rounded-xl bg-ludn-gold text-ludn-gold-ink text-[15px] font-black flex items-center justify-center gap-0.5 shadow-md animate-in zoom-in-50"
       aria-label={`${count} أصوات`}
     >
       ✓ {count}
@@ -340,13 +336,13 @@ export function PlayerPicker({
             disabled={disabled}
             onClick={() => onPick(o.id)}
             aria-pressed={selected}
-            className={`flex flex-col items-stretch gap-1 py-2.5 rounded-2xl font-black border-b-4 transition-all ${
-              dense ? "px-2 text-sm" : "px-3 text-base"
+            className={`min-h-[46px] flex flex-col items-stretch justify-center gap-1 py-2 rounded-[14px] font-black border border-b-[3px] transition-all ${
+              dense ? "px-2 text-[13.5px]" : "px-3 text-[15px]"
             } ${
               selected
                 ? `${selectedStyle[accent]} text-white scale-[1.03]`
-                : "bg-slate-800 border-slate-950 text-slate-100 hover:bg-slate-700"
-            } disabled:cursor-not-allowed ${disabled && !selected ? "opacity-50" : ""}`}
+                : "bg-ludn-surface-2 border-ludn-line border-b-black/40 text-ludn-fg hover:border-white/20"
+            } disabled:cursor-not-allowed ${disabled && !selected ? "opacity-45" : ""}`}
           >
             {/* الاسم بسطر كامل عشان ما ينكسر، والعدد والمصوّتين تحته */}
             <span className="w-full break-words leading-tight text-right">{o.name}</span>
@@ -380,7 +376,7 @@ export function DiscussionTimePicker({
   disabled?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="وقت النقاش">
+    <div className="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-ludn-surface-2" role="radiogroup" aria-label="وقت النقاش">
       {MAFIA_CONFIG.DISCUSSION_OPTIONS.map((secs) => {
         const on = secs === value;
         return (
@@ -391,8 +387,8 @@ export function DiscussionTimePicker({
             aria-checked={on}
             disabled={disabled}
             onClick={() => onChange(secs)}
-            className={`min-h-11 py-2.5 px-1 rounded-2xl font-black text-sm border-b-4 transition-all disabled:opacity-50 ${
-              on ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950 text-slate-200"
+            className={`min-h-10 px-1 rounded-xl font-black text-[13px] transition-colors disabled:opacity-50 ${
+              on ? "bg-ludn-gold text-ludn-gold-ink" : "text-ludn-muted hover:text-ludn-fg"
             }`}
           >
             {discussionLabel(secs)}

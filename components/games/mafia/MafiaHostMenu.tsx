@@ -7,6 +7,7 @@ import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import type { MafiaPlayer } from "@/types";
 import MafiaHomeButton from "./MafiaHomeButton";
 import { RoleIcon } from "./MafiaParts";
+import { BAR_BTN, BTN_SOFT, H_CARD } from "./mafiaUi";
 
 type Confirmable = "end" | "restart" | "newRoom" | null;
 /** قائمة الأسماء المفتوحة: طرد (يطلع من الغرفة) أو ذبح غشاش (يموت ويظل بالغرفة) */
@@ -34,8 +35,8 @@ export function MafiaHostSkip({ ctx }: { ctx: MafiaGameCtx }) {
         setArmed(false);
         ctx.host.skipPhase();
       }}
-      className={`w-full mt-2 py-3 rounded-2xl border-b-4 font-black flex items-center justify-center gap-2 transition-colors disabled:opacity-40 ${
-        armed ? "bg-amber-500 border-amber-700 text-slate-950 animate-pulse" : "bg-slate-800 border-slate-950 text-amber-300"
+      className={`${BTN_SOFT} w-full ${
+        armed ? "bg-ludn-gold! border-ludn-gold! text-ludn-gold-ink animate-pulse" : "text-ludn-gold-text"
       }`}
     >
       {ctx.busy ? <Loader2 size={18} className="animate-spin" /> : <SkipForward size={18} />}
@@ -71,9 +72,7 @@ export function MafiaHostHush({ ctx }: { ctx: MafiaGameCtx }) {
         setArmed(false);
         ctx.host.killSilenced();
       }}
-      className={`w-full py-3 rounded-2xl border-b-4 font-black flex items-center justify-center gap-2 transition-colors disabled:opacity-40 ${
-        armed ? "bg-red-600 border-red-800 animate-pulse" : "bg-slate-800 border-slate-950 text-red-300"
-      }`}
+      className={`${BTN_SOFT} w-full ${armed ? "bg-rose-600! border-rose-600! text-white animate-pulse" : "text-rose-300"}`}
     >
       {ctx.busy ? <Loader2 size={18} className="animate-spin" /> : <RoleIcon role="silencer" className="w-8 h-8 -my-1" />}
       {armed ? `متأكد؟ اضغط مرة ثانية ويموت ${name}` : `${name} تكلم؟ اقتله`}
@@ -117,34 +116,35 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
         onClick={() => setOpen(true)}
         aria-label="صلاحيات المنشئ"
         title="صلاحيات المنشئ"
-        className="w-11 h-11 rounded-2xl bg-amber-500 border-b-4 border-amber-700 text-slate-950 flex items-center justify-center"
+        className={`${BAR_BTN} bg-ludn-gold! border-ludn-gold! text-ludn-gold-ink`}
       >
-        <Crown size={22} />
+        <Crown size={18} />
       </button>
 
       {/* على body مباشرة: الشريط العلوي (فيه blur) يحبس أي fixed داخله */}
       {open &&
         createPortal(
           <div
-            className="fixed inset-0 z-[2500] flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 text-white animate-in fade-in"
+            dir="rtl"
+            className="dark fixed inset-0 z-[2500] flex items-end sm:items-center justify-center bg-ludn-bg/80 backdrop-blur-sm p-3 text-ludn-fg animate-in fade-in"
             onClick={close}
           >
             <div
               role="dialog"
               aria-label="صلاحيات المنشئ"
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain bg-slate-900 border-2 border-amber-600 rounded-[2rem] p-5 pt-0 shadow-2xl animate-in slide-in-from-bottom-8"
+              className="w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain bg-ludn-surface border border-ludn-gold/40 rounded-[26px] p-4 pt-0 shadow-2xl animate-in slide-in-from-bottom-8"
             >
               {/* ثابت فوق وقت السحب — عشان زر الإغلاق دايماً موجود */}
-              <div className="sticky top-0 z-10 -mx-5 px-5 pt-5 pb-3 mb-1 bg-slate-900 flex items-center justify-between">
-                <h2 className="text-xl font-black flex items-center gap-2">
-                  <Crown size={22} className="text-amber-400" /> صلاحيات المنشئ
+              <div className="sticky top-0 z-10 -mx-4 px-4 pt-4 pb-3 mb-1 bg-ludn-surface flex items-center justify-between">
+                <h2 className={`${H_CARD} flex items-center gap-2`}>
+                  <Crown size={20} className="text-ludn-gold" /> صلاحيات المنشئ
                 </h2>
                 <button
                   type="button"
                   onClick={close}
                   aria-label="إغلاق"
-                  className="w-11 h-11 -me-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-slate-800"
+                  className="w-10 h-10 -me-1 rounded-xl flex items-center justify-center text-ludn-muted hover:bg-ludn-surface-2"
                 >
                   <X size={24} />
                 </button>
@@ -242,12 +242,12 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
 
                 <MafiaHomeButton
                   ctx={ctx}
-                  className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black text-start"
+                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-ludn-surface-2 border border-ludn-line text-[15px] font-black text-start"
                 >
                   <Home size={20} />
                   <span className="flex-1">
                     الصفحة الرئيسية
-                    <span className="block text-xs font-bold text-slate-400">
+                    <span className="block text-xs font-bold text-ludn-muted">
                       تقدر تقفل الغرفة أو تخليها شغالة
                     </span>
                   </span>
@@ -255,7 +255,7 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
               </div>
 
               {busy && (
-                <p className="flex items-center justify-center gap-2 mt-4 text-sm font-bold text-slate-400">
+                <p className="flex items-center justify-center gap-2 mt-3 text-[13px] font-bold text-ludn-muted">
                   <Loader2 size={16} className="animate-spin" /> لحظة...
                 </p>
               )}
@@ -281,7 +281,7 @@ function PlayerGrid({
 }) {
   const [armedId, setArmedId] = useState<string | null>(null);
   return (
-    <div className="grid grid-cols-2 gap-2 p-2 rounded-2xl bg-slate-950/60 max-h-64 overflow-y-auto">
+    <div className="grid grid-cols-2 gap-1.5 p-2 rounded-2xl bg-ludn-bg/60 max-h-64 overflow-y-auto">
       {players.map((p) => {
         const armed = armedId === p.id;
         return (
@@ -296,10 +296,10 @@ function PlayerGrid({
               }
               if (await onConfirm(p.id)) setArmedId(null);
             }}
-            className={`min-h-11 py-2.5 px-2 rounded-xl font-black text-sm leading-tight break-words border-b-4 transition-colors ${
+            className={`min-h-11 py-2 px-2 rounded-[14px] font-black text-[13.5px] leading-tight break-words border transition-colors ${
               armed
-                ? "bg-red-600 border-red-800 text-white animate-pulse"
-                : "bg-slate-800 border-slate-950 text-slate-100"
+                ? "bg-rose-600 border-rose-600 text-white animate-pulse"
+                : "bg-ludn-surface-2 border-ludn-line text-ludn-fg"
             } ${p.is_alive ? "" : "opacity-60"}`}
           >
             {armed ? armedLabel(p.display_name) : p.display_name}
@@ -330,20 +330,20 @@ function MenuButton({
   const toneClass =
     tone === "danger"
       ? armed
-        ? "bg-red-600 border-red-800 text-white animate-pulse"
-        : "bg-red-950/60 border-red-900 text-red-200"
+        ? "bg-rose-600 border-rose-600 text-white animate-pulse"
+        : "bg-rose-500/10 border-rose-500/30 text-rose-200"
       : tone === "warn"
         ? armed
-          ? "bg-amber-500 border-amber-700 text-slate-950 animate-pulse"
-          : "bg-amber-950/50 border-amber-900 text-amber-100"
-        : "bg-slate-800 border-slate-950 text-white";
+          ? "bg-ludn-gold border-ludn-gold text-ludn-gold-ink animate-pulse"
+          : "bg-ludn-gold/10 border-ludn-gold/30 text-ludn-gold-text"
+        : "bg-ludn-surface-2 border-ludn-line text-ludn-fg";
 
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-3 p-4 rounded-2xl border-b-4 font-black text-right transition-colors disabled:opacity-50 ${toneClass}`}
+      className={`flex items-center gap-3 p-3.5 rounded-2xl border text-[15px] font-black text-right transition-colors disabled:opacity-50 ${toneClass}`}
     >
       {icon}
       <span className="flex-1">

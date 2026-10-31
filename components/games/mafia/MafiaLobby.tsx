@@ -9,6 +9,7 @@ import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import type { MafiaRole } from "@/types";
 import MafiaSetupForm from "./MafiaSetupForm";
 import { Panel, RoleIcon } from "./MafiaParts";
+import { BTN_GOLD, BTN_SOFT, CHIP, CTA_BAR, FIELD, LABEL, avatarColor } from "./mafiaUi";
 
 export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
   const { room, players, isHost, me, host, busy, devMode } = ctx;
@@ -24,11 +25,12 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
   if (!room) return null;
   const max = room.settings.maxPlayers;
   const full = players.length === max;
+  const citizens = mafiaCitizenCount(room.settings);
   const devRoles: MafiaRole[] = [
     "mafia",
     "detective",
     "doctor",
-    ...(mafiaCitizenCount(room.settings) > 0 ? (["citizen"] as const) : []),
+    ...(citizens > 0 ? (["citizen"] as const) : []),
     ...room.settings.optionalRoles,
   ];
   // لو تغيّرت الإعدادات وفئتي ما عادت موجودة: عشوائي
@@ -45,32 +47,41 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
     }
   };
 
+  // تركيبة الفئات معلنة للكل
+  const mix: { role: MafiaRole; label: string; optional?: boolean }[] = [
+    { role: "mafia", label: `مافيا ×${room.settings.mafiaCount}` },
+    { role: "detective", label: MAFIA_ROLES.detective.label },
+    { role: "doctor", label: MAFIA_ROLES.doctor.label },
+    { role: "citizen", label: `مواطنين ×${citizens}` },
+    ...room.settings.optionalRoles.map((r) => ({ role: r, label: MAFIA_ROLES[r].label, optional: true })),
+  ];
+
+  const devChip = (on: boolean) =>
+    `min-h-11 p-2 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 border transition-colors ${
+      on ? "bg-ludn-gold border-ludn-gold text-ludn-gold-ink" : "bg-ludn-surface-2 border-ludn-line"
+    }`;
+
   return (
-    <div className="flex flex-col gap-4">
-      <Panel className="text-center">
-        <p className="font-bold text-slate-400 text-sm mb-1">رمز الغرفة</p>
-        <p className="text-5xl font-black tracking-[0.3em] text-red-400 mb-4" dir="ltr">
+    <div className="flex flex-col gap-3">
+      <Panel className="text-center grid gap-1.5">
+        <p className={LABEL}>كود الغرفة</p>
+        <p
+          className="font-display text-[50px] leading-[1.1] tracking-[0.22em] text-ludn-gold-text [text-shadow:0_0_26px_rgba(226,184,74,0.25)]"
+          dir="ltr"
+        >
           {room.room_code}
         </p>
-        <div className="flex gap-2 justify-center">
-          <button
-            type="button"
-            onClick={copyLink}
-            className="flex-1 max-w-44 py-3 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black flex items-center justify-center gap-2"
-          >
-            {copied ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} />}
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={copyLink} className={BTN_SOFT}>
+            {copied ? <Check size={18} className="text-ludn-green" /> : <Copy size={18} />}
             {copied ? "تم النسخ" : "نسخ الرابط"}
           </button>
-          <button
-            type="button"
-            onClick={() => setShowQR((v) => !v)}
-            className="flex-1 max-w-44 py-3 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black flex items-center justify-center gap-2"
-          >
+          <button type="button" onClick={() => setShowQR((v) => !v)} className={BTN_SOFT}>
             <QrCode size={18} /> باركود
           </button>
         </div>
         {showQR && (
-          <div className="bg-white p-3 rounded-2xl mx-auto w-fit mt-4 animate-in zoom-in-95">
+          <div className="bg-white p-3 rounded-2xl mx-auto w-fit mt-2 animate-in zoom-in-95">
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`}
               alt={`باركود الانضمام لغرفة ${room.room_code}`}
@@ -81,24 +92,35 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
       </Panel>
 
       <Panel>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-black flex items-center gap-2">
-            <Users size={22} /> اللاعبين
+        <div className="flex items-center justify-between mb-2.5">
+          <h2 className="text-[15px] font-black flex items-center gap-2">
+            <Users size={18} /> اللاعبين
           </h2>
-          <span className={`px-3 py-1 rounded-xl font-black tabular-nums ${full ? "bg-emerald-600" : "bg-slate-800"}`}>
+          <span
+            className={`px-2.5 py-0.5 rounded-[10px] font-display text-lg tabular-nums ${
+              full ? "bg-ludn-green/20 text-ludn-green" : "bg-ludn-surface-2 text-ludn-fg"
+            }`}
+          >
             {players.length} / {max}
           </span>
         </div>
-        <ul className="grid grid-cols-2 gap-2">
+        <ul className="grid grid-cols-2 gap-1.5">
           {players.map((p) => (
             <li
               key={p.id}
-              className={`flex items-center gap-2 py-2.5 px-3 rounded-2xl font-black animate-in zoom-in-95 ${
-                p.id === me?.id ? "bg-red-900/50 border-2 border-red-700" : "bg-slate-800"
+              className={`min-w-0 flex items-center gap-2 p-1.5 rounded-[14px] bg-ludn-surface-2 border text-sm font-black animate-in zoom-in-95 ${
+                p.id === me?.id ? "border-ludn-gold/60" : "border-ludn-line"
               }`}
             >
-              {p.id === room.host_player_id && <Crown size={16} className="text-amber-400 shrink-0" />}
+              <span
+                aria-hidden
+                className="w-[30px] h-[30px] shrink-0 rounded-full grid place-items-center text-sm font-black text-ludn-gold-ink"
+                style={{ background: avatarColor(p.seat) }}
+              >
+                {p.display_name.trim().charAt(0)}
+              </span>
               <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}</span>
+              {p.id === room.host_player_id && <Crown size={15} className="text-ludn-gold shrink-0" />}
               {isHost && p.id !== room.host_player_id && (
                 <button
                   type="button"
@@ -112,13 +134,13 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
                   }}
                   onBlur={() => setKickArmed((cur) => (cur === p.id ? null : cur))}
                   aria-label={kickArmed === p.id ? `تأكيد طرد ${p.display_name}` : `طرد ${p.display_name}`}
-                  className={`shrink-0 h-9 rounded-xl flex items-center justify-center transition-all ${
+                  className={`shrink-0 h-[30px] rounded-[10px] flex items-center justify-center transition-all ${
                     kickArmed === p.id
-                      ? "px-2.5 bg-red-600 text-white text-xs font-black animate-pulse"
-                      : "w-9 bg-slate-900/60 text-slate-400 hover:text-red-400"
+                      ? "px-2 bg-rose-600 text-white text-xs font-black animate-pulse"
+                      : "w-[30px] text-ludn-muted hover:text-rose-400"
                   }`}
                 >
-                  {kickArmed === p.id ? "طرد؟" : <X size={18} />}
+                  {kickArmed === p.id ? "طرد؟" : <X size={16} />}
                 </button>
               )}
             </li>
@@ -126,7 +148,7 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
           {Array.from({ length: Math.max(0, max - players.length) }).map((_, i) => (
             <li
               key={`empty-${i}`}
-              className="py-2.5 px-3 rounded-2xl border-2 border-dashed border-slate-800 text-slate-600 font-bold text-center"
+              className="min-h-[44px] px-2 rounded-[14px] border border-dashed border-ludn-line text-ludn-muted text-[13px] font-bold flex items-center justify-center"
             >
               بانتظار لاعب...
             </li>
@@ -135,16 +157,12 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
 
         {/* كل لاعب يقدر يغيّر اسمه قبل ما تبدأ اللعبة */}
         {newName === null ? (
-          <button
-            type="button"
-            onClick={() => setNewName(me?.name ?? "")}
-            className="mt-4 w-full min-h-11 py-2.5 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm flex items-center justify-center gap-2"
-          >
+          <button type="button" onClick={() => setNewName(me?.name ?? "")} className={`${BTN_SOFT} w-full mt-3`}>
             <Pencil size={16} /> غيّر اسمي
           </button>
         ) : (
           <form
-            className="mt-4 flex gap-2"
+            className="mt-3 flex gap-2"
             onSubmit={async (e) => {
               e.preventDefault();
               if (await ctx.rename(newName.trim())) setNewName(null);
@@ -156,12 +174,12 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
               maxLength={16}
               onChange={(e) => setNewName(e.target.value)}
               aria-label="اسمك الجديد"
-              className="flex-1 min-w-0 p-3 bg-slate-950 border-2 border-slate-700 rounded-2xl font-black focus:border-red-500 outline-none"
+              className={`${FIELD} flex-1 min-w-0`}
             />
             <button
               type="submit"
               disabled={busy || newName.trim().length < 2}
-              className="px-4 bg-red-600 disabled:opacity-40 rounded-2xl border-b-4 border-red-800 font-black"
+              className="px-4 rounded-[14px] bg-ludn-gold text-ludn-gold-ink font-black disabled:opacity-40"
             >
               حفظ
             </button>
@@ -169,7 +187,7 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
               type="button"
               onClick={() => setNewName(null)}
               aria-label="إلغاء"
-              className="w-11 bg-slate-800 rounded-2xl border-b-4 border-slate-950 flex items-center justify-center"
+              className="w-12 shrink-0 rounded-[14px] bg-ludn-surface-2 border border-ludn-line flex items-center justify-center"
             >
               <X size={18} />
             </button>
@@ -177,40 +195,35 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
         )}
       </Panel>
 
-      {isHost ? (
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => host.start(devMode ? myDevRole : null)}
-            disabled={!full || busy}
-            className="w-full py-5 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xl rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2"
-          >
-            {busy ? <Loader2 className="animate-spin" size={24} /> : <Play size={24} className="fill-current" />}
-            {full ? "ابدأ اللعبة" : `باقي ${max - players.length} لاعبين`}
-          </button>
+      <Panel className="p-3">
+        <p className={`${LABEL} mb-2`}>التوزيعة</p>
+        <div className="flex flex-wrap gap-1.5">
+          {mix.map((m) => (
+            <span key={m.role} className={`${CHIP} ${m.optional ? "border-ludn-gold/35 text-ludn-gold-text" : ""}`}>
+              <RoleIcon role={m.role} className="w-[22px] h-[22px]" /> {m.label}
+            </span>
+          ))}
+        </div>
+      </Panel>
 
-          <button
-            type="button"
-            onClick={() => setEditing((v) => !v)}
-            className="w-full py-3 bg-slate-800 rounded-2xl border-b-4 border-slate-950 font-black flex items-center justify-center gap-2"
-          >
+      {isHost ? (
+        <>
+          <button type="button" onClick={() => setEditing((v) => !v)} className={`${BTN_SOFT} w-full`}>
             <Settings2 size={18} /> {editing ? "إخفاء الإعدادات" : "تعديل العدد والفئات"}
           </button>
 
           {editing && (
-            <Panel>
-              <MafiaSetupForm
-                key={JSON.stringify(room.settings)}
-                initial={room.settings}
-                minPlayers={players.length}
-                busy={busy}
-                submitLabel="حفظ الإعدادات"
-                onSubmit={async (settings) => {
-                  const res = await host.updateSettings(settings);
-                  if (res?.success) setEditing(false);
-                }}
-              />
-            </Panel>
+            <MafiaSetupForm
+              key={JSON.stringify(room.settings)}
+              initial={room.settings}
+              minPlayers={players.length}
+              busy={busy}
+              submitLabel="حفظ الإعدادات"
+              onSubmit={async (settings) => {
+                const res = await host.updateSettings(settings);
+                if (res?.success) setEditing(false);
+              }}
+            />
           )}
 
           {devMode && !full && (
@@ -218,24 +231,22 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
               type="button"
               onClick={() => host.addBots()}
               disabled={busy}
-              className="w-full py-3 bg-indigo-900/60 border-2 border-dashed border-indigo-500 rounded-2xl font-black text-indigo-200 flex items-center justify-center gap-2"
+              className="w-full min-h-11 rounded-[14px] bg-indigo-900/60 border border-dashed border-indigo-500 font-black text-sm text-indigo-200 flex items-center justify-center gap-2"
             >
               <Bot size={18} /> عبّي الغرفة بلاعبين وهميين (localhost فقط)
             </button>
           )}
 
           {devMode && (
-            <div className="p-3 bg-indigo-900/60 border-2 border-dashed border-indigo-500 rounded-2xl">
-              <p className="font-black text-indigo-200 text-sm text-center mb-3">فئتي بالتجربة (localhost فقط)</p>
+            <div className="p-3 bg-indigo-900/40 border border-dashed border-indigo-500 rounded-2xl">
+              <p className="font-black text-indigo-200 text-[13px] text-center mb-2.5">فئتي بالتجربة (localhost فقط)</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2" role="radiogroup" aria-label="فئتي بالتجربة">
                 <button
                   type="button"
                   role="radio"
                   aria-checked={myDevRole === null}
                   onClick={() => setDevRole(null)}
-                  className={`min-h-11 p-2 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 border-b-4 ${
-                    myDevRole === null ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950"
-                  }`}
+                  className={devChip(myDevRole === null)}
                 >
                   <Shuffle size={22} /> عشوائي
                 </button>
@@ -246,9 +257,7 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
                     role="radio"
                     aria-checked={myDevRole === role}
                     onClick={() => setDevRole(role)}
-                    className={`min-h-11 p-2 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 border-b-4 ${
-                      myDevRole === role ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950"
-                    }`}
+                    className={devChip(myDevRole === role)}
                   >
                     <RoleIcon role={role} className="w-8 h-8" />
                     {MAFIA_ROLES[role].label}
@@ -257,12 +266,25 @@ export default function MafiaLobby({ ctx }: { ctx: MafiaGameCtx }) {
               </div>
             </div>
           )}
-        </div>
+
+          {/* زر البدء ثابت تحت الشاشة (إلا وقت تعديل الإعدادات: زر الحفظ هو الأساسي) */}
+          <div className={editing ? "" : CTA_BAR}>
+            <button
+              type="button"
+              onClick={() => host.start(devMode ? myDevRole : null)}
+              disabled={!full || busy}
+              className={BTN_GOLD}
+            >
+              {busy ? <Loader2 className="animate-spin" size={20} /> : <Play size={18} className="fill-current" />}
+              {full ? "ابدأ اللعبة" : `باقي ${max - players.length} لاعبين`}
+            </button>
+          </div>
+        </>
       ) : (
-        <Panel className="text-center">
-          <Hourglass size={40} className="mx-auto mb-2 text-amber-300 animate-pulse" />
-          <p className="font-black text-lg">بانتظار المنشئ يبدأ اللعبة...</p>
-          <p className="font-bold text-sm text-slate-400 mt-1">خل جوالك قريب منك وبعيد عن عيون الباقين</p>
+        <Panel className="text-center grid gap-1.5 justify-items-center">
+          <Hourglass size={34} className="text-ludn-gold animate-pulse" />
+          <p className="font-display text-2xl leading-tight">بانتظار المنشئ يبدأ اللعبة...</p>
+          <p className={LABEL}>خل جوالك قريب منك وبعيد عن عيون الباقين</p>
         </Panel>
       )}
     </div>

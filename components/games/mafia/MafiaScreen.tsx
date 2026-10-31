@@ -44,6 +44,7 @@ import {
 import MafiaGameOver from "./MafiaGameOver";
 import MafiaHostMenu, { MafiaHostHush, MafiaHostSkip } from "./MafiaHostMenu";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
+import { BAR_BTN, BTN_GOLD, BTN_SOFT, ERROR, H_CARD, LABEL, NOTE } from "./mafiaUi";
 import { unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 
 const NIGHT_PHASES: MafiaPhase[] = ["night_act", "night_done"];
@@ -101,8 +102,8 @@ export default function MafiaScreen({
 
   if (!room || !me) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-24 text-slate-400">
-        <Loader2 size={40} className="animate-spin text-red-500" />
+      <div className="flex flex-col items-center justify-center gap-4 py-24 text-ludn-muted">
+        <Loader2 size={40} className="animate-spin text-ludn-gold" />
         <p className="font-black">جاري الدخول للغرفة...</p>
       </div>
     );
@@ -116,17 +117,17 @@ export default function MafiaScreen({
   const PhaseIcon = PHASE_ICON[phase];
 
   return (
-    <div className="w-full max-w-lg mx-auto flex flex-col gap-4">
+    <div className="w-full max-w-lg mx-auto flex flex-col gap-3">
       {/*
-        الشريط العلوي — نفس الترتيب بكل المقاسات (جوال، آيباد، لابتوب):
+        الشريط العلوي — نفس الترتيب بكل المقاسات (جوال، آيباد، لابتوب)، ويظل فوق وقت السكرول:
         سطر 1: اسم اللاعب وجنبه أزرار التحكم
         سطر 2: المرحلة (الليلة كم…) والمؤقت بطرفها لما يكون فيه وقت
       */}
-      <header className="flex flex-col gap-2 rounded-2xl bg-slate-950/55 backdrop-blur-sm border border-white/10 px-3 py-2.5">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 flex flex-col gap-2 rounded-[20px] bg-ludn-bg/80 backdrop-blur-md border border-ludn-line px-3 py-2.5">
         <div className="flex items-center gap-2">
           {/* اسم اللاعب بس — اسم اللعبة هنا كان يلخبط ("المافيا · فلان" ينقرا كأنه مافيا) */}
-          <p className="flex-1 min-w-0 flex items-center gap-1.5 text-base font-black text-white">
-            {me.isHost && <Crown size={16} className="text-amber-400 shrink-0" />}
+          <p className="flex-1 min-w-0 flex items-center gap-1.5 text-[15px] font-black text-ludn-fg">
+            {me.isHost && <Crown size={16} className="text-ludn-gold shrink-0" />}
             <span className="truncate">{me.name}</span>
           </p>
           <div className="flex items-center gap-2 shrink-0">
@@ -139,65 +140,56 @@ export default function MafiaScreen({
             <SoundToggle />
             {me.isHost && <MafiaHostMenu ctx={ctx} />}
             {phase === "lobby" && !me.isHost && (
-              <button
-                type="button"
-                onClick={onLeave}
-                aria-label="خروج"
-                className="w-11 h-11 rounded-2xl bg-slate-800 border-b-4 border-slate-950 flex items-center justify-center text-slate-400"
-              >
-                <LogOut size={20} />
+              <button type="button" onClick={onLeave} aria-label="خروج" className={`${BAR_BTN} text-ludn-muted`}>
+                <LogOut size={18} />
               </button>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 pt-2 border-t border-white/10">
-          <h1
-            className={`flex-1 min-w-0 text-xl font-black leading-tight flex items-center gap-2 ${isNight ? "text-indigo-200" : "text-white"}`}
-          >
-            <PhaseIcon size={22} className="shrink-0 opacity-80" />
-            <span className="truncate">{phaseLabel(phase, room.night_number)}</span>
+        <div className="flex items-center gap-2 pt-2 border-t border-ludn-line">
+          <h1 className="flex-1 min-w-0 font-display text-2xl leading-none text-ludn-fg flex items-center gap-2">
+            <PhaseIcon size={20} className={`shrink-0 ${isNight ? "text-indigo-300" : "text-ludn-gold-text"}`} />
+            <span className="truncate pt-1">{phaseLabel(phase, room.night_number)}</span>
           </h1>
           {showTimer && <TimerBadge seconds={secondsLeft} danger={3} />}
         </div>
       </header>
 
       {error && (
-        <div className="flex items-center gap-2 text-sm font-bold text-red-200 bg-red-950/70 border border-red-800 rounded-xl p-3 animate-in fade-in">
+        <div className={`${ERROR} animate-in fade-in`}>
           <AlertCircle size={18} className="shrink-0" />
           <span className="flex-1">{error}</span>
           <button
             type="button"
             onClick={() => setError("")}
             aria-label="إغلاق"
-            className="shrink-0 w-10 h-10 -my-2 -me-2 rounded-xl flex items-center justify-center hover:bg-red-900/60"
+            className="shrink-0 w-9 h-9 -my-1.5 -me-1 rounded-xl flex items-center justify-center hover:bg-rose-500/20"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
       )}
 
       {isDead && (
-        <div className="text-center p-4 rounded-2xl bg-slate-900 border-2 border-dashed border-slate-700 animate-in zoom-in-95">
-          <span className="mfx-ghost mb-1 text-slate-300">
-            <Ghost size={40} />
+        <div className="text-center p-3.5 rounded-[22px] bg-ludn-surface/90 border border-dashed border-ludn-line animate-in zoom-in-95">
+          <span className="mfx-ghost mb-1 text-ludn-muted">
+            <Ghost size={34} />
           </span>
-          <p className="font-black text-lg">{MAFIA_CONFIG.DEAD_MESSAGE}</p>
-          <p className="text-xs font-bold text-slate-500 mt-1">
-            تقدر تتفرج بس لا تفضح أحد
-          </p>
+          <p className="font-display text-2xl leading-tight">{MAFIA_CONFIG.DEAD_MESSAGE}</p>
+          <p className={`${NOTE} mt-1`}>تقدر تتفرج بس لا تفضح أحد</p>
         </div>
       )}
 
       {/* المسكت: الممنوع من الكلام يشوف تنبيه، وبالتصويت الكل يتذكر مين الممنوع */}
       {ctx.silencedId && ctx.silencedId === me.id && (
-        <div className="text-center p-4 rounded-2xl bg-sky-950/70 border-2 border-sky-600 animate-in zoom-in-95">
-          <RoleIcon role="silencer" className="w-16 h-16 mx-auto mb-2" />
-          <p className="font-black text-lg">أنت ممنوع من الكلام اليوم!</p>
+        <div className="text-center p-3.5 rounded-[22px] bg-sky-950/70 border border-sky-600/70 animate-in zoom-in-95">
+          <RoleIcon role="silencer" className="w-14 h-14 mx-auto mb-1.5" />
+          <p className="font-display text-2xl leading-tight">أنت ممنوع من الكلام اليوم!</p>
           <p className="text-xs font-bold text-sky-200 mt-1">إذا تكلمت ينقتل — بس تقدر تصوّت عادي</p>
         </div>
       )}
       {ctx.silencedId && ctx.silencedId !== me.id && phase === "voting" && (
-        <p className="flex items-center justify-center gap-2 text-center text-sm font-black text-sky-200 bg-sky-950/50 border border-sky-800 rounded-2xl p-2.5">
+        <p className="flex items-center justify-center gap-2 text-center text-[13px] font-black text-sky-200 bg-sky-950/50 border border-sky-800/70 rounded-2xl p-2">
           <RoleIcon role="silencer" className="w-8 h-8" /> {ctx.nameOf(ctx.silencedId)} ممنوع من الكلام اليوم
         </p>
       )}
@@ -208,7 +200,7 @@ export default function MafiaScreen({
       {phase === "night_act" && !isDead && <MafiaNightAct ctx={ctx} />}
       {phase === "night_act" && isDead && (
         <>
-          <p className="flex items-center justify-center gap-2 font-black text-indigo-300 py-10 animate-pulse">
+          <p className="flex items-center justify-center gap-2 font-black text-[15px] text-indigo-300 py-8 animate-pulse">
             <Moon size={22} /> الليل شغال… نام وارتاح
           </p>
           <NightWaiting ctx={ctx} />
@@ -232,13 +224,13 @@ export default function MafiaScreen({
         view.notes.length > 0 &&
         phase !== "lobby" &&
         phase !== "night_act" && (
-          <Panel className="border-purple-800">
-            <h3 className="font-black mb-2 flex items-center gap-2">
-              <Lock size={18} /> رسائل لك بس
+          <Panel className="border-purple-500/40">
+            <h3 className="text-[15px] font-black mb-2 flex items-center gap-2">
+              <Lock size={16} /> رسائل لك بس
             </h3>
             <ul className="flex flex-col gap-1.5">
               {view.notes.map((n, i) => (
-                <li key={i} className="font-bold text-purple-200">
+                <li key={i} className="text-[15px] font-bold text-purple-200">
                   {n}
                 </li>
               ))}
@@ -259,14 +251,14 @@ function MafiaReveal({ ctx }: { ctx: MafiaGameCtx }) {
   if (!me?.role) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 size={40} className="animate-spin text-red-500" />
+        <Loader2 size={40} className="animate-spin text-ludn-gold" />
       </div>
     );
   }
   const teammates = (view?.mafiaTeam ?? []).filter((m) => m.id !== me.id);
   return (
-    <div className="flex flex-col items-center gap-6">
-      <p className="text-center font-black text-slate-400">غطّ جوالك… هذا دورك</p>
+    <div className="flex flex-col items-center gap-5">
+      <p className="text-center text-[15px] font-black text-ludn-muted">غطّ جوالك… هذا دورك</p>
       <RoleCard flip role={me.role} teammates={me.role === "mafia" ? teammates.map((m) => m.name) : []} />
     </div>
   );
@@ -347,41 +339,30 @@ function DevFxPanel() {
 /** الغرفة انقفلت: لو المنشئ سوّى غرفة جديدة نوجّه للكود الجديد، وإلا أي واحد يقدر يسوي غرفته */
 function MafiaClosed({ newCode }: { newCode?: string }) {
   return (
-    <Panel className="text-center">
-      <DoorClosed size={64} className="mx-auto mb-3 text-slate-300" strokeWidth={1.6} />
-      <h2 className="text-2xl font-black mb-2">{newCode ? "المنشئ سوّى غرفة جديدة" : "المنشئ قفل الغرفة"}</h2>
+    <Panel className="text-center grid gap-3 justify-items-center">
+      <DoorClosed size={52} className="text-ludn-muted" strokeWidth={1.6} />
+      <h2 className={H_CARD}>{newCode ? "المنشئ سوّى غرفة جديدة" : "المنشئ قفل الغرفة"}</h2>
       {newCode ? (
         <>
-          <p className="font-bold text-slate-400 mb-1">الكود الجديد</p>
-          <p className="text-4xl font-black tracking-[0.3em] text-red-400 mb-5" dir="ltr">
+          <p className={LABEL}>الكود الجديد</p>
+          <p className="font-display text-[44px] leading-none tracking-[0.22em] text-ludn-gold-text" dir="ltr">
             {newCode}
           </p>
-          <a
-            href={`${MAFIA_GAME.joinPath}?room=${newCode}`}
-            className="block w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all"
-          >
+          <a href={`${MAFIA_GAME.joinPath}?room=${newCode}`} className={BTN_GOLD}>
             ادخل الغرفة الجديدة
           </a>
         </>
       ) : (
         <>
-          <p className="font-bold text-slate-400 mb-5 leading-relaxed">
+          <p className={`${LABEL} leading-relaxed`}>
             تبون تكملون؟ واحد منكم يسجّل دخول ويسوي غرفة جديدة، ويرسل الكود للباقين
           </p>
-          <div className="flex flex-col gap-3">
-            <a
-              href={MAFIA_GAME.path}
-              className="block w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all"
-            >
-              سوّ غرفة جديدة
-            </a>
-            <a
-              href={MAFIA_GAME.joinPath}
-              className="block w-full py-4 bg-slate-800 rounded-2xl border-b-4 border-slate-950 font-black text-lg active:border-b-0 active:translate-y-[4px] transition-all"
-            >
-              ادخل غرفة بكود
-            </a>
-          </div>
+          <a href={MAFIA_GAME.path} className={BTN_GOLD}>
+            سوّ غرفة جديدة
+          </a>
+          <a href={MAFIA_GAME.joinPath} className={`${BTN_SOFT} w-full`}>
+            ادخل غرفة بكود
+          </a>
         </>
       )}
     </Panel>
