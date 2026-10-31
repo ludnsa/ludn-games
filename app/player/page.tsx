@@ -1,96 +1,19 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { Tajawal } from "next/font/google";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { 
-  Home, 
-  MessageCircle, 
-  Sun, 
-  Moon, 
-  Swords, 
-  Globe, 
-  Gavel, 
-  ChevronDown,
-  User,
-  Zap,
-  LayoutGrid,
-  Skull,
-  Calculator,
-  Hexagon
-} from "lucide-react";
-import { QUIZ_GAME } from "@/constants/quiz-grid";
-import { MAFIA_GAME } from "@/constants/mafia";
-import { MADAQESH_GAME } from "@/constants/madaqesh";
-import { LETTERS_HIVE_GAME } from "@/constants/letters-hive";
-
-const tajawal = Tajawal({
-  subsets: ["arabic"],
-  weight: ["400", "500", "700", "800", "900"],
-});
+import { SitePage } from "@/components/home/SitePage";
+import { NoticeDialog } from "@/components/home/NoticeDialog";
+import { BTN_GOLD, BTN_SOFT, CARD, FIELD } from "@/components/home/ui";
 
 const supabase = getSupabaseBrowser();
 
-
-
-// ----------------------------------------------------
-// محرك خلفية الألعاب
-// ----------------------------------------------------
-const SolidGamingBackground = () => {
-  const [isDark, setIsDark] = useState(true);
-  const [icons, setIcons] = useState<any[]>([]);
-
-  useEffect(() => {
-    const checkTheme = () => setIsDark(document.documentElement.classList.contains("dark"));
-    checkTheme();
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-
-    const gameShapes = [
-      <svg key="1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="12" x2="10" y2="12"></line><line x1="8" y1="10" x2="8" y2="14"></line><line x1="15" y1="13" x2="15.01" y2="13"></line><line x1="18" y1="11" x2="18.01" y2="11"></line><rect x="2" y="6" width="20" height="12" rx="2"></rect></svg>,
-      <svg key="2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><circle cx="15.5" cy="15.5" r="1.5"></circle><circle cx="15.5" cy="8.5" r="1.5"></circle><circle cx="8.5" cy="15.5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle></svg>,
-      <svg key="3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4" /><path d="M6 20V4h6v4" /><circle cx="12" cy="11" r="2" /><line x1="12" y1="13" x2="12" y2="17" /><line x1="10" y1="15" x2="14" y2="15" /><line x1="12" y1="17" x2="10" y2="20" /><line x1="12" y1="17" x2="14" y2="20" /></svg>,
-    ];
-
-    const iconColors = ["text-emerald-500", "text-rose-500", "text-purple-500", "text-amber-500", "text-blue-500"];
-
-    const generatedIcons = Array.from({ length: 12 }).map((_, i) => ({
-      id: `icon-${i}`,
-      shape: gameShapes[i % gameShapes.length],
-      colorClass: iconColors[i % iconColors.length],
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      size: Math.random() * 40 + 40,
-      delay: `${Math.random() * 5}s`,
-      duration: `${Math.random() * 15 + 20}s`,
-      rotate: Math.random() * 360,
-    }));
-    setIcons(generatedIcons);
-
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none bg-slate-50 dark:bg-[#0f172a] transition-colors duration-300">
-      <div className="absolute inset-0 opacity-[0.05] dark:opacity-[0.08]">
-        {icons.map((icon) => (
-          <div key={icon.id} className={`absolute animate-float-game-extra ${icon.colorClass}`} style={{ left: icon.left, top: icon.top, width: `${icon.size}px`, height: `${icon.size}px`, animationDelay: icon.delay, animationDuration: icon.duration, transform: `rotate(${icon.rotate}deg)` }}>
-            {icon.shape}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 export default function PlayerLoginPage() {
-  const [isDark, setIsDark] = useState(true);
-  
   // حالات الإدخال المشتركة
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-  
+
   // حالات الإدخال الخاصة بإنشاء الحساب
   const [fullName, setFullName] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -99,21 +22,11 @@ export default function PlayerLoginPage() {
   const [authLoading, setAuthLoading] = useState(false);
   const [notification, setNotification] = useState({ isOpen: false, message: "", type: "success" });
 
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
-
-  const toggleTheme = () => {
-    const html = document.documentElement;
-    if (html.classList.contains("dark")) {
-      html.classList.remove("dark");
-      localStorage.setItem("theme_preference", "light");
-      setIsDark(false);
-    } else {
-      html.classList.add("dark");
-      localStorage.setItem("theme_preference", "dark");
-      setIsDark(true);
-    }
+  // التبديل بين الدخول وإنشاء حساب (يمسح كلمة المرور زي قبل)
+  const switchMode = (loginMode: boolean) => {
+    if (loginMode === isLoginMode) return;
+    setIsLoginMode(loginMode);
+    setAuthPassword("");
   };
 
   const handleGoogleLogin = async () => {
@@ -155,7 +68,7 @@ export default function PlayerLoginPage() {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (isLoginMode) {
       if (!authEmail || !authPassword) {
         setNotification({ isOpen: true, message: "الرجاء إدخال البريد الإلكتروني وكلمة المرور.", type: "error" });
@@ -202,7 +115,7 @@ export default function PlayerLoginPage() {
             },
           },
         });
-        
+
         // التقاط خطأ الإيميل المستخدم
         if (error) {
           if (error.status === 422 || (error.message && error.message.includes("already registered"))) {
@@ -228,226 +141,126 @@ export default function PlayerLoginPage() {
     }
   };
 
+  const tabClass = (active: boolean) =>
+    `h-11 rounded-xl font-black text-sm transition-colors ${active ? "bg-ludn-surface text-ludn-fg shadow-sm" : "text-ludn-muted hover:text-ludn-fg"}`;
+
   return (
-    <main className={`min-h-screen flex flex-col relative overflow-x-hidden bg-slate-50 dark:bg-[#0f172a] transition-colors duration-300 ${tajawal.className}`} dir="rtl">
-      
+    <SitePage width="max-w-md">
+      <div className={`${CARD} ludn-shadow p-5 md:p-7 grid gap-5 animate-in fade-in zoom-in-95 duration-300`}>
 
-
-      {/* محرك الخلفية */}
-      <SolidGamingBackground />
-
-      {/* الهيدر المبسط */}
-      <header className="w-full max-w-7xl mx-auto px-4 pt-6 relative z-50">
-        <div className="bg-white/95 dark:bg-slate-800/95 rounded-2xl border-4 border-slate-900 dark:border-black p-3 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] flex justify-between items-center transition-colors duration-300">
-          <Link href="/" className="transition-transform hover:scale-105 active:scale-95 shrink-0 pl-2">
-            <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 w-auto max-w-[140px] md:max-w-[200px] object-contain" />
-          </Link>
-
-          <nav className="hidden sm:flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-              <Home size={18} className="text-slate-500 dark:text-slate-400" /> <span>الرئيسية</span>
-            </Link>
-            <Link href="/packages" className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-              <Zap size={18} className="text-amber-500" /> <span>باقات الألعاب</span>
-            </Link>
-          </nav>
-
-          <div className="flex gap-2 pr-2 items-center">
-            <button onClick={toggleTheme} className="w-11 h-11 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 text-slate-600 dark:text-amber-400 rounded-xl flex items-center justify-center transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:translate-y-0.5 active:border-b-0">
-              {isDark ? <Sun size={20} className="animate-spin-slow" /> : <Moon size={20} className="animate-wiggle" />}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* محتوى تسجيل الدخول */}
-      <div className="flex-1 flex items-center justify-center p-4 relative z-10 w-full my-8">
-        <div className="w-full max-w-md bg-white dark:bg-slate-800 border-4 border-blue-500 rounded-[2rem] p-6 md:p-8 shadow-2xl animate-in zoom-in-95">
-
-          <div className="w-16 h-16 md:w-20 md:h-20 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-3xl mx-auto flex items-center justify-center mb-6 border-b-4 border-blue-200 dark:border-blue-800">
-            <User size={36} strokeWidth={2.5} />
-          </div>
-          <h2 className="text-2xl md:text-3xl font-black text-center text-slate-900 dark:text-white mb-2">
-            التسجيل والدخول
-          </h2>
-          <p className="text-center text-slate-500 dark:text-slate-400 font-bold mb-8 text-sm md:text-base">
+        <div className="grid gap-1.5 text-center">
+          <h1 className="font-display text-[34px] leading-tight">التسجيل والدخول</h1>
+          <p className="text-ludn-muted font-semibold text-sm md:text-base">
             {isLoginMode ? "سجل دخولك لبدء إدارة ألعابك وتحدياتك" : "أنشئ حسابك الجديد وانضم لعالم التحديات"}
           </p>
+        </div>
 
-          <div className="flex flex-col gap-4">
-            <form onSubmit={handleEmailAuth} className="flex flex-col gap-3">
-              
-              {!isLoginMode && (
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="الاسم الثنائي"
-                  className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 md:p-4 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500 transition-colors"
-                />
-              )}
+        {/* دخول / حساب جديد */}
+        <div role="tablist" aria-label="نوع الدخول" className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-ludn-surface-2">
+          <button type="button" role="tab" aria-selected={isLoginMode} onClick={() => switchMode(true)} className={tabClass(isLoginMode)}>
+            تسجيل الدخول
+          </button>
+          <button type="button" role="tab" aria-selected={!isLoginMode} onClick={() => switchMode(false)} className={tabClass(!isLoginMode)}>
+            حساب جديد
+          </button>
+        </div>
 
-              <input
-                type="email"
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                placeholder="البريد الإلكتروني"
-                className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 md:p-4 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500 transition-colors"
-              />
+        <form onSubmit={handleEmailAuth} className="grid gap-3">
+          {!isLoginMode && (
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="الاسم الثنائي"
+              autoComplete="name"
+              className={FIELD}
+            />
+          )}
 
+          <input
+            type="email"
+            value={authEmail}
+            onChange={(e) => setAuthEmail(e.target.value)}
+            placeholder="البريد الإلكتروني"
+            autoComplete="email"
+            className={FIELD}
+          />
 
+          <input
+            type="password"
+            value={authPassword}
+            onChange={(e) => setAuthPassword(e.target.value)}
+            placeholder="كلمة المرور"
+            autoComplete={isLoginMode ? "current-password" : "new-password"}
+            className={FIELD}
+          />
 
-              <input
-                type="password"
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                placeholder="كلمة المرور"
-                className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 md:p-4 text-slate-900 dark:text-white font-bold outline-none focus:border-blue-500 transition-colors"
-              />
-
-              {isLoginMode && (
-                <div className="flex justify-end mt-1 px-1">
-                  <button
-                    type="button"
-                    onClick={handleResetPassword}
-                    disabled={authLoading}
-                    className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-                  >
-                    هل نسيت كلمة المرور؟
-                  </button>
-                </div>
-              )}
-
-              {!isLoginMode && (
-                <div className="flex items-center gap-2 mt-1 px-1">
-                  <input
-                    type="checkbox"
-                    id="terms"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    className="w-5 h-5 accent-blue-600 rounded cursor-pointer shrink-0"
-                  />
-                  <label htmlFor="terms" className="text-sm font-bold text-slate-600 dark:text-slate-400 cursor-pointer">
-                    أوافق على <Link href="/terms" target="_blank" className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300">الشروط والأحكام</Link>
-                  </label>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full py-4 mt-2 bg-blue-600 border-b-4 border-blue-800 hover:bg-blue-500 text-white font-black text-lg rounded-2xl transition-all active:translate-y-1 active:border-b-0 disabled:opacity-50"
-              >
-                {authLoading ? "جاري التحميل..." : (isLoginMode ? "تسجيل الدخول" : "إنشاء حساب جديد")}
-              </button>
-            </form>
-
+          {isLoginMode && (
             <button
               type="button"
-              onClick={() => {
-                setIsLoginMode(!isLoginMode);
-                setAuthPassword("");
-              }}
-              className="text-slate-500 dark:text-slate-400 font-bold text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              onClick={handleResetPassword}
+              disabled={authLoading}
+              className="justify-self-end px-1 text-sm font-bold text-ludn-gold-text hover:underline underline-offset-4"
             >
-              {isLoginMode ? "ما عندك حساب؟ سجل معنا اللحين" : "عندك حساب؟ تفضل بتسجيل الدخول"}
+              هل نسيت كلمة المرور؟
             </button>
+          )}
 
-            <div className="flex items-center gap-3 my-2 opacity-60">
-              <div className="h-0.5 w-full bg-slate-300 dark:bg-slate-700 rounded-full"></div>
-              <span className="text-slate-500 dark:text-slate-400 font-bold text-sm">أو</span>
-              <div className="h-0.5 w-full bg-slate-300 dark:bg-slate-700 rounded-full"></div>
+          {!isLoginMode && (
+            <div className="flex items-center gap-2.5 px-1">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="w-5 h-5 accent-ludn-gold rounded cursor-pointer shrink-0"
+              />
+              <label htmlFor="terms" className="text-sm font-bold text-ludn-muted cursor-pointer">
+                أوافق على <Link href="/terms" target="_blank" className="text-ludn-gold-text underline underline-offset-4">الشروط والأحكام</Link>
+              </label>
             </div>
+          )}
 
-            <button
-              onClick={handleGoogleLogin}
-              className="relative flex items-center justify-center gap-3 w-full py-3.5 md:py-4 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 text-slate-700 dark:text-white font-black text-base md:text-lg rounded-2xl transition-all shadow-sm active:scale-95"
-            >
-              <svg className="w-6 h-6" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              المتابعة باستخدام قوقل
-            </button>
+          <button type="submit" disabled={authLoading} className={`${BTN_GOLD} w-full mt-1 text-lg`}>
+            {authLoading ? "جاري التحميل..." : (isLoginMode ? "تسجيل الدخول" : "إنشاء حساب جديد")}
+          </button>
+        </form>
 
-            <button
-              disabled
-              className="relative flex items-center justify-center gap-3 w-full py-3.5 md:py-4 bg-slate-900 border-2 border-slate-900 text-white font-black text-base md:text-lg rounded-2xl opacity-80 cursor-not-allowed overflow-hidden mt-1"
-            >
-              <div className="absolute -left-7 top-4 bg-rose-600 text-white text-[11px] font-black px-10 py-1 -rotate-45 shadow-md border border-rose-400 tracking-wider">
-                قريباً
-              </div>
-              <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.15 2.95.97 3.63 2.38-3.13 1.83-2.58 6.19.46 7.37-.62 1.48-1.57 2.84-2.74 3.26zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-              </svg>
-              المتابعة باستخدام Apple
-            </button>
-          </div>
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-ludn-line"></div>
+          <span className="text-ludn-muted font-bold text-sm">أو</span>
+          <div className="h-px flex-1 bg-ludn-line"></div>
+        </div>
+
+        <div className="grid gap-2.5">
+          <button type="button" onClick={handleGoogleLogin} className={`${BTN_SOFT} w-full`}>
+            <svg className="w-6 h-6" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            المتابعة باستخدام قوقل
+          </button>
+
+          <button type="button" disabled className={`${BTN_SOFT} w-full`}>
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.15 2.95.97 3.63 2.38-3.13 1.83-2.58 6.19.46 7.37-.62 1.48-1.57 2.84-2.74 3.26zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+            </svg>
+            المتابعة باستخدام Apple
+            <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white">قريباً</span>
+          </button>
         </div>
       </div>
 
-      {/* الفوتر */}
-      <footer className="w-full bg-white dark:bg-slate-800 border-t-8 border-slate-200 dark:border-slate-950 pt-12 pb-8 relative z-10 transition-colors duration-300 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          <div className="flex flex-col items-center md:items-start gap-4">
-            <img src="/logo.svg" alt="الشعار" className="h-16 md:h-20 w-auto max-w-[160px] md:max-w-[240px] object-contain" />
-            <p className="text-slate-500 dark:text-slate-400 font-bold text-sm text-center md:text-right mt-2 max-w-xs">
-              منصة ألعاب تفاعلية تجمع العائلة والأصدقاء في لحظات مليئة بالحماس والضحك.
-            </p>
-          </div>
-          <div className="flex flex-col items-center md:items-start gap-4">
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">روابط سريعة</h3>
-            <ul className="flex flex-col gap-3 font-bold text-slate-600 dark:text-slate-300">
-              <li><Link href="/" className="hover:text-blue-500 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-blue-500" /> الرئيسية</Link></li>
-              <li><Link href="/packages" className="hover:text-blue-500 transition-colors flex items-center gap-2"><ChevronDown size={16} className="-rotate-90 text-blue-500" /> باقات الألعاب</Link></li>
-            </ul>
-          </div>
-          <div className="flex flex-col items-center md:items-start gap-4">
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">الألعاب</h3>
-            <ul className="flex flex-col gap-3 font-bold text-slate-600 dark:text-slate-300">
-              <li><Link href="/games/castle-war" className="hover:text-rose-500 transition-colors flex items-center gap-2"><Swords size={18} className="text-rose-500" /> حرب القلاع</Link></li>
-              <li><Link href="/games/world-domination" className="hover:text-blue-500 transition-colors flex items-center gap-2"><Globe size={18} className="text-blue-500" /> السيطرة على العالم</Link></li>
-              <li><Link href="/games/auction" className="hover:text-amber-500 transition-colors flex items-center gap-2"><Gavel size={18} className="text-amber-500" /> حرب المزايدات</Link></li>
-              <li><Link href={QUIZ_GAME.path} className="hover:text-violet-500 transition-colors flex items-center gap-2"><LayoutGrid size={18} className="text-violet-500" /> {QUIZ_GAME.title}</Link></li>
-              <li><Link href={MAFIA_GAME.path} className="hover:text-red-500 transition-colors flex items-center gap-2"><Skull size={18} className="text-red-500" /> {MAFIA_GAME.title}</Link></li>
-              <li><Link href={MADAQESH_GAME.path} className="hover:text-amber-500 transition-colors flex items-center gap-2"><Calculator size={18} className="text-amber-500" /> {MADAQESH_GAME.title}</Link></li>
-              <li><Link href={LETTERS_HIVE_GAME.path} className="hover:text-emerald-500 transition-colors flex items-center gap-2"><Hexagon size={18} className="text-emerald-500" /> {LETTERS_HIVE_GAME.title}</Link></li>
-            </ul>
-          </div>
-        </div>
-        <div className="w-full pt-6 border-t-4 border-slate-200 dark:border-slate-700 text-center px-4">
-          <p className="text-sm font-bold text-slate-400 dark:text-slate-500">2026 لدن التقنية - جميع الحقوق محفوظة ©</p>
-        </div>
-      </footer>
-
       {/* النافذة المنبثقة */}
       {notification.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-all duration-300">
-          <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 max-w-md w-full shadow-2xl border-2 border-slate-100 dark:border-slate-700 transform scale-100 animate-in zoom-in-95">
-            <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${notification.type === 'success' ? 'bg-emerald-100 text-emerald-500' : 'bg-rose-100 text-rose-500'}`}>
-              {notification.type === 'success' ? (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-              ) : (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-              )}
-            </div>
-            <h3 className="text-xl font-black text-center text-slate-900 dark:text-white mb-2">
-              {notification.type === 'success' ? 'ممتاز!' : 'تنبيه'}
-            </h3>
-            <p className="text-center text-slate-600 dark:text-slate-300 font-bold mb-6">
-              {notification.message}
-            </p>
-            <button
-              onClick={() => setNotification({ ...notification, isOpen: false })}
-              className={`w-full py-4 rounded-xl font-black text-white transition-all active:scale-95 ${notification.type === 'success' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'}`}
-            >
-              حسناً، فهمت
-            </button>
-          </div>
-        </div>
+        <NoticeDialog
+          type={notification.type}
+          message={notification.message}
+          onClose={() => setNotification({ ...notification, isOpen: false })}
+        />
       )}
-    </main>
+    </SitePage>
   );
 }

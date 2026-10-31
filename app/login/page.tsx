@@ -1,14 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { Cairo } from "next/font/google";
 import { useTheme } from "next-themes";
 import { Moon, Sun, Mail, ShieldCheck, KeyRound } from "lucide-react";
-
-const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
+import { AuthShell } from "@/components/home/SitePage";
+import { BTN_GOLD, BTN_SOFT, CARD, FIELD, LABEL } from "@/components/home/ui";
 
 export default function LoginPage() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,83 +93,84 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div
-      className={`min-h-screen w-full flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-950 p-4 py-12 ${cairo.className} transition-colors duration-500`}
-      dir="rtl"
-    >
-      {mounted && (
-        <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="absolute top-6 left-6 p-3 rounded-full bg-white dark:bg-slate-800 shadow-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:scale-105 transition-all z-20"
-        >
-          {theme === "dark" ? <Sun size={24} /> : <Moon size={24} />}
-        </button>
-      )}
+  const isDark = resolvedTheme === "dark";
 
-      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/20 dark:border-slate-800/50 p-8 sm:p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md relative z-10">
-        <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <ShieldCheck className="text-white" size={32} />
-          </div>
-        </div>
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
+  return (
+    <AuthShell
+      corner={
+        mounted && (
+          <button
+            type="button"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label="تبديل الوضع الليلي والنهاري"
+            className="absolute top-[calc(1rem+env(safe-area-inset-top,0px))] left-4 w-10 h-10 rounded-xl bg-ludn-surface border border-ludn-line text-ludn-fg grid place-items-center transition-transform active:scale-95 z-20"
+          >
+            {isDark ? <Sun size={19} className="text-ludn-gold-text" /> : <Moon size={19} />}
+          </button>
+        )
+      }
+    >
+      <div className={`${CARD} ludn-shadow p-6 sm:p-8 grid gap-6`}>
+        <div className="grid gap-1.5 justify-items-center text-center">
+          <span className="w-14 h-14 mb-1 rounded-2xl bg-ludn-surface-2 text-ludn-gold-text grid place-items-center">
+            <ShieldCheck size={30} />
+          </span>
+          <h1 className="font-display text-[32px] leading-tight">
             لوحة تفعيل الأمان
           </h1>
-          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-bold text-ludn-muted">
             نظام الدخول المركزي لإدارة المنصة
           </p>
         </div>
 
-        <form onSubmit={handlePasswordLogin} className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="block text-sm font-black text-slate-700 dark:text-slate-300">
+        <form onSubmit={handlePasswordLogin} className="grid gap-4">
+          <div>
+            <label htmlFor="admin-email" className={LABEL}>
               البريد الإلكتروني
             </label>
             <div className="relative">
-              <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 text-ludn-muted pointer-events-none" size={20} />
               <input
+                id="admin-email"
                 type="email"
                 placeholder="name@example.com"
-                className="w-full pl-4 pr-12 py-4 border-2 border-transparent bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-900 dark:text-white text-left font-sans focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 transition-all focus:bg-white dark:focus:bg-slate-900 shadow-sm"
+                autoComplete="email"
+                className={`${FIELD} ps-11 text-left font-sans`}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-black text-slate-700 dark:text-slate-300">
+          <div>
+            <label htmlFor="admin-password" className={LABEL}>
               كلمة المرور
             </label>
             <div className="relative">
-              <KeyRound className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <KeyRound className="absolute start-3.5 top-1/2 -translate-y-1/2 text-ludn-muted pointer-events-none" size={20} />
               <input
+                id="admin-password"
                 type="password"
                 placeholder="••••••••"
-                className="w-full pl-4 pr-12 py-4 border-2 border-transparent bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-900 dark:text-white text-left font-sans focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 transition-all focus:bg-white dark:focus:bg-slate-900 shadow-sm"
+                autoComplete="current-password"
+                className={`${FIELD} ps-11 text-left font-sans`}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
               />
             </div>
-            <div className="flex justify-end pt-1">
+            <div className="flex justify-end pt-2">
               <button
                 type="button"
                 onClick={handleResetPassword}
                 disabled={loading}
-                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
+                className="text-sm font-bold text-ludn-gold-text hover:underline underline-offset-4"
               >
                 نسيت كلمة المرور؟
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-l from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center gap-2"
-            disabled={loading}
-          >
+          <button type="submit" className={`${BTN_GOLD} w-full`} disabled={loading}>
             {loading ? (
                <span className="animate-pulse">جاري التنفيذ...</span>
             ) : (
@@ -179,17 +179,17 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-8 flex items-center gap-4">
-          <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800"></div>
-          <span className="text-xs font-bold text-slate-400">أو عبر</span>
-          <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800"></div>
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-ludn-line"></div>
+          <span className="text-xs font-bold text-ludn-muted">أو عبر</span>
+          <div className="flex-1 h-px bg-ludn-line"></div>
         </div>
 
         <button
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="mt-6 w-full bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-200 font-bold py-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 shadow-sm"
+          className={`${BTN_SOFT} w-full`}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -202,12 +202,12 @@ export default function LoginPage() {
 
         {message && (
           <div
-            className={`mt-6 p-4 rounded-2xl text-center text-sm font-bold border transition-all ${message.includes("خطأ") ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-300" : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300"}`}
+            className={`p-4 rounded-2xl text-center text-sm font-bold border ${message.includes("خطأ") ? "bg-rose-500/10 text-rose-500 border-rose-500/30" : "bg-ludn-green/10 text-ludn-green border-ludn-green/30"}`}
           >
             {message}
           </div>
         )}
       </div>
-    </div>
+    </AuthShell>
   );
 }

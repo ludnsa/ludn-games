@@ -1,11 +1,13 @@
 import './globals.css'
-import { Cairo } from 'next/font/google'
+import { Cairo, Lalezar } from 'next/font/google'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { ToastProvider } from '@/components/providers/ToastProvider'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 const cairo = Cairo({ subsets: ['arabic'], weight: ['400', '700', '900'] })
+// خط العناوين بالواجهة العامة (font-display) — بدون تحميل مسبق، فما يأثر على صفحات الألعاب
+const lalezar = Lalezar({ subsets: ['arabic'], weight: '400', variable: '--font-ludn-display', preload: false })
 
 export const metadata = {
   title: 'منصة ألعاب لدن',
@@ -19,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl" className="scroll-smooth" suppressHydrationWarning>
-      <body className={`${cairo.className} relative text-slate-900 dark:text-white bg-slate-50 dark:bg-[#0a0a1a] min-h-screen flex flex-col transition-colors duration-500`}>
+      <body className={`${cairo.className} ${lalezar.variable} relative text-slate-900 dark:text-white bg-slate-50 dark:bg-[#0a0a1a] min-h-screen flex flex-col transition-colors duration-500`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <ToastProvider />

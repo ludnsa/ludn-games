@@ -45,6 +45,21 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* هوية لدن: ذهبي الشعار وأخضره على خلفية هادئة (الواجهة العامة، مو الألعاب) */
+  --color-ludn-bg: var(--ludn-bg);
+  --color-ludn-surface: var(--ludn-surface);
+  --color-ludn-surface-2: var(--ludn-surface-2);
+  --color-ludn-line: var(--ludn-line);
+  --color-ludn-fg: var(--ludn-fg);
+  --color-ludn-muted: var(--ludn-muted);
+  --color-ludn-gold: var(--ludn-gold);
+  --color-ludn-gold-text: var(--ludn-gold-text);
+  --color-ludn-gold-ink: var(--ludn-gold-ink);
+  --color-ludn-green: var(--ludn-green);
+  --color-ludn-header: var(--ludn-header);
+  --color-ludn-glow: var(--ludn-glow);
+  --font-display: var(--font-ludn-display), "Cairo", "Segoe UI", Tahoma, sans-serif;
 }
 
 :root {
@@ -80,9 +95,39 @@
   --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
   --sidebar-border: oklch(0.928 0.006 264.531);
   --sidebar-ring: oklch(0.707 0.022 261.325);
+
+  --ludn-bg: #f2f3f6;
+  --ludn-surface: #ffffff;
+  --ludn-surface-2: #e9ecf2;
+  --ludn-line: rgba(20, 24, 33, 0.09);
+  --ludn-fg: #141821;
+  --ludn-muted: #5b6476;
+  --ludn-gold: #d6a531;
+  --ludn-gold-text: #8f6608;
+  --ludn-gold-ink: #1b1404;
+  --ludn-green: #2c7a4b;
+  --ludn-header: rgba(242, 243, 246, 0.86);
+  --ludn-glow: rgba(196, 146, 31, 0.16);
+  --ludn-lattice: rgba(143, 102, 8, 0.06);
+  --ludn-shadow: 0 12px 28px rgba(20, 24, 33, 0.12);
 }
 
 .dark {
+  --ludn-bg: #0b0d12;
+  --ludn-surface: #141821;
+  --ludn-surface-2: #1c2230;
+  --ludn-line: rgba(255, 255, 255, 0.08);
+  --ludn-fg: #f4f1e8;
+  --ludn-muted: #98a1b3;
+  --ludn-gold: #e2b84a;
+  --ludn-gold-text: #e9c463;
+  --ludn-gold-ink: #1b1404;
+  --ludn-green: #4fae74;
+  --ludn-header: rgba(11, 13, 18, 0.82);
+  --ludn-glow: rgba(226, 184, 74, 0.16);
+  --ludn-lattice: rgba(226, 184, 74, 0.05);
+  --ludn-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+
   --background: oklch(0.13 0.028 261.692);
   --foreground: oklch(0.985 0.002 247.839);
   --card: oklch(0.21 0.034 264.665);
@@ -150,4 +195,73 @@
   input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   .hide-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* ---------- واجهة لدن العامة (الرئيسية والهيدر) ---------- */
+  .ludn-glow-bg {
+    background:
+      radial-gradient(90% 420px at 50% -60px, var(--ludn-glow), transparent 70%),
+      var(--ludn-bg);
+  }
+  /* نقش خفيف بزاوية عقدة الشعار */
+  .ludn-lattice {
+    background:
+      repeating-linear-gradient(45deg, var(--ludn-lattice) 0 2px, transparent 2px 22px),
+      repeating-linear-gradient(-45deg, var(--ludn-lattice) 0 2px, transparent 2px 22px);
+    -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000, transparent 75%);
+    mask-image: radial-gradient(70% 60% at 50% 30%, #000, transparent 75%);
+  }
+  .ludn-shadow { box-shadow: var(--ludn-shadow); }
+
+  /* أغلفة الألعاب المرسومة بالكود — ألوانها ثابتة لأنها رسمة، مو جزء من الواجهة */
+  .ludn-art {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    background:
+      radial-gradient(120% 80% at 75% 10%, rgba(255, 255, 255, 0.16), transparent 55%),
+      linear-gradient(165deg, var(--a1), var(--a2));
+  }
+  .ludn-art::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 14px);
+  }
+  .ludn-art svg {
+    position: relative; direction: ltr; width: 64%; height: auto; margin-top: -14%;
+    color: rgba(255, 255, 255, 0.9); filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.35));
+  }
+  .ludn-art text { font-family: "Cairo", sans-serif; font-weight: 900; fill: rgba(255, 255, 255, 0.92); stroke: none; }
+  /* max-height: بالأغلفة العريضة جداً (الدليل على الكمبيوتر) الرسمة ما تطلع برا الغلاف */
+  .ludn-art-wide svg { width: 34%; max-height: 78%; margin-top: 0; }
+  .ludn-art-castle { --a1: #8a2533; --a2: #2a0b12; }
+  .ludn-art-world { --a1: #1b4d8a; --a2: #08182e; }
+  .ludn-art-auction { --a1: #9a6a12; --a2: #2e1d04; }
+  .ludn-art-quiz { --a1: #5b31a0; --a2: #1b0c36; }
+  .ludn-art-madaqesh { --a1: #146a68; --a2: #052524; }
+  .ludn-art-hive { --a1: #1f7a46; --a2: #06261a; }
+  /* تظليل أسفل الغلاف عشان اسم اللعبة يقرا */
+  .ludn-cover-shade::after {
+    content: ""; position: absolute; inset: 45% 0 0; z-index: 1;
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.82));
+  }
+
+  /* مروحة البطاقات بالهيرو: تنفتح من بطاقات فوق بعض (بدون إخفاء) */
+  @keyframes ludnFanR { from { transform: translateX(-60px) rotate(0) translateY(0); } }
+  @keyframes ludnFanL { from { transform: translateX(60px) rotate(0) translateY(0); } }
+  @keyframes ludnRise { from { transform: translateY(10px); } }
+  .ludn-fan-r { transform: translateX(-22px) rotate(10deg) translateY(10px); animation: ludnFanR 800ms cubic-bezier(.2, .8, .2, 1) both; }
+  .ludn-fan-l { transform: translateX(22px) rotate(-10deg) translateY(10px); animation: ludnFanL 800ms cubic-bezier(.2, .8, .2, 1) both; }
+  .ludn-fan-mid { animation: ludnRise 700ms cubic-bezier(.2, .8, .2, 1) both; }
+
+  @keyframes ludnSheetUp { from { transform: translateY(40px); } }
+  .ludn-sheet-up { animation: ludnSheetUp 240ms cubic-bezier(.2, .8, .2, 1) both; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ludn-fan-r, .ludn-fan-l, .ludn-fan-mid, .ludn-sheet-up { animation: none; }
+  }
+}
+
+/* أقسام الرئيسية: لما نجيها من صفحة ثانية (/#قسم) ما يغطي الهيدر الثابت عنوانها */
+#games-section, #about-section, #contact-section { scroll-margin-top: 5rem; }
+
+/* شريط التبويب تحت (الجوال والتابلت): نترك مكانه آخر الصفحة عشان ما يغطي شي */
+@media (max-width: 1023.98px) {
+  body:has(.ludn-tabbar) { padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px)); }
 }

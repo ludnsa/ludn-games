@@ -2,9 +2,9 @@
 import { useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { Cairo } from "next/font/google";
-
-const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
+import { KeyRound } from "lucide-react";
+import { AuthShell } from "@/components/home/SitePage";
+import { BTN_GOLD, CARD, FIELD, LABEL } from "@/components/home/ui";
 
 const supabase = getSupabaseBrowser();
 
@@ -35,18 +35,18 @@ export default function ResetPasswordPage() {
         setMessage(`خطأ: ${error.message}`);
       } else {
         setMessage("تم تحديث كلمة المرور بنجاح! جاري تحويلك للموقع...");
-        
+
         // التحقق من الصلاحية لمعرفة إلى أين نوجهه
         const { data: { user } } = await supabase.auth.getUser();
         let redirectUrl = "/";
-        
+
         if (user) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('role')
             .eq('id', user.id)
             .single();
-            
+
           if (profile?.role === 'Admin') {
             redirectUrl = "/admin";
           }
@@ -63,42 +63,46 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div
-      className={`min-h-screen w-full flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-950 p-4 py-12 ${cairo.className}`}
-      dir="rtl"
-    >
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-[2rem] shadow-2xl w-full max-w-md relative z-10">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
+    <AuthShell>
+      <div className={`${CARD} ludn-shadow p-6 sm:p-8 grid gap-6`}>
+        <div className="grid gap-1.5 justify-items-center text-center">
+          <span className="w-14 h-14 mb-1 rounded-2xl bg-ludn-surface-2 text-ludn-gold-text grid place-items-center">
+            <KeyRound size={28} />
+          </span>
+          <h1 className="font-display text-[32px] leading-tight">
             تعيين كلمة مرور جديدة
           </h1>
-          <p className="text-sm font-bold text-slate-500">
+          <p className="text-sm font-bold text-ludn-muted">
             المركز الأمني لمنصة الألعاب
           </p>
         </div>
 
-        <div className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="block text-sm font-black text-slate-700 dark:text-slate-300">
+        <div className="grid gap-4">
+          <div>
+            <label htmlFor="new-password" className={LABEL}>
               كلمة المرور الجديدة:
             </label>
             <input
+              id="new-password"
               type="password"
               placeholder="••••••••"
-              className="w-full p-4 border-2 border-transparent bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-900 dark:text-white text-left font-sans focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 transition-all focus:bg-white dark:focus:bg-slate-900 shadow-sm"
+              autoComplete="new-password"
+              className={`${FIELD} text-left font-sans`}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-black text-slate-700 dark:text-slate-300">
+          <div>
+            <label htmlFor="confirm-password" className={LABEL}>
               تأكيد كلمة المرور:
             </label>
             <input
+              id="confirm-password"
               type="password"
               placeholder="••••••••"
-              className="w-full p-4 border-2 border-transparent bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-900 dark:text-white text-left font-sans focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-500 transition-all focus:bg-white dark:focus:bg-slate-900 shadow-sm"
+              autoComplete="new-password"
+              className={`${FIELD} text-left font-sans`}
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={loading}
             />
@@ -106,7 +110,7 @@ export default function ResetPasswordPage() {
 
           <button
             onClick={handleUpdatePassword}
-            className="w-full bg-gradient-to-l from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.98] disabled:opacity-70 mt-2"
+            className={`${BTN_GOLD} w-full mt-1`}
             disabled={loading}
           >
             {loading ? "جاري التحديث..." : "حفظ والدخول للموقع"}
@@ -114,13 +118,13 @@ export default function ResetPasswordPage() {
 
           {message && (
             <div
-              className={`p-4 rounded-2xl text-center text-sm font-bold border transition-all mt-4 ${message.includes("خطأ") ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-300" : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300"}`}
+              className={`p-4 rounded-2xl text-center text-sm font-bold border ${message.includes("خطأ") ? "bg-rose-500/10 text-rose-500 border-rose-500/30" : "bg-ludn-green/10 text-ludn-green border-ludn-green/30"}`}
             >
               {message}
             </div>
           )}
         </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }

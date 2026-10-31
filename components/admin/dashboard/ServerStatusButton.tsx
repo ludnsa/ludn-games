@@ -53,13 +53,13 @@ export default function ServerStatusButton() {
   const getStatusConfig = () => {
     switch (status) {
       case "excellent":
-        return { label: "ممتاز", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-100 dark:bg-emerald-500/20", icon: Activity };
+        return { label: "ممتاز", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/12 border-emerald-500/25", icon: Activity };
       case "good":
-        return { label: "جيد جداً", color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-100 dark:bg-yellow-500/20", icon: Activity };
+        return { label: "جيد جداً", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/12 border-amber-500/25", icon: Activity };
       case "weak":
-        return { label: "ضعيف", color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-500/20", icon: Activity };
+        return { label: "ضعيف", color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-500/12 border-rose-500/25", icon: Activity };
       default:
-        return { label: "جاري الفحص", color: "text-slate-500", bg: "bg-slate-100 dark:bg-slate-800", icon: Server };
+        return { label: "جاري الفحص", color: "text-ludn-muted", bg: "bg-ludn-surface border-ludn-line", icon: Server };
     }
   };
 
@@ -67,11 +67,11 @@ export default function ServerStatusButton() {
   const Icon = config.icon;
 
   return (
-    <div 
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${config.bg} ${config.color} border border-transparent hover:border-current transition-colors text-xs font-bold cursor-help`}
+    <div
+      className={`shrink-0 h-10 flex items-center gap-1.5 px-3 rounded-xl border ${config.bg} ${config.color} text-xs font-bold cursor-help`}
       title={status !== "checking" ? `سرعة الاستجابة: ${latency}ms` : "جاري قياس سرعة الاتصال..."}
     >
-      <Icon size={14} className={status !== "checking" ? "animate-pulse" : "animate-spin"} />
+      <Icon size={15} className={status !== "checking" ? "animate-pulse" : "animate-spin"} />
       <span className="hidden sm:inline">حالة السيرفر:</span>
       <span>{config.label}</span>
     </div>

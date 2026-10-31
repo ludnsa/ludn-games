@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
@@ -9,7 +10,8 @@ import {
   Home,
   Info,
   Gamepad2,
-  MessageCircle,
+  LayoutGrid,
+  BookOpen,
   User,
   LogOut,
   Sun,
@@ -17,144 +19,219 @@ import {
   Menu,
   X,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 
-export const TopNav = ({ scrollToSection }: { scrollToSection?: (e: React.MouseEvent<HTMLAnchorElement>, id: string) => void }) => {
-  const { theme, setTheme } = useTheme();
+type ScrollFn = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => void;
+
+type NavItem =
+  | { label: string; Icon: LucideIcon; section: string }
+  | { label: string; Icon: LucideIcon; href: string };
+
+const NAV: NavItem[] = [
+  { label: "الرئيسية", Icon: Home, section: "hero" },
+  { label: "عن المنصة", Icon: Info, section: "about-section" },
+  { label: "الألعاب", Icon: Gamepad2, section: "games-section" },
+  { label: "باقات الألعاب", Icon: Zap, href: "/packages" },
+  { label: "كيف تلعب؟", Icon: BookOpen, href: "/guides" },
+];
+
+const ICON_BTN =
+  "w-10 h-10 shrink-0 rounded-xl bg-ludn-surface border border-ludn-line text-ludn-fg grid place-items-center transition-transform active:scale-95";
+
+/**
+ * الهيدر العام (رفيع وثابت فوق) + شريط تبويب ثابت تحت على الجوال والتابلت.
+ * scrollToSection: بالرئيسية روابط الأقسام تنزل لها، وبباقي الصفحات ترجع للرئيسية.
+ * afterLogout: صفحات الحساب (حسابي وألعابي) ترجع للرئيسية بعد الخروج، زي ما كانت.
+ */
+export const TopNav = ({ scrollToSection, afterLogout }: { scrollToSection?: ScrollFn; afterLogout?: () => void }) => {
+  const { resolvedTheme, setTheme } = useTheme();
   const { userSession, profile, logout } = useAuth();
+  const pathname = usePathname();
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   React.useEffect(() => setMounted(true), []);
 
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+  const isDark = resolvedTheme === "dark";
+  const toggleTheme = () => setTheme(isDark ? "light" : "dark");
+  const signedIn = Boolean(userSession && profile);
+
+  const renderNavLink = (item: NavItem, className: string, onPick?: () => void) => {
+    const body = (
+      <>
+        <item.Icon size={17} className="shrink-0 text-ludn-gold-text" /> <span>{item.label}</span>
+      </>
+    );
+    if ("href" in item) {
+      return (
+        <Link key={item.label} href={item.href} onClick={onPick} className={className}>
+          {body}
+        </Link>
+      );
+    }
+    return (
+      <a
+        key={item.label}
+        href={`/#${item.section}`}
+        onClick={(e) => {
+          onPick?.();
+          if (scrollToSection) scrollToSection(e, item.section);
+        }}
+        className={className}
+      >
+        {body}
+      </a>
+    );
   };
+
+  const tabs: { label: string; Icon: LucideIcon; href: string; section?: string; active: boolean }[] = [
+    { label: "الرئيسية", Icon: Home, href: "/", section: "hero", active: pathname === "/" },
+    { label: "الألعاب", Icon: LayoutGrid, href: "/#games-section", section: "games-section", active: false },
+    { label: "الباقات", Icon: Zap, href: "/packages", active: pathname === "/packages" },
+    { label: "ألعابي", Icon: Gamepad2, href: "/my-games", active: pathname === "/my-games" },
+    { label: "حسابي", Icon: User, href: signedIn ? "/profile" : "/player", active: pathname === "/profile" || pathname === "/player" },
+  ];
 
   return (
     <>
-      <div className="fixed top-4 left-0 right-0 z-[60] w-full max-w-7xl mx-auto px-2 md:px-4">
-      <div className="bg-white/95 dark:bg-slate-800/95 rounded-2xl border-4 border-slate-900 dark:border-black p-2 md:p-3 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] flex justify-between items-center transition-colors duration-300">
-        <Link href="/" className="transition-transform hover:scale-105 active:scale-95 shrink-0 pl-1 md:pl-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="الشعار" className="h-12 md:h-16 w-auto max-w-[140px] md:max-w-[200px] object-contain" />
-        </Link>
+      {/* ضغطة برا قائمة الحساب تقفلها — برا الهيدر لأن الـ blur فيه يحبس أي fixed داخله */}
+      {isAvatarDropdownOpen && <div className="fixed inset-0 z-[59]" onClick={() => setIsAvatarDropdownOpen(false)} />}
 
-        <nav className="hidden lg:flex items-center gap-1.5 md:gap-3">
-          <a href="/#hero" onClick={(e) => scrollToSection ? scrollToSection(e, "hero") : null} className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-            <Home size={16} className="text-slate-500 dark:text-slate-400" /> <span>الرئيسية</span>
-          </a>
-          <a href="/#about-section" onClick={(e) => scrollToSection ? scrollToSection(e, "about-section") : null} className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-            <Info size={16} className="text-purple-500" /> <span>عن المنصة</span>
-          </a>
-          <a href="/#games-section" onClick={(e) => scrollToSection ? scrollToSection(e, "games-section") : null} className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-            <Gamepad2 size={16} className="text-emerald-500" /> <span>الألعاب</span>
-          </a>
-          <Link href="/packages" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-            <Zap size={16} className="text-amber-500" /> <span>باقات الألعاب</span>
+      <header className="fixed inset-x-0 top-0 z-[60] bg-ludn-header backdrop-blur-xl border-b border-ludn-line pt-[env(safe-area-inset-top,0px)]">
+        <div className="max-w-6xl mx-auto h-16 px-4 flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2.5 me-auto shrink-0 transition-transform active:scale-95">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ludn-logo.webp" alt="منصة ألعاب لدن" width={46} height={40} className="h-10 w-auto" />
+            <span className="font-display text-[22px] leading-none pt-1 text-ludn-fg">ألعاب لدن</span>
           </Link>
-          <Link href="/guides" className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl font-black text-[11px] md:text-sm text-slate-700 dark:text-slate-300 transition-all active:translate-y-0.5 active:border-b-0">
-            <Info size={16} className="text-cyan-500" /> <span>كيف تلعب؟</span>
-          </Link>
-        </nav>
 
-        <div className="flex gap-1.5 md:gap-2 pr-1 md:pr-2 items-center">
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden w-10 h-10 md:w-11 md:h-11 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 text-slate-600 dark:text-slate-300 rounded-xl flex items-center justify-center transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:translate-y-0.5 active:border-b-0">
+          <nav className="hidden lg:flex items-center gap-1 me-2">
+            {NAV.map((item) =>
+              renderNavLink(
+                item,
+                "flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-sm text-ludn-muted hover:text-ludn-fg hover:bg-ludn-surface-2 transition-colors"
+              )
+            )}
+          </nav>
+
+          <button type="button" onClick={toggleTheme} aria-label="تبديل الوضع الليلي والنهاري" className={ICON_BTN}>
+            {mounted ? isDark ? <Sun size={19} className="text-ludn-gold-text" /> : <Moon size={19} /> : <span className="w-[19px] h-[19px]" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="القائمة"
+            aria-expanded={isMobileMenuOpen}
+            className={`lg:hidden ${ICON_BTN}`}
+          >
             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          
-          {userSession && profile ? (
-            <div className="relative z-[70]">
-              <button 
+
+          {signedIn && profile ? (
+            <div className="relative">
+              <button
+                type="button"
                 onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
-                className="flex items-center gap-1.5 md:gap-2 p-1 pr-2 md:pr-3 bg-slate-100 dark:bg-slate-900 rounded-xl md:rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 transition-colors"
+                aria-expanded={isAvatarDropdownOpen}
+                className="h-10 flex items-center gap-1.5 ps-1 pe-2 rounded-xl bg-ludn-surface border border-ludn-line text-ludn-fg"
               >
-                <span className="text-xs md:text-sm font-black hidden sm:inline-block max-w-[100px] truncate text-slate-800 dark:text-slate-200">
-                  {profile.full_name}
+                <span className="w-8 h-8 rounded-lg bg-ludn-gold text-ludn-gold-ink font-black text-xs grid place-items-center uppercase">
+                  {profile.full_name?.split(" ")[0]?.[0]}
+                  {profile.full_name?.split(" ")[1]?.[0] || ""}
                 </span>
-                <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 text-white font-black rounded-lg md:rounded-xl flex items-center justify-center text-xs md:text-sm shadow-inner uppercase">
-                  {profile.full_name?.split(' ')[0]?.[0]}{profile.full_name?.split(' ')[1]?.[0] || ""}
-                </div>
-                <ChevronDown size={14} className={`transition-transform text-slate-500 ${isAvatarDropdownOpen ? "rotate-180" : ""}`} />
+                <span className="text-sm font-black hidden sm:inline-block max-w-[100px] truncate">{profile.full_name}</span>
+                <ChevronDown size={14} className={`transition-transform text-ludn-muted ${isAvatarDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {isAvatarDropdownOpen && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsAvatarDropdownOpen(false)} />
-                  <div className="absolute left-0 mt-3 w-56 bg-white dark:bg-slate-800 border-4 border-slate-900 dark:border-slate-950 rounded-2xl shadow-[4px_4px_0px_#000] z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="p-3 border-b-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                      <p className="text-xs font-bold text-slate-400">مسجل الدخول كـ</p>
-                      <p className="text-sm font-black text-slate-800 dark:text-white truncate">{profile.email}</p>
+                  <div className="absolute left-0 mt-2 w-60 z-50 rounded-2xl bg-ludn-surface border border-ludn-line ludn-shadow overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-4 py-3 border-b border-ludn-line bg-ludn-surface-2">
+                      <p className="text-xs font-bold text-ludn-muted">مسجل الدخول كـ</p>
+                      <p className="text-sm font-black text-ludn-fg truncate">{profile.email}</p>
                     </div>
-                    <div className="relative flex flex-col py-2">
-                      <div className="absolute -top-3 left-6 w-5 h-5 bg-white dark:bg-slate-800 border-t border-r border-slate-100 dark:border-slate-700 transform -rotate-45 z-0"></div>
-                      
-                      <div className="relative z-10">
-                        <Link href="/profile" className="block px-6 py-2.5 text-right text-base font-bold text-slate-800 dark:text-white hover:text-blue-600 transition-colors">
-                          حسابي
-                        </Link>
-                        
-                        <div className="mx-6 border-b border-red-500/60 dark:border-red-500/40 my-1"></div>
-                        
-                        <Link href="/my-games" className="block px-6 py-2.5 text-right text-base font-bold text-slate-800 dark:text-white hover:text-blue-600 transition-colors">
-                          ألعابي
-                        </Link>
-
-                        <div className="mx-6 border-b border-red-500/60 dark:border-red-500/40 my-1"></div>
-
-                        <Link href="/packages" className="block px-6 py-2.5 text-right text-base font-bold text-slate-800 dark:text-white hover:text-blue-600 transition-colors">
-                          باقات الألعاب
-                        </Link>
-                        
-                        <div className="mx-6 border-b border-red-500/60 dark:border-red-500/40 my-1"></div>
-                        
-                        <button onClick={() => { logout(); setIsAvatarDropdownOpen(false); }} className="w-full flex items-center justify-between px-6 py-2.5 text-slate-800 dark:text-white hover:text-red-600 transition-colors">
-                          <LogOut size={18} className="text-slate-600 dark:text-slate-400" />
-                          <span className="text-base font-bold">خروج</span>
-                        </button>
-                      </div>
+                    <div className="flex flex-col py-1.5 font-bold text-ludn-fg">
+                      <Link href="/profile" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">حسابي</Link>
+                      <Link href="/my-games" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">ألعابي</Link>
+                      <Link href="/packages" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">باقات الألعاب</Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logout().then(afterLogout);
+                          setIsAvatarDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-4 py-2.5 border-t border-ludn-line mt-1 hover:bg-ludn-surface-2 hover:text-red-500 transition-colors"
+                      >
+                        <span>خروج</span>
+                        <LogOut size={18} className="text-ludn-muted" />
+                      </button>
                     </div>
                   </div>
                 </>
               )}
             </div>
           ) : (
-            <Link href="/player" className="flex items-center justify-center gap-1.5 px-3 md:px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-xs md:text-sm transition-all active:translate-y-0.5 border-b-2 border-blue-800 active:border-b-0">
+            <Link
+              href="/player"
+              aria-label="دخول المنظم"
+              className="h-10 shrink-0 flex items-center justify-center gap-1.5 px-3 rounded-xl bg-ludn-gold text-ludn-gold-ink font-black text-sm transition-transform active:scale-95"
+            >
               <User size={18} strokeWidth={2.5} /> <span className="hidden sm:inline">دخول المنظم</span>
             </Link>
           )}
-
-          <button onClick={toggleTheme} className="w-10 h-10 md:w-11 md:h-11 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-950 text-slate-600 dark:text-amber-400 rounded-xl flex items-center justify-center transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:translate-y-0.5 active:border-b-0">
-            {mounted ? (
-              theme === "dark" ? <Sun size={20} className="animate-spin-slow" /> : <Moon size={20} className="animate-wiggle" />
-            ) : (
-              <div className="w-5 h-5"></div>
-            )}
-          </button>
         </div>
-        </div>
-      </div>
+      </header>
 
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed top-[90px] left-2 right-2 z-[50] bg-white dark:bg-slate-800 rounded-2xl border-4 border-slate-900 dark:border-slate-950 p-4 shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] flex flex-col gap-3 animate-in slide-in-from-top-4 duration-200">
-          <a href="/#hero" onClick={(e) => { setIsMobileMenuOpen(false); if(scrollToSection) scrollToSection(e, "hero"); }} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
-            <Home size={18} className="text-slate-500" /> <span>الرئيسية</span>
-          </a>
-          <a href="/#about-section" onClick={(e) => { setIsMobileMenuOpen(false); if(scrollToSection) scrollToSection(e, "about-section"); }} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
-            <Info size={18} className="text-purple-500" /> <span>عن المنصة</span>
-          </a>
-          <a href="/#games-section" onClick={(e) => { setIsMobileMenuOpen(false); if(scrollToSection) scrollToSection(e, "games-section"); }} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
-            <Gamepad2 size={18} className="text-emerald-500" /> <span>الألعاب</span>
-          </a>
-          <Link href="/packages" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
-            <Zap size={18} className="text-amber-500" /> <span>باقات الألعاب</span>
-          </Link>
-          <Link href="/guides" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl font-black text-slate-800 dark:text-slate-200 active:scale-95 transition-transform">
-            <Info size={18} className="text-cyan-500" /> <span>كيف تلعب؟</span>
-          </Link>
-        </div>
+        <>
+          <div className="lg:hidden fixed inset-0 z-[55]" onClick={() => setIsMobileMenuOpen(false)} />
+          <nav className="lg:hidden fixed inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top,0px))] z-[58] rounded-2xl bg-ludn-surface border border-ludn-line ludn-shadow p-2 flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+            {NAV.map((item) =>
+              renderNavLink(
+                item,
+                "flex items-center gap-3 px-3 py-3 rounded-xl font-bold text-ludn-fg hover:bg-ludn-surface-2 transition-colors",
+                () => setIsMobileMenuOpen(false)
+              )
+            )}
+          </nav>
+        </>
       )}
+
+      {/* شريط التبويب تحت — globals.css يترك له مكان آخر الصفحة */}
+      <nav
+        aria-label="التنقل السريع"
+        className="ludn-tabbar lg:hidden fixed inset-x-0 bottom-0 z-[60] bg-ludn-header backdrop-blur-xl border-t border-ludn-line pb-[env(safe-area-inset-bottom,0px)]"
+      >
+        <ul className="grid grid-cols-5 max-w-lg mx-auto">
+          {tabs.map((tab) => {
+            const className = `h-16 flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-colors ${
+              tab.active ? "text-ludn-gold-text" : "text-ludn-muted"
+            }`;
+            const body = (
+              <>
+                <tab.Icon size={23} className={tab.active ? "drop-shadow-[0_0_10px_var(--ludn-glow)]" : ""} />
+                {tab.label}
+              </>
+            );
+            return (
+              <li key={tab.label}>
+                {tab.section && scrollToSection ? (
+                  <a href={tab.href} onClick={(e) => scrollToSection(e, tab.section!)} aria-current={tab.active ? "page" : undefined} className={className}>
+                    {body}
+                  </a>
+                ) : (
+                  <Link href={tab.href} aria-current={tab.active ? "page" : undefined} className={className}>
+                    {body}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </>
   );
 };

@@ -5,6 +5,9 @@ import { Edit, Plus, Save, Loader2, ImagePlus, X, Info } from "lucide-react";
 import { QUIZ_CONFIG } from "@/constants/quiz-grid";
 import type { QuizPoints } from "@/types";
 import type { useQuizAdmin } from "@/hooks/admin/quiz-grid/useQuizAdmin";
+import {
+  PANEL, PANEL_TITLE, TITLE_ICON, FIELD, LABEL, BTN_GOLD, BTN_SOFT,
+} from "@/components/admin/layout/adminUi";
 
 type Ctx = ReturnType<typeof useQuizAdmin>;
 
@@ -33,9 +36,9 @@ function ImageField({
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex flex-col gap-2">
-      <label className="font-bold text-sm text-slate-500 dark:text-slate-400">
-        {label} <span className="text-slate-400 font-normal">(اختياري)</span>
+    <div>
+      <label className={LABEL}>
+        {label} <span className="font-normal">(اختياري)</span>
       </label>
 
       <input
@@ -51,25 +54,25 @@ function ImageField({
       />
 
       {path ? (
-        <div className="flex flex-col gap-3 p-3 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl">
+        <div className="flex flex-col gap-3 p-3 rounded-2xl bg-ludn-surface-2 border border-ludn-line">
           <div className="flex items-start gap-3">
-            <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+            <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-ludn-surface grid place-items-center">
               {previewUrl ? (
                 <img src={previewUrl} alt={alt || label} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-[10px] font-bold text-slate-400 text-center px-1">
+                <span className="text-[10px] font-bold text-ludn-muted text-center px-1">
                   صورة محفوظة
                 </span>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold text-slate-400 truncate mb-2" dir="ltr">
+              <p className="text-[11px] font-bold text-ludn-muted truncate mb-2" dir="ltr">
                 {path}
               </p>
               <button
                 type="button"
                 onClick={onClear}
-                className="flex items-center gap-1.5 text-xs font-black text-rose-600 dark:text-rose-400 hover:underline"
+                className="flex items-center gap-1.5 text-xs font-black text-rose-500 hover:underline"
               >
                 <X size={14} /> إزالة الصورة
               </button>
@@ -81,7 +84,7 @@ function ImageField({
             value={alt}
             onChange={(e) => onAltChange(e.target.value)}
             placeholder="وصف الصورة بالعربية (مطلوب لقارئات الشاشة)"
-            className="w-full p-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-lg font-bold text-sm focus:border-violet-500 outline-none transition-colors"
+            className={`${FIELD} bg-ludn-surface`}
           />
         </div>
       ) : (
@@ -89,7 +92,7 @@ function ImageField({
           type="button"
           disabled={isUploading}
           onClick={() => inputRef.current?.click()}
-          className="w-full h-[104px] flex flex-col items-center justify-center gap-2 bg-slate-50 dark:bg-slate-950 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-slate-400 hover:border-violet-400 hover:text-violet-500 transition-colors disabled:opacity-50"
+          className="w-full h-[104px] flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ludn-line bg-ludn-surface-2 text-ludn-muted hover:border-ludn-gold hover:text-ludn-gold-text transition-colors disabled:opacity-50"
         >
           {isUploading ? (
             <>
@@ -115,35 +118,31 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
   const activeCategories = categories.filter((c) => c.is_active);
 
   return (
-    <section className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-sm">
-      <div className="flex items-center gap-3 mb-6 border-b-2 border-slate-100 dark:border-slate-800 pb-4">
-        <div className="p-2 bg-violet-100 dark:bg-violet-900/30 text-violet-600 rounded-lg">
-          {form.id ? <Edit size={20} /> : <Plus size={20} />}
-        </div>
-        <h2 className="text-xl font-black text-slate-800 dark:text-white">
-          {form.id ? "تعديل السؤال" : "إضافة سؤال جديد"}
-        </h2>
-      </div>
+    <section className={`${PANEL} grid gap-5`}>
+      <h2 className={`${PANEL_TITLE} pb-4 border-b border-ludn-line`}>
+        <span className={TITLE_ICON}>{form.id ? <Edit size={20} /> : <Plus size={20} />}</span>
+        {form.id ? "تعديل السؤال" : "إضافة سؤال جديد"}
+      </h2>
 
       {activeCategories.length === 0 ? (
-        <div className="flex items-center gap-3 p-5 bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-900/50 rounded-2xl">
-          <Info size={22} className="text-amber-600 shrink-0" />
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+          <Info size={22} className="text-amber-600 dark:text-amber-400 shrink-0" />
           <p className="font-bold text-sm text-amber-800 dark:text-amber-300">
             لا توجد فئات مفعّلة بعد. افتح &laquo;إدارة الفئات&raquo; وأضف فئة أولاً.
           </p>
         </div>
       ) : (
-        <form onSubmit={submitQuestion} className="flex flex-col gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col gap-2">
-              <label className="font-bold text-sm text-slate-500 dark:text-slate-400" htmlFor="quiz-category">
+        <form onSubmit={submitQuestion} className="grid gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className={LABEL} htmlFor="quiz-category">
                 الفئة
               </label>
               <select
                 id="quiz-category"
                 value={form.category_id}
                 onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl font-black focus:border-violet-500 outline-none transition-colors"
+                className={FIELD}
               >
                 <option value="">اختر الفئة...</option>
                 {activeCategories.map((c) => (
@@ -154,18 +153,18 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
               </select>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="font-bold text-sm text-slate-500 dark:text-slate-400">قيمة السؤال</label>
-              <div className="flex gap-3">
+            <div>
+              <label className={LABEL}>قيمة السؤال</label>
+              <div className="flex gap-2">
                 {QUIZ_CONFIG.TIERS.map((tier) => (
                   <button
                     key={tier}
                     type="button"
                     onClick={() => setForm({ ...form, points: tier as QuizPoints })}
-                    className={`flex-1 py-4 rounded-xl font-black border-2 transition-all ${
+                    className={`flex-1 min-h-12 rounded-xl font-black border transition-colors tabular-nums ${
                       form.points === tier
-                        ? "bg-violet-500 border-violet-600 text-white ring-2 ring-violet-500/30"
-                        : "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 hover:border-violet-300"
+                        ? "bg-ludn-gold border-ludn-gold text-ludn-gold-ink"
+                        : "bg-ludn-surface-2 border-ludn-line text-ludn-muted hover:text-ludn-fg"
                     }`}
                   >
                     {tier}
@@ -174,8 +173,8 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <label className="font-bold text-sm text-slate-500 dark:text-slate-400" htmlFor="quiz-question">
+            <div className="md:col-span-2">
+              <label className={LABEL} htmlFor="quiz-question">
                 نص السؤال
               </label>
               <textarea
@@ -184,12 +183,12 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
                 onChange={(e) => setForm({ ...form, question_text: e.target.value })}
                 rows={3}
                 placeholder="اكتب السؤال هنا..."
-                className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl font-black focus:border-violet-500 outline-none transition-colors resize-none"
+                className={`${FIELD} resize-none leading-relaxed`}
               />
             </div>
 
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <label className="font-bold text-sm text-emerald-600 dark:text-emerald-500" htmlFor="quiz-answer">
+            <div className="md:col-span-2">
+              <label className={`${LABEL} text-ludn-green!`} htmlFor="quiz-answer">
                 نص الإجابة
               </label>
               <textarea
@@ -198,7 +197,7 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
                 onChange={(e) => setForm({ ...form, answer_text: e.target.value })}
                 rows={2}
                 placeholder="اكتب الإجابة الصحيحة هنا..."
-                className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-emerald-200 dark:border-emerald-900/50 rounded-xl font-black focus:border-emerald-500 outline-none transition-colors resize-none"
+                className={`${FIELD} resize-none leading-relaxed border-ludn-green/40 focus:border-ludn-green`}
               />
             </div>
 
@@ -226,9 +225,9 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
               onAltChange={(v) => setForm({ ...form, answer_image_alt: v })}
             />
 
-            <div className="flex flex-col gap-2">
-              <label className="font-bold text-sm text-slate-500 dark:text-slate-400" htmlFor="quiz-ref">
-                المرجع الخارجي <span className="text-slate-400 font-normal">(اختياري)</span>
+            <div>
+              <label className={LABEL} htmlFor="quiz-ref">
+                المرجع الخارجي <span className="font-normal">(اختياري)</span>
               </label>
               <input
                 id="quiz-ref"
@@ -237,22 +236,22 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
                 value={form.external_ref}
                 onChange={(e) => setForm({ ...form, external_ref: e.target.value })}
                 placeholder="مثال: GEN-001"
-                className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl font-black text-sm focus:border-violet-500 outline-none transition-colors"
+                className={FIELD}
               />
-              <p className="text-[11px] font-bold text-slate-400">
+              <p className="text-[11px] font-bold text-ludn-muted mt-1.5">
                 يمنع تكرار السؤال عند إعادة الاستيراد من ملف.
               </p>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="font-bold text-sm text-slate-500 dark:text-slate-400">حالة السؤال</label>
+            <div>
+              <label className={LABEL}>حالة السؤال</label>
               <button
                 type="button"
                 onClick={() => setForm({ ...form, is_active: !form.is_active })}
-                className={`w-full p-4 rounded-xl font-black border-2 transition-all ${
+                className={`w-full min-h-12 px-3 rounded-xl font-black border transition-colors ${
                   form.is_active
-                    ? "bg-emerald-100 border-emerald-500 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400"
-                    : "bg-slate-100 border-slate-300 text-slate-500 dark:bg-slate-950 dark:border-slate-700"
+                    ? "bg-ludn-green/15 border-ludn-green text-ludn-green"
+                    : "bg-ludn-surface-2 border-ludn-line text-ludn-muted"
                 }`}
               >
                 {form.is_active ? "مفعّل — يدخل في السحب" : "معطّل — خارج السحب"}
@@ -260,13 +259,13 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
             </div>
           </div>
 
-          <div className="flex gap-4 pt-4 border-t-2 border-slate-100 dark:border-slate-800">
+          <div className="flex gap-2.5 pt-4 border-t border-ludn-line">
             <button
               type="submit"
               disabled={isSaving || isUploading !== null}
-              className="flex-1 py-4 bg-violet-500 hover:bg-violet-400 disabled:opacity-50 text-white font-black text-lg rounded-xl border-b-4 border-violet-700 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex items-center justify-center gap-2"
+              className={`${BTN_GOLD} flex-1 text-lg`}
             >
-              {isSaving ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />}
+              {isSaving ? <Loader2 className="animate-spin" size={22} /> : <Save size={22} />}
               {form.id ? "حفظ التعديلات" : "إضافة السؤال"}
             </button>
 
@@ -274,7 +273,7 @@ export default function QuizQuestionForm({ ctx }: { ctx: Ctx }) {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-6 py-4 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-black text-lg rounded-xl border-b-4 border-slate-300 dark:border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all"
+                className={BTN_SOFT}
               >
                 إلغاء
               </button>

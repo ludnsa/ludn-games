@@ -1,6 +1,12 @@
 "use client";
 import React from "react";
 import { Edit, Plus, ChevronDown, Save, Loader2 } from "lucide-react";
+import {
+  PANEL, PANEL_TITLE, TITLE_ICON, FIELD, LABEL, BTN_GOLD, BTN_SOFT, CORRECT, DIFFICULTY_ACTIVE,
+} from "@/components/admin/layout/adminUi";
+
+const OPTION_BTN = "flex-1 min-h-12 px-4 rounded-xl font-black text-sm border transition-colors";
+const OPTION_IDLE = "bg-ludn-surface-2 border-ludn-line text-ludn-muted hover:text-ludn-fg";
 
 export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
   const {
@@ -10,23 +16,19 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
   } = ctx;
 
   return (
-    <section className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-sm">
-      <div className="flex items-center gap-3 mb-6 border-b-2 border-slate-100 dark:border-slate-800 pb-4">
-        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-lg">
-          {editingId ? <Edit size={20} /> : <Plus size={20} />}
-        </div>
-        <h2 className="text-xl font-black text-slate-800 dark:text-white">
-          {editingId ? "تعديل السؤال" : "إضافة سؤال جديد"}
-        </h2>
-      </div>
+    <section className={`${PANEL} grid gap-5`}>
+      <h2 className={`${PANEL_TITLE} pb-4 border-b border-ludn-line`}>
+        <span className={TITLE_ICON}>{editingId ? <Edit size={20} /> : <Plus size={20} />}</span>
+        {editingId ? "تعديل السؤال" : "إضافة سؤال جديد"}
+      </h2>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="flex flex-col gap-2 relative" ref={categoryRef}>
-            <label className="font-bold text-sm text-slate-500 dark:text-slate-400">فئة السؤال (المجال)</label>
-            <div 
+      <form onSubmit={handleSubmit} className="grid gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="relative" ref={categoryRef}>
+            <label className={LABEL}>فئة السؤال (المجال)</label>
+            <div
               onClick={() => !isAddingCategory && setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-              className="w-full min-h-[56px] p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl font-black flex justify-between items-center cursor-pointer focus-within:border-amber-500 transition-colors"
+              className={`${FIELD} flex justify-between items-center gap-2 cursor-pointer focus-within:border-ludn-gold`}
             >
               {isAddingCategory ? (
                 <div className="flex gap-2 w-full">
@@ -36,7 +38,7 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
                     placeholder="اكتب الفئة الجديدة..."
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="flex-1 bg-transparent border-none outline-none placeholder:text-slate-400 text-sm"
+                    className="flex-1 min-w-0 bg-transparent border-none outline-none placeholder:text-ludn-muted text-base"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -48,8 +50,8 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
                       }
                     }}
                   />
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (newCategory.trim()) {
@@ -57,43 +59,43 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
                         setIsAddingCategory(false);
                         setNewCategory("");
                       }
-                    }} 
-                    className="bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-bold"
+                    }}
+                    className="shrink-0 bg-ludn-green text-white px-3 py-1 rounded-lg text-xs font-bold"
                   >تم</button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setIsAddingCategory(false); 
+                      setIsAddingCategory(false);
                       setNewCategory("");
-                    }} 
-                    className="bg-rose-500 text-white px-3 py-1 rounded-lg text-xs font-bold"
+                    }}
+                    className="shrink-0 bg-rose-500 text-white px-3 py-1 rounded-lg text-xs font-bold"
                   >إلغاء</button>
                 </div>
               ) : (
-                <span className={formData.category ? "text-slate-800 dark:text-slate-200" : "text-slate-400"}>
+                <span className={formData.category ? "" : "text-ludn-muted font-semibold"}>
                   {formData.category || "اختر الفئة أو أضف جديدة..."}
                 </span>
               )}
               {!isAddingCategory && (
-                <ChevronDown size={20} className={`text-slate-400 transition-transform ${isCategoryDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown size={20} className={`shrink-0 text-ludn-muted transition-transform ${isCategoryDropdownOpen ? "rotate-180" : ""}`} />
               )}
             </div>
 
             {isCategoryDropdownOpen && !isAddingCategory && (
-              <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto animate-in slide-in-from-top-2">
+              <div className="absolute top-full inset-x-0 mt-2 rounded-2xl bg-ludn-surface border border-ludn-line ludn-shadow z-40 overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2">
                 {uniqueCategories.map((cat: string) => (
                   <div
                     key={cat}
                     onClick={() => { setFormData({ ...formData, category: cat }); setIsCategoryDropdownOpen(false); }}
-                    className="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer font-black text-sm border-b last:border-b-0 border-slate-100 dark:border-slate-700 transition-colors"
+                    className="px-4 py-3 hover:bg-ludn-surface-2 cursor-pointer font-bold text-sm border-b last:border-b-0 border-ludn-line transition-colors"
                   >
                     {cat}
                   </div>
                 ))}
                 <div
                   onClick={() => { setIsAddingCategory(true); setIsCategoryDropdownOpen(false); }}
-                  className="p-3 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/10 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-500 cursor-pointer font-black text-sm transition-colors flex items-center gap-2 border-t-2 border-slate-100 dark:border-slate-700"
+                  className="px-4 py-3 bg-ludn-gold/10 hover:bg-ludn-gold/20 text-ludn-gold-text cursor-pointer font-black text-sm transition-colors flex items-center gap-2 border-t border-ludn-line"
                 >
                   <Plus size={16} /> إضافة فئة جديدة...
                 </div>
@@ -101,14 +103,14 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
             )}
           </div>
 
-          <div className="flex flex-col gap-2 md:col-span-2">
-            <label className="font-bold text-sm text-slate-500 dark:text-slate-400">نص السؤال</label>
+          <div className="md:col-span-2">
+            <label className={LABEL}>نص السؤال</label>
             <textarea
               placeholder="اكتب السؤال هنا..."
               value={formData.question}
               onChange={(e) => setFormData({ ...formData, question: e.target.value })}
               rows={3}
-              className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl font-black focus:border-amber-500 outline-none transition-colors resize-none"
+              className={`${FIELD} resize-none leading-relaxed`}
             />
           </div>
 
@@ -117,30 +119,26 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
             { id: "opt2", label: "الخيار الثاني", value: formData.opt2 },
             { id: "opt3", label: "الخيار الثالث", value: formData.opt3 }
           ].map((opt, idx) => (
-            <div key={idx} className="flex flex-col gap-2">
-              <label className="font-bold text-sm text-slate-500 dark:text-slate-400">{opt.label}</label>
+            <div key={idx}>
+              <label className={LABEL}>{opt.label}</label>
               <input
                 type="text"
                 value={opt.value}
                 onChange={(e) => setFormData({ ...formData, [opt.id]: e.target.value })}
-                className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl font-black focus:border-amber-500 outline-none transition-colors"
+                className={FIELD}
               />
             </div>
           ))}
 
-          <div className="flex flex-col gap-2 md:col-span-2">
-            <label className="font-bold text-sm text-emerald-600 dark:text-emerald-500 mb-1">حدد الإجابة الصحيحة</label>
-            <div className="flex flex-col sm:flex-row gap-3">
+          <div className="md:col-span-2">
+            <label className={`${LABEL} text-ludn-green!`}>حدد الإجابة الصحيحة</label>
+            <div className="grid grid-cols-3 gap-2">
               {[1, 2, 3].map((num) => (
                 <button
                   key={num}
                   type="button"
                   onClick={() => setFormData({ ...formData, correctOption: num as 1 | 2 | 3 })}
-                  className={`flex-1 py-4 px-4 rounded-xl font-black border-2 transition-all shadow-sm ${
-                    formData.correctOption === num 
-                      ? 'bg-emerald-100 border-emerald-500 text-emerald-800 dark:bg-emerald-900/40 dark:border-emerald-500 dark:text-emerald-400 ring-2 ring-emerald-500/20' 
-                      : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 hover:border-emerald-300 dark:hover:border-emerald-700'
-                  }`}
+                  className={`${OPTION_BTN} ${formData.correctOption === num ? CORRECT : OPTION_IDLE}`}
                 >
                   الخيار رقم {num}
                 </button>
@@ -148,23 +146,15 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 md:col-span-2">
-            <label className="font-bold text-sm text-slate-500 dark:text-slate-400">مستوى صعوبة السؤال</label>
-            <div className="flex flex-col sm:flex-row gap-3">
+          <div className="md:col-span-2">
+            <label className={LABEL}>مستوى صعوبة السؤال</label>
+            <div className="grid grid-cols-3 gap-2">
               {(["سهل", "متوسط", "صعب"] as const).map((level) => (
                 <button
                   key={level}
                   type="button"
                   onClick={() => setFormData({ ...formData, difficulty: level })}
-                  className={`flex-1 py-3 px-4 rounded-xl font-black text-sm border-2 transition-all shadow-sm ${
-                    formData.difficulty === level
-                      ? level === "سهل"
-                        ? "bg-emerald-500 border-emerald-600 text-white ring-2 ring-emerald-500/30 scale-[1.02]"
-                        : level === "متوسط"
-                        ? "bg-amber-500 border-amber-600 text-white ring-2 ring-amber-500/30 scale-[1.02]"
-                        : "bg-rose-500 border-rose-600 text-white ring-2 ring-rose-500/30 scale-[1.02]"
-                      : "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 hover:border-slate-300"
-                  }`}
+                  className={`${OPTION_BTN} ${formData.difficulty === level ? DIFFICULTY_ACTIVE[level] : OPTION_IDLE}`}
                 >
                   {level}
                 </button>
@@ -173,16 +163,16 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
           </div>
         </div>
 
-        <div className="flex gap-4 pt-4 border-t-2 border-slate-100 dark:border-slate-800">
+        <div className="flex gap-2.5 pt-4 border-t border-ludn-line">
           <button
             type="submit"
             disabled={isSaving}
-            className="flex-1 py-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-900 font-black text-lg rounded-xl border-b-4 border-amber-700 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex items-center justify-center gap-2"
+            className={`${BTN_GOLD} flex-1 text-lg`}
           >
-            {isSaving ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />}
+            {isSaving ? <Loader2 className="animate-spin" size={22} /> : <Save size={22} />}
             {editingId ? "حفظ التعديلات" : "إضافة للسيرفر"}
           </button>
-          
+
           {editingId && (
             <button
               type="button"
@@ -190,7 +180,7 @@ export default function AuctionQuestionForm({ ctx }: { ctx: any }) {
                 setEditingId(null);
                 setFormData({ category: formData.category, question: "", opt1: "", opt2: "", opt3: "", correctOption: 1, difficulty: "متوسط" });
               }}
-              className="px-6 py-4 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-black text-lg rounded-xl border-b-4 border-slate-300 dark:border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all"
+              className={BTN_SOFT}
             >
               إلغاء
             </button>

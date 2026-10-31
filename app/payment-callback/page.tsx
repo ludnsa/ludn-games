@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { Cairo } from "next/font/google";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle2, XCircle, Loader2, ArrowRight, Home } from "lucide-react";
 import Link from "next/link";
-import { TopNav } from "@/components/home/TopNav";
+import { SitePage } from "@/components/home/SitePage";
+import { BTN_GOLD, BTN_SOFT, CARD } from "@/components/home/ui";
 import { verifyAndFulfillPayment } from "@/app/actions/payment";
-
-const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
 function PaymentCallbackContent() {
   const searchParams = useSearchParams();
@@ -45,74 +43,63 @@ function PaymentCallbackContent() {
 
   if (verifying) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="relative mb-8">
-          <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full animate-pulse"></div>
-          <Loader2 className="w-20 h-20 text-blue-500 animate-spin relative z-10" />
+      <div className="flex flex-col items-center justify-center text-center py-20">
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-ludn-gold/25 blur-2xl rounded-full animate-pulse"></div>
+          <Loader2 className="w-20 h-20 text-ludn-gold-text animate-spin relative z-10" />
         </div>
-        <h2 className="text-2xl font-black mb-2">جاري التحقق من الدفع...</h2>
-        <p className="text-slate-500 font-bold">يرجى الانتظار لحظة</p>
+        <h2 className="font-display text-[30px] leading-tight mb-1">جاري التحقق من الدفع...</h2>
+        <p className="text-ludn-muted font-bold">يرجى الانتظار لحظة</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-lg mx-auto">
-      <div className={`rounded-3xl p-8 md:p-12 text-center border-4 shadow-xl ${
-        result?.success
-          ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700"
-          : "bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-700"
-      }`}>
-        
-        <div className="relative mb-6 inline-block">
-          <div className={`absolute inset-0 blur-2xl rounded-full ${
-            result?.success ? "bg-emerald-400/30" : "bg-rose-400/30"
-          }`}></div>
-          {result?.success ? (
-            <CheckCircle2 className="w-24 h-24 text-emerald-500 relative z-10 animate-bounce" strokeWidth={2} />
-          ) : (
-            <XCircle className="w-24 h-24 text-rose-500 relative z-10" strokeWidth={2} />
-          )}
-        </div>
-
-        <h1 className={`text-3xl font-black mb-3 ${
-          result?.success ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
-        }`}>
-          {result?.success ? "تم الدفع بنجاح! 🎉" : "لم تتم عملية الدفع"}
-        </h1>
-        
-        <p className="text-slate-600 dark:text-slate-400 font-bold text-lg mb-8">
-          {result?.message}
-        </p>
-
-        {result?.success && result.newBalance !== undefined && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-8 border border-emerald-200 dark:border-emerald-800 inline-block">
-            <span className="text-slate-500 font-bold text-sm">رصيدك الحالي: </span>
-            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{result.newBalance}</span>
-          </div>
+    <div className={`${CARD} ludn-shadow p-6 md:p-10 text-center grid gap-3 justify-items-center animate-in fade-in zoom-in-95 duration-300`}>
+      <div className="relative mb-2">
+        <div className={`absolute inset-0 blur-2xl rounded-full ${result?.success ? "bg-ludn-green/30" : "bg-rose-500/30"}`}></div>
+        {result?.success ? (
+          <CheckCircle2 className="w-24 h-24 text-ludn-green relative z-10 animate-bounce" strokeWidth={2} />
+        ) : (
+          <XCircle className="w-24 h-24 text-rose-500 relative z-10" strokeWidth={2} />
         )}
+      </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          {result?.success ? (
-            <>
-              <Link href="/my-games" className="bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all">
-                <Home size={20} /> ألعابي
-              </Link>
-              <Link href="/packages" className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-black py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all">
-                <ArrowRight size={20} /> شراء المزيد
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link href="/packages" className="bg-blue-500 hover:bg-blue-600 text-white font-black py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all">
-                <ArrowRight size={20} /> المحاولة مرة أخرى
-              </Link>
-              <Link href="/" className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-black py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all">
-                <Home size={20} /> الرئيسية
-              </Link>
-            </>
-          )}
+      <h1 className="font-display text-[34px] leading-tight">
+        {result?.success ? "تم الدفع بنجاح! 🎉" : "لم تتم عملية الدفع"}
+      </h1>
+
+      <p className="text-ludn-muted font-bold text-lg leading-relaxed">
+        {result?.message}
+      </p>
+
+      {result?.success && result.newBalance !== undefined && (
+        <div className="rounded-2xl bg-ludn-surface-2 px-5 py-3 flex items-center gap-2.5">
+          <span className="text-ludn-muted font-bold text-sm">رصيدك الحالي:</span>
+          <span className="font-display text-[30px] leading-none pt-1 text-ludn-gold-text tabular-nums">{result.newBalance}</span>
         </div>
+      )}
+
+      <div className="w-full grid gap-2.5 sm:grid-cols-2 mt-4">
+        {result?.success ? (
+          <>
+            <Link href="/my-games" className={BTN_GOLD}>
+              <Home size={20} /> ألعابي
+            </Link>
+            <Link href="/packages" className={BTN_SOFT}>
+              <ArrowRight size={20} /> شراء المزيد
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link href="/packages" className={BTN_GOLD}>
+              <ArrowRight size={20} /> المحاولة مرة أخرى
+            </Link>
+            <Link href="/" className={BTN_SOFT}>
+              <Home size={20} /> الرئيسية
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );
@@ -120,15 +107,14 @@ function PaymentCallbackContent() {
 
 export default function PaymentCallbackPage() {
   return (
-    <main className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-4 md:p-8 pt-32 md:pt-40 ${cairo.className}`} dir="rtl">
-      <TopNav />
+    <SitePage width="max-w-lg">
       <Suspense fallback={
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
+          <Loader2 className="w-16 h-16 text-ludn-gold-text animate-spin" />
         </div>
       }>
         <PaymentCallbackContent />
       </Suspense>
-    </main>
+    </SitePage>
   );
 }

@@ -1,9 +1,32 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { Tajawal } from "next/font/google";
-import { TopNav } from "@/components/home/TopNav";
+import React, { useState, useEffect, useRef } from "react";
+import { SitePage, PageHeading } from "@/components/home/SitePage";
+import { GameArt, type GameArtKind } from "@/components/home/GameArt";
+import { BTN_GOLD, CARD } from "@/components/home/ui";
 import { Swords, Globe, Gavel, Users, Clock, Trophy, Target, Sparkles, ChevronLeft, Shield, Rocket, Crown, Crosshair, Radiation, BadgeDollarSign, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+
+// غلاف كل دليل من نفس رسومات الألعاب بالرئيسية (التحديات ما لها لعبة، فلها رسمة بسيطة)
+const GUIDE_ART: Record<string, GameArtKind> = {
+  auction: "auction",
+  "castle-war": "castle",
+  "world-domination": "world",
+};
+
+function GuideCover({ id }: { id: string }) {
+  const kind = GUIDE_ART[id];
+  if (kind) return <GameArt kind={kind} wide />;
+  return (
+    <div aria-hidden className="ludn-art ludn-art-quiz ludn-art-wide">
+      <Sparkles strokeWidth={1.5} className="w-[24%]!" />
+    </div>
+  );
+}
+
+const STAT = "rounded-2xl bg-ludn-surface-2 p-3.5 flex items-center gap-3 min-w-0";
+const RULE = "flex gap-3 items-start rounded-2xl bg-ludn-surface-2/70 p-3 md:p-3.5";
+const RULE_NO = "shrink-0 w-7 h-7 rounded-full bg-ludn-gold text-ludn-gold-ink font-black text-sm grid place-items-center";
+const RULE_TEXT = "min-w-0 text-ludn-fg/90 font-semibold text-[15px] leading-relaxed pt-0.5";
 
 const TankIcon = ({ className, size = 24 }: { className?: string; size?: number }) => (
   <svg
@@ -28,11 +51,6 @@ const TankIcon = ({ className, size = 24 }: { className?: string; size?: number 
   </svg>
 );
 
-const tajawal = Tajawal({
-  subsets: ["arabic"],
-  weight: ["400", "500", "700", "800", "900"],
-});
-
 export default function GameGuidesPage() {
   const [activeGame, setActiveGame] = useState("auction");
 
@@ -45,6 +63,14 @@ export default function GameGuidesPage() {
       }
     }
   }, []);
+
+  // على الجوال الألعاب بشريط يتمرر بالعرض: نخلي اللعبة المختارة ظاهرة فيه
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    tabsRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [activeGame]);
 
   const games = [
     {
@@ -201,199 +227,141 @@ export default function GameGuidesPage() {
   ];
 
   const activeGameData = games.find(g => g.id === activeGame) || games[0];
-  const ActiveIcon = activeGameData.icon;
-
-  const colorClasses = {
-    amber: {
-      bg: "bg-amber-50 dark:bg-amber-900/20",
-      text: "text-amber-600 dark:text-amber-400",
-      border: "border-amber-200 dark:border-amber-800",
-      gradient: "from-amber-500 to-orange-600",
-      shadow: "shadow-amber-500/20"
-    },
-    rose: {
-      bg: "bg-rose-50 dark:bg-rose-900/20",
-      text: "text-rose-600 dark:text-rose-400",
-      border: "border-rose-200 dark:border-rose-800",
-      gradient: "from-rose-500 to-pink-600",
-      shadow: "shadow-rose-500/20"
-    },
-    blue: {
-      bg: "bg-blue-50 dark:bg-blue-900/20",
-      text: "text-blue-600 dark:text-blue-400",
-      border: "border-blue-200 dark:border-blue-800",
-      gradient: "from-blue-500 to-indigo-600",
-      shadow: "shadow-blue-500/20"
-    },
-    purple: {
-      bg: "bg-purple-50 dark:bg-purple-900/20",
-      text: "text-purple-600 dark:text-purple-400",
-      border: "border-purple-200 dark:border-purple-800",
-      gradient: "from-purple-500 to-fuchsia-600",
-      shadow: "shadow-purple-500/20"
-    }
-  };
-
-  const activeColors = colorClasses[activeGameData.color as keyof typeof colorClasses];
 
   return (
-    <main className={`min-h-screen bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-white ${tajawal.className} flex flex-col`} dir="rtl">
-      <TopNav />
+    <SitePage width="max-w-6xl">
+      <PageHeading
+        title={<>دليل الألعاب <span className="text-ludn-gold-text">الاحترافي</span></>}
+        subtitle="تعرف على قوانين الألعاب، استراتيجيات الفوز، وكيف تتفوق على أصدقائك في منصتنا."
+      />
 
-      <div className="flex-grow max-w-7xl mx-auto w-full px-4 py-12 mt-24 md:mt-32">
-        <div className="text-center mb-12 animate-fade-in-up">
-          <h1 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white mb-4">دليل الألعاب <span className="text-blue-600 dark:text-blue-400">الاحترافي</span></h1>
-          <p className="text-slate-600 dark:text-slate-400 font-bold max-w-2xl mx-auto">تعرف على قوانين الألعاب، استراتيجيات الفوز، وكيف تتفوق على أصدقائك في منصتنا.</p>
+      <div className="grid gap-5 lg:grid-cols-[17rem_1fr] lg:gap-8 lg:items-start">
+
+        {/* اختيار اللعبة: شريط يتمرر بالعرض على الجوال، وقائمة جانبية على الكمبيوتر */}
+        <div ref={tabsRef} role="tablist" aria-label="الألعاب" className="min-w-0 flex lg:flex-col gap-2 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-1 lg:m-0 lg:p-0 lg:overflow-visible lg:sticky lg:top-24">
+          {games.map((game) => {
+            const Icon = game.icon;
+            const isActive = activeGame === game.id;
+
+            return (
+              <button
+                key={game.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveGame(game.id)}
+                className={`shrink-0 flex items-center gap-2.5 h-11 lg:h-14 px-4 rounded-full lg:rounded-2xl border font-black text-sm lg:text-base text-start transition-colors ${
+                  isActive ? "bg-ludn-fg text-ludn-bg border-ludn-fg" : "bg-ludn-surface text-ludn-muted border-ludn-line hover:text-ludn-fg"
+                }`}
+              >
+                <Icon size={19} className={`shrink-0 ${isActive ? "" : "text-ludn-gold-text"}`} />
+                <span>{game.title}</span>
+                {isActive && <ChevronLeft size={18} className="ms-auto hidden lg:block" />}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-
-          {/* القائمة الجانبية للألعاب */}
-          <div className="w-full lg:w-80 shrink-0">
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-black/20 flex flex-col gap-3 sticky top-28">
-              {games.map((game) => {
-                const Icon = game.icon;
-                const isActive = activeGame === game.id;
-                const c = colorClasses[game.color as keyof typeof colorClasses];
-
-                return (
-                  <button
-                    key={game.id}
-                    onClick={() => setActiveGame(game.id)}
-                    className={`flex items-center gap-4 w-full p-4 rounded-2xl transition-all font-black text-right ${isActive
-                      ? `${c.bg} ${c.text} shadow-sm border ${c.border}`
-                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent"
-                      }`}
-                  >
-                    <div className={`p-2 rounded-xl ${isActive ? 'bg-white dark:bg-slate-950' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                      <Icon size={24} className={isActive ? c.text : "text-slate-500"} />
-                    </div>
-                    <span className="text-lg">{game.title}</span>
-                    {isActive && <ChevronLeft size={20} className="mr-auto" />}
-                  </button>
-                );
-              })}
-            </div>
+        {/* مساحة العرض الرئيسية للعبة */}
+        <article key={activeGameData.id} className={`${CARD} min-w-0 overflow-hidden animate-in fade-in duration-300`}>
+          <div className="relative h-36 md:h-48">
+            <GuideCover id={activeGameData.id} />
           </div>
 
-          {/* مساحة العرض الرئيسية للعبة */}
-          <div className="flex-grow">
-            <div className={`bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-200 dark:border-slate-800 shadow-2xl ${activeColors.shadow} overflow-hidden animate-fade-in`}>
+          <div className="p-4 md:p-8 grid gap-7">
+            <div className="grid gap-2">
+              <h2 className="font-display text-[32px] md:text-[40px] leading-tight">{activeGameData.title}</h2>
+              <p className="text-ludn-muted font-semibold leading-relaxed">{activeGameData.description}</p>
+            </div>
 
-              {/* ترويسة اللعبة */}
-              <div className={`relative p-8 md:p-12 overflow-hidden bg-gradient-to-br ${activeColors.gradient}`}>
-                <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-overlay"></div>
-                <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-white">
-                  <div className="p-6 bg-white/20 backdrop-blur-md rounded-[2rem] shadow-xl border border-white/30">
-                    <ActiveIcon size={64} className="drop-shadow-lg" />
-                  </div>
-                  <div className="text-center md:text-right">
-                    <h2 className="text-4xl font-black mb-3 drop-shadow-md">{activeGameData.title}</h2>
-                    <p className="text-white/90 font-bold text-lg leading-relaxed max-w-xl">
-                      {activeGameData.description}
-                    </p>
-                  </div>
+            {/* الإحصائيات السريعة */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+              <div className={STAT}>
+                <Users className="shrink-0 text-ludn-gold-text" />
+                <div className="min-w-0">
+                  <div className="text-xs text-ludn-muted font-bold">عدد اللاعبين</div>
+                  <div className="font-black text-sm md:text-base">{activeGameData.players}</div>
                 </div>
               </div>
-
-              <div className="p-8 md:p-12">
-                {/* الإحصائيات السريعة */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                    <Users className="text-blue-500" />
-                    <div>
-                      <div className="text-xs text-slate-500 font-bold">عدد اللاعبين</div>
-                      <div className="font-black text-slate-900 dark:text-white">{activeGameData.players}</div>
-                    </div>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                    <Clock className="text-emerald-500" />
-                    <div>
-                      <div className="text-xs text-slate-500 font-bold">مدة الجولة</div>
-                      <div className="font-black text-slate-900 dark:text-white">{activeGameData.duration}</div>
-                    </div>
-                  </div>
-                  <div className="col-span-2 md:col-span-1 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                    <Target className="text-rose-500" />
-                    <div>
-                      <div className="text-xs text-slate-500 font-bold">مستوى الصعوبة</div>
-                      <div className="font-black text-slate-900 dark:text-white">{activeGameData.difficulty}</div>
-                    </div>
-                  </div>
+              <div className={STAT}>
+                <Clock className="shrink-0 text-ludn-gold-text" />
+                <div className="min-w-0">
+                  <div className="text-xs text-ludn-muted font-bold">مدة الجولة</div>
+                  <div className="font-black text-sm md:text-base">{activeGameData.duration}</div>
                 </div>
-
-                {/* قوانين اللعبة */}
-                <div className="mb-10">
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                    <Trophy className={activeColors.text} />
-                    كيف تلعب وتفوز؟
-                  </h3>
-                  
-                  {activeGameData.sections ? (
-                    <div className="space-y-8">
-                      {activeGameData.sections.map((section: any, sIdx: number) => (
-                        <div key={sIdx}>
-                          <h4 className={`text-xl font-black mb-4 flex items-center gap-2 ${activeColors.text}`}>
-                            <div className={`w-2 h-6 rounded-full bg-gradient-to-b ${activeColors.gradient}`}></div>
-                            {section.title}
-                          </h4>
-                          <div className="space-y-4">
-                            {section.rules.map((rule: any, idx: number) => (
-                              <div key={idx} className="flex gap-4 items-start bg-slate-50 dark:bg-slate-800/30 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
-                                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-white bg-gradient-to-br ${activeColors.gradient}`}>
-                                  {idx + 1}
-                                </div>
-                                <div className="text-slate-700 dark:text-slate-300 font-bold mt-1">{rule}</div>
-                              </div>
-                            ))}
-                          </div>
-                          {section.note && (
-                            <div className="mt-4 text-red-500 font-black flex items-start gap-2">
-                              <span className="mt-0.5">*</span>
-                              <span>{section.note}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {activeGameData.rules?.map((rule, idx) => (
-                        <div key={idx} className="flex gap-4 items-start bg-slate-50 dark:bg-slate-800/30 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
-                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-white bg-gradient-to-br ${activeColors.gradient}`}>
-                            {idx + 1}
-                          </div>
-                          <div className="text-slate-700 dark:text-slate-300 font-bold mt-1">{rule}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              </div>
+              <div className={`${STAT} col-span-2 md:col-span-1`}>
+                <Target className="shrink-0 text-ludn-gold-text" />
+                <div className="min-w-0">
+                  <div className="text-xs text-ludn-muted font-bold">مستوى الصعوبة</div>
+                  <div className="font-black text-sm md:text-base">{activeGameData.difficulty}</div>
                 </div>
-
-                {/* نصيحة المحترفين */}
-                <div className={`p-6 rounded-2xl border ${activeColors.border} ${activeColors.bg} flex gap-4 items-start`}>
-                  <Sparkles size={28} className={`shrink-0 ${activeColors.text} mt-1`} />
-                  <div>
-                    <h4 className={`text-lg font-black mb-2 ${activeColors.text}`}>نصيحة المحترفين</h4>
-                    <p className="text-slate-800 dark:text-slate-200 font-bold leading-relaxed">{activeGameData.tips}</p>
-                  </div>
-                </div>
-
-                {activeGameData.id !== "challenges" && (
-                  <div className="mt-8 text-center">
-                    <Link href={`/games/${activeGameData.id}`} className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-black text-white bg-gradient-to-r ${activeColors.gradient} hover:-translate-y-1 transition-transform shadow-lg ${activeColors.shadow}`}>
-                      العب الآن
-                      <ChevronLeft size={20} />
-                    </Link>
-                  </div>
-                )}
-
               </div>
             </div>
-          </div>
 
-        </div>
+            {/* قوانين اللعبة */}
+            <section className="grid gap-4">
+              <h3 className="font-display text-[26px] leading-tight flex items-center gap-2">
+                <Trophy className="text-ludn-gold-text" />
+                كيف تلعب وتفوز؟
+              </h3>
+
+              {activeGameData.sections ? (
+                <div className="grid gap-6">
+                  {activeGameData.sections.map((section: any, sIdx: number) => (
+                    <div key={sIdx} className="grid gap-3">
+                      <h4 className="text-lg font-black flex items-center gap-2">
+                        <span className="w-1.5 h-5 rounded-full bg-ludn-gold shrink-0"></span>
+                        {section.title}
+                      </h4>
+                      <ol className="grid gap-2.5">
+                        {section.rules.map((rule: any, idx: number) => (
+                          <li key={idx} className={RULE}>
+                            <span className={RULE_NO}>{idx + 1}</span>
+                            <div className={RULE_TEXT}>{rule}</div>
+                          </li>
+                        ))}
+                      </ol>
+                      {section.note && (
+                        <div className="text-rose-500 font-black flex items-start gap-2">
+                          <span className="mt-0.5">*</span>
+                          <span>{section.note}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ol className="grid gap-2.5">
+                  {activeGameData.rules?.map((rule, idx) => (
+                    <li key={idx} className={RULE}>
+                      <span className={RULE_NO}>{idx + 1}</span>
+                      <div className={RULE_TEXT}>{rule}</div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+
+            {/* نصيحة المحترفين */}
+            <div className="rounded-2xl border border-ludn-gold/40 bg-ludn-gold/10 p-4 md:p-5 flex gap-3.5 items-start">
+              <Sparkles size={26} className="shrink-0 text-ludn-gold-text mt-0.5" />
+              <div>
+                <h4 className="text-lg font-black text-ludn-gold-text mb-1">نصيحة المحترفين</h4>
+                <p className="text-ludn-fg font-semibold leading-relaxed">{activeGameData.tips}</p>
+              </div>
+            </div>
+
+            {activeGameData.id !== "challenges" && (
+              <Link href={`/games/${activeGameData.id}`} className={`${BTN_GOLD} w-full sm:w-fit sm:px-10 sm:justify-self-center`}>
+                العب الآن
+                <ChevronLeft size={20} />
+              </Link>
+            )}
+          </div>
+        </article>
+
       </div>
-    </main>
+    </SitePage>
   );
 }
