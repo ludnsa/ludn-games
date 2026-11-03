@@ -1,5 +1,5 @@
 "use server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type User } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { cancelSubscription, extendSubscription, getAllSubscriptions } from "@/lib/subscriptions";
@@ -34,9 +34,16 @@ export async function getAdminUsers() {
   if (!(await isAdmin())) return { error: NOT_ADMIN };
   const supabase = getAdminClient();
 
-  const { data, error } = await supabase.auth.admin.listUsers();
-  if (error) {
-    return { error: error.message };
+  // listUsers يرجع 50 مستخدم بس بالصفحة لو ما حددنا — نجيب كل الصفحات عشان العدد يطلع كامل
+  const PER_PAGE = 1000;
+  const allUsers: User[] = [];
+  for (let page = 1; ; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: PER_PAGE });
+    if (error) {
+      return { error: error.message };
+    }
+    allUsers.push(...data.users);
+    if (data.users.length < PER_PAGE) break;
   }
 
   // Fetch profiles to get tokens
@@ -46,7 +53,7 @@ export async function getAdminUsers() {
   ]);
   const profilesMap = new Map(profiles?.map(p => [p.id, p.available_tokens || 0]) || []);
 
-  const users = data.users.map((user) => ({
+  const users = allUsers.map((user) => ({
     id: user.id,
     email: user.email || "",
     phone: user.phone || user.user_metadata?.phone_number || user.user_metadata?.phone || "",
