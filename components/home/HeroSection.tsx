@@ -51,7 +51,8 @@ export const HeroSection = ({
           ألعاب جماعية للعائلة والأصدقاء والدوام. واحد ينشئ الغرفة، والباقين يدخلون بالكود من جوالاتهم.
         </p>
 
-        <div className="grid gap-3.5 lg:grid-cols-[auto_1fr] lg:items-end">
+        {/* grid-cols-1 (minmax(0,1fr)) بالعمودين: خانة الكود لها عرض افتراضي، وبدونها تفرض على العمود أعرض من الجوالات الضيقة */}
+        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[auto_1fr] lg:items-end">
           <a
             href="#games-section"
             onClick={(e) => scrollToSection(e, "games-section")}
@@ -60,7 +61,7 @@ export const HeroSection = ({
             <Play size={20} className="fill-current" /> ابدأ اللعب
           </a>
 
-          <form onSubmit={onJoinSubmit} className="grid gap-1.5 rounded-[18px] bg-ludn-surface border border-ludn-line p-3">
+          <form onSubmit={onJoinSubmit} className="grid grid-cols-1 gap-1.5 rounded-[18px] bg-ludn-surface border border-ludn-line p-3">
             <label htmlFor="join-code" className="text-[13px] font-bold text-ludn-muted">
               عندك كود غرفة؟
             </label>
