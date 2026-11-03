@@ -1,6 +1,22 @@
 "use server";
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import { getSupabaseServer } from "@/lib/supabase/server";
+
+/**
+ * كل دالة هنا تتأكد بنفسها إن اللي يستدعيها مدير — Server Actions تنستدعى مباشرة
+ * بدون المرور على صفحة /admin، فحماية middleware للصفحة ما تكفي.
+ * نفس شرط middleware.ts و quiz-admin.ts: app_metadata.role === 'admin'
+ */
+async function isAdmin(): Promise<boolean> {
+  const userClient = await getSupabaseServer();
+  const {
+    data: { user },
+  } = await userClient.auth.getUser();
+  return user?.app_metadata?.role === "admin";
+}
+
+const NOT_ADMIN = "هذه الصفحة للمدراء فقط.";
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -14,6 +30,7 @@ function getAdminClient() {
 }
 
 export async function getAdminUsers() {
+  if (!(await isAdmin())) return { error: NOT_ADMIN };
   const supabase = getAdminClient();
 
   const { data, error } = await supabase.auth.admin.listUsers();
@@ -38,6 +55,7 @@ export async function getAdminUsers() {
 }
 
 export async function deleteAdminUser(userId: string) {
+  if (!(await isAdmin())) return { success: false, error: NOT_ADMIN };
   const supabase = getAdminClient();
 
   const { error } = await supabase.auth.admin.deleteUser(userId);
@@ -52,6 +70,7 @@ export async function deleteAdminUser(userId: string) {
 }
 
 export async function updateAdminUser(userId: string, updates: { name?: string; phone?: string; email?: string; password?: string; tokens?: number }) {
+  if (!(await isAdmin())) return { success: false, error: NOT_ADMIN };
   const supabase = getAdminClient();
 
   // Fetch current user to only apply changes
