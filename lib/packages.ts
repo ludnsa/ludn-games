@@ -39,9 +39,9 @@ export const GAME_PACKAGES: PackageData[] = [
 export const SUBSCRIPTION_PLANS = GAME_PACKAGES.filter((p) => !p.legacy);
 
 /** الألعاب اللي يفتحها الاشتراك — وكل وحدة منها لها تجربة مجانية */
-export const PAID_GAME_TITLES = [MAFIA_GAME.title, QUIZ_GAME.title, "المزاد", "حرب القلاع", "السيطرة على العالم"];
+export const PAID_GAME_TITLES = [QUIZ_GAME.title, "المزاد", "حرب القلاع", "السيطرة على العالم"];
 /** مجانية دايماً (ما تفحص اشتراك) */
-export const FREE_GAME_TITLES = [MADAQESH_GAME.title, LETTERS_HIVE_GAME.title];
+export const FREE_GAME_TITLES = [MAFIA_GAME.title, MADAQESH_GAME.title, LETTERS_HIVE_GAME.title];
 
 export const getPackageById = (id: number): PackageData | undefined => {
   return GAME_PACKAGES.find((pkg) => pkg.id === id);

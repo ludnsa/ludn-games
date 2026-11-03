@@ -6,7 +6,6 @@ import { fetchMyPlanAction, fetchUserGamesAction, fetchUserProfileAction } from 
 import { CalendarClock, Gift, Zap } from "lucide-react";
 import Link from "next/link";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
-import { MAFIA_GAME, mafiaCardSrc } from "@/constants/mafia";
 import { formatPlanDate, isSubscriptionActive, subscriptionDaysLeft } from "@/lib/packages";
 import { useRouter } from "next/navigation";
 import { SitePage, PageHeading } from "@/components/home/SitePage";
@@ -87,7 +86,6 @@ export default function MyGamesPage() {
 
   // الألعاب اللي يفتحها الاشتراك — كل وحدة لها تجربة مجانية
   const gamesList: { id: string; title: string; art?: GameArtKind; img?: string }[] = [
-    { id: MAFIA_GAME.id, title: MAFIA_GAME.title, img: mafiaCardSrc("mafia") },
     { id: QUIZ_GAME.id, title: QUIZ_GAME.title, art: 'quiz' },
     { id: 'auction', title: 'المزاد', art: 'auction' },
     { id: 'castle-war', title: 'حرب القلاع', art: 'castle' },

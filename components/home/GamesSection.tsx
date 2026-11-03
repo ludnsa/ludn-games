@@ -41,6 +41,7 @@ const GAMES: HomeGame[] = [
     meta: [`من ${MAFIA_CONFIG.MIN_PLAYERS} إلى ${MAFIA_CONFIG.MAX_PLAYERS} لاعب`, "كل واحد بجواله", "فئة جديدة: الشيخ"],
     cover: { img: mafiaCardSrc("mafia") },
     badge: { text: "جديد: الشيخ", icon: mafiaIconSrc("sheikh") },
+    free: true,
   },
   {
     id: QUIZ_GAME.id,
@@ -139,14 +140,17 @@ function GameTile({ game, onOpen }: { game: HomeGame; onOpen: () => void }) {
       >
         <span className="ludn-cover-shade ludn-shadow relative isolate block aspect-[4/5] rounded-[18px] overflow-hidden transition-transform md:group-hover:-translate-y-1">
           <GameCover game={game} />
-          <span className="absolute top-2.5 start-2.5 z-[2] text-[11.5px] font-bold text-white px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-sm">
-            {game.category}
-          </span>
-          {game.free && (
-            <span className="absolute top-2.5 end-2.5 z-[2] text-[11.5px] font-black px-2.5 py-0.5 rounded-full bg-[#56c98d] text-[#05230f]">
-              مجانية
+          {/* flex-wrap: بالجوالات الضيقة "مجانية" تنزل تحت التصنيف بدل ما تركب عليه */}
+          <span className="absolute top-2.5 inset-x-2.5 z-[2] flex flex-wrap justify-between gap-1">
+            <span className="text-[11.5px] font-bold text-white px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-sm">
+              {game.category}
             </span>
-          )}
+            {game.free && (
+              <span className="text-[11.5px] font-black px-2.5 py-0.5 rounded-full bg-[#56c98d] text-[#05230f]">
+                مجانية
+              </span>
+            )}
+          </span>
           {game.badge && (
             <span className="absolute bottom-11 start-2.5 z-[2] inline-flex items-center gap-1.5 text-[11.5px] font-black text-[#1b1404] bg-[#e2b84a] ps-1 pe-2.5 py-0.5 rounded-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
