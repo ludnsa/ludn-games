@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Cairo } from "next/font/google";
-import { LogIn, Loader2, AlertCircle, DoorOpen, Undo2 } from "lucide-react";
+import { LogIn, Loader2, AlertCircle, DoorOpen, Undo2, Crown } from "lucide-react";
 import {
   createMafiaRoom,
   getMafiaRoomPublicInfo,
@@ -10,6 +10,7 @@ import {
   joinMafiaRoom,
   leaveMafiaRoom,
 } from "@/actions/mafia";
+import { checkAccessAction } from "@/app/actions/gameAccess";
 import { MAFIA_CONFIG, MAFIA_GAME, mafiaCardSrc } from "@/constants/mafia";
 import { useMafiaGame, type MafiaSession } from "@/hooks/games/mafia/useMafiaGame";
 import { unlockMafiaAudio } from "@/lib/game/mafia-sounds";
@@ -18,7 +19,7 @@ import MafiaSetupForm, { DEFAULT_MAFIA_SETTINGS } from "./MafiaSetupForm";
 import MafiaScreen from "./MafiaScreen";
 import MafiaFxLayer, { MafiaBackdrop, MAFIA_STAGE_ID } from "./MafiaFxLayer";
 import { Panel } from "./MafiaParts";
-import { BTN_GOLD, BTN_SOFT, ERROR, FIELD, H_PAGE, INFO, LABEL } from "./mafiaUi";
+import { BTN_GOLD, BTN_SOFT, ERROR, FIELD, H_CARD, H_PAGE, INFO, LABEL } from "./mafiaUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -258,6 +259,30 @@ function MafiaCreate({ onCreated, notice }: { onCreated: (s: MafiaSession) => vo
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // المافيا من ضمن الاشتراك: لو ما عنده اشتراك ولا تجربة ولا رصيد، نوريه الباقات بدل الإعدادات
+  const [noAccess, setNoAccess] = useState(false);
+  useEffect(() => {
+    if (MAFIA_CONFIG.IS_FREE) return;
+    checkAccessAction(MAFIA_GAME.id).then((a) => {
+      if (!a.allowed && a.reason === "no_tokens") setNoAccess(true);
+    });
+  }, []);
+
+  if (noAccess) {
+    return (
+      <div className="w-full max-w-md mx-auto my-auto">
+        <Header subtitle="جهّز الغرفة، اختر الفئات، وخل الشباب يدخلون من جوالاتهم" />
+        <Panel className="text-center grid gap-2 justify-items-center">
+          <Crown size={40} className="text-ludn-gold" />
+          <h2 className={H_CARD}>المافيا من ضمن الاشتراك</h2>
+          <p className={`${LABEL} leading-relaxed`}>{MAFIA_CONFIG.NO_ACCESS_MESSAGE}</p>
+          <a href="/packages" className={`${BTN_GOLD} mt-2`}>
+            شوف الباقات
+          </a>
+        </Panel>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto my-auto">
@@ -278,8 +303,10 @@ function MafiaCreate({ onCreated, notice }: { onCreated: (s: MafiaSession) => vo
             setBusy(true);
             const res = await createMafiaRoom({ displayName: name.trim(), settings });
             setBusy(false);
-            if (!res.success) setError(res.error);
-            else onCreated({ ...res.data, host: true });
+            if (!res.success) {
+              if (res.error === MAFIA_CONFIG.NO_ACCESS_MESSAGE) setNoAccess(true);
+              else setError(res.error);
+            } else onCreated({ ...res.data, host: true });
           }}
         >
           <label className="flex flex-col gap-2">

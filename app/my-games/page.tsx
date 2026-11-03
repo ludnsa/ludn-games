@@ -2,10 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
-import { fetchUserGamesAction, fetchUserProfileAction } from "@/app/actions/gameAccess";
-import { Gift, Zap } from "lucide-react";
+import { fetchMyPlanAction, fetchUserGamesAction, fetchUserProfileAction } from "@/app/actions/gameAccess";
+import { CalendarClock, Gift, Zap } from "lucide-react";
 import Link from "next/link";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
+import { MAFIA_GAME, mafiaCardSrc } from "@/constants/mafia";
+import { formatPlanDate, isSubscriptionActive, subscriptionDaysLeft } from "@/lib/packages";
 import { useRouter } from "next/navigation";
 import { SitePage, PageHeading } from "@/components/home/SitePage";
 import { GameArt, type GameArtKind } from "@/components/home/GameArt";
@@ -19,6 +21,7 @@ export default function MyGamesPage() {
   const [userGames, setUserGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableTokens, setAvailableTokens] = useState<number>(0);
+  const [endsAt, setEndsAt] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -33,12 +36,13 @@ export default function MyGamesPage() {
         setUserSession(user);
 
         // جلب بيانات الحساب باستخدام Server Action لتخطي الـ RLS
-        const profileData = await fetchUserProfileAction(user.id);
+        const [profileData, plan] = await Promise.all([fetchUserProfileAction(user.id), fetchMyPlanAction()]);
         const userProfile = profileData || {
           full_name: user.user_metadata?.full_name || "لاعب جديد",
         };
         setProfile({ ...userProfile, email: user.email });
         setAvailableTokens(profileData?.available_tokens || 0);
+        setEndsAt(plan?.endsAt ?? null);
 
         // جلب بيانات الألعاب باستخدام Server Action لتخطي الـ RLS
         const gamesData = await fetchUserGamesAction(user.id);
@@ -81,43 +85,60 @@ export default function MyGamesPage() {
     );
   }
 
-  const gamesList: { id: string; title: string; art: GameArtKind }[] = [
+  // الألعاب اللي يفتحها الاشتراك — كل وحدة لها تجربة مجانية
+  const gamesList: { id: string; title: string; art?: GameArtKind; img?: string }[] = [
+    { id: MAFIA_GAME.id, title: MAFIA_GAME.title, img: mafiaCardSrc("mafia") },
+    { id: QUIZ_GAME.id, title: QUIZ_GAME.title, art: 'quiz' },
+    { id: 'auction', title: 'المزاد', art: 'auction' },
     { id: 'castle-war', title: 'حرب القلاع', art: 'castle' },
     { id: 'world-domination', title: 'السيطرة على العالم', art: 'world' },
-    { id: 'auction', title: 'حرب المزايدات', art: 'auction' },
-    { id: QUIZ_GAME.id, title: QUIZ_GAME.title, art: 'quiz' }
   ];
+  const active = isSubscriptionActive(endsAt);
 
   return (
     <SitePage width="max-w-3xl" afterLogout={goHome}>
       <PageHeading back={{ href: "/", label: "رجوع" }} title="مكتبة ألعابي" />
 
       <div className="grid gap-4">
-        {/* الرصيد */}
-        <div className={`${CARD} p-4 md:p-5 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center`}>
+        {/* الاشتراك */}
+        <div
+          className={`${CARD} p-4 md:p-5 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center ${active ? "border-ludn-gold/50" : ""}`}
+        >
           <div className="flex items-center gap-3.5">
             <span className="w-14 h-14 shrink-0 rounded-2xl bg-ludn-surface-2 text-ludn-gold-text grid place-items-center">
-              <Zap className="w-7 h-7" />
+              {active ? <CalendarClock className="w-7 h-7" /> : <Zap className="w-7 h-7" />}
             </span>
             <div>
-              <p className="text-sm font-bold text-ludn-muted">رصيد الألعاب المتاح</p>
-              <p className="font-display text-[30px] leading-tight">{availableTokens} لعبة</p>
+              <p className="text-sm font-bold text-ludn-muted">{active ? "اشتراكك فعّال" : "الاشتراك"}</p>
+              <p className="font-display text-[30px] leading-tight">
+                {active && endsAt ? `باقي ${subscriptionDaysLeft(endsAt)} يوم` : "ما عندك اشتراك"}
+              </p>
+              {active && endsAt && (
+                <p className="text-[13px] font-bold text-ludn-muted">ينتهي {formatPlanDate(endsAt)}</p>
+              )}
             </div>
           </div>
           <Link href="/packages" className={`${BTN_GOLD} w-full sm:w-auto`}>
-            شراء باقة
+            {active ? "مدّد اشتراكي" : "اشترك"}
           </Link>
         </div>
 
-        {userGames.reduce((acc, game) => acc + (game.games_played || 0), 0) === 0 && (
-          <div className="rounded-[22px] border border-ludn-green/40 bg-ludn-green/10 p-4 md:p-5 flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4">
+        {availableTokens > 0 && (
+          <p className="rounded-2xl bg-ludn-surface-2 px-4 py-3 text-sm font-bold text-ludn-muted">
+            عندك رصيد قديم: <b className="text-ludn-fg tabular-nums">{availableTokens}</b> ألعاب —{" "}
+            {active ? "محفوظ لك، ما ينخصم وأنت مشترك" : "ينخصم منه إذا لعبت وما عندك اشتراك"}
+          </p>
+        )}
+
+        {!active && (
+          <div className="rounded-[22px] border border-ludn-green/40 bg-ludn-green/10 p-4 md:p-5 flex items-start gap-3.5">
             <span className="w-11 h-11 shrink-0 rounded-xl bg-ludn-green/20 text-ludn-green grid place-items-center">
               <Gift className="w-6 h-6" />
             </span>
             <div>
-              <h3 className="text-ludn-green font-black text-lg">تجربة مجانية بانتظارك! 🎁</h3>
+              <h3 className="text-ludn-green font-black text-lg">كل لعبة لها تجربة مجانية 🎁</h3>
               <p className="text-sm md:text-base font-semibold leading-relaxed text-ludn-fg/85 mt-1">
-                لديك تجربة مجانية <span className="underline decoration-wavy underline-offset-4">واحدة</span> يمكنك استخدامها لتجربة أي لعبة تختارها. بعد انتهائها، ستحتاج لشراء باقة للاستمرار باللعب.
+                تقدر تلعب كل لعبة مرة وحدة ببلاش. اللعبة اللي جربتها، تكمل فيها بالاشتراك.
               </p>
             </div>
           </div>
@@ -128,15 +149,26 @@ export default function MyGamesPage() {
         <ul className="grid gap-3 sm:grid-cols-2">
           {gamesList.map(game => {
             const userGame = userGames.find(ug => ug.game_id === game.id);
-            const isPurchased = userGame?.is_purchased || false;
             const playedCount = userGame?.games_played || 0;
 
             return (
               <li key={game.id} className={`${CARD} p-3 flex items-center gap-3.5`}>
                 <span className="relative w-14 h-14 shrink-0 rounded-xl overflow-hidden">
-                  <GameArt kind={game.art} />
+                  {game.img ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={game.img} alt="" className="absolute inset-0 w-full h-full object-cover object-[50%_20%] scale-125" />
+                  ) : (
+                    game.art && <GameArt kind={game.art} />
+                  )}
                 </span>
-                <h4 className="flex-1 min-w-0 text-base font-black">{game.title}</h4>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base font-black">{game.title}</h4>
+                  {playedCount === 0 && !active && (
+                    <span className="inline-flex items-center gap-1 mt-1 text-[11.5px] font-black px-2 py-0.5 rounded-full bg-ludn-green/15 text-ludn-green">
+                      <Gift size={13} /> تجربة مجانية متاحة
+                    </span>
+                  )}
+                </div>
                 <div className="shrink-0 text-center rounded-xl bg-ludn-surface-2 px-3 py-2 min-w-[84px]">
                   <p className="text-[11px] font-bold text-ludn-muted">مرات اللعب</p>
                   <p className="font-display text-[24px] leading-none pt-1 tabular-nums">{playedCount}</p>

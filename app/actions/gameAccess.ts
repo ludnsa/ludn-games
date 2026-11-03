@@ -1,7 +1,9 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { getSubscriptionEndsAt } from "@/lib/subscriptions";
+import { isSubscriptionActive } from "@/lib/packages";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
@@ -25,7 +27,39 @@ function getServiceRoleKey() {
   return null;
 }
 
-export async function consumeGameSessionAction(gameId: string, clientUserId: string, reason: string) {
+type Admin = SupabaseClient;
+type Access = {
+  allowed: boolean;
+  reason: "free_trial" | "paid" | "subscription" | "no_tokens";
+  availableTokens: number;
+};
+
+/**
+ * مين يقدر يبدأ اللعبة، بالترتيب:
+ * 1. شاري اللعبة مدى الحياة (نظام قديم)
+ * 2. اشتراك فعّال — يلعب بدون خصم
+ * 3. تجربة مجانية: لعبة وحدة لكل لعبة (لو ما لعبها قبل)
+ * 4. الرصيد القديم — يخصم لعبة
+ * غير كذا: يحتاج يشترك
+ */
+async function computeAccess(admin: Admin, userId: string, gameId: string): Promise<Access> {
+  const [{ data: profile }, { data: userGame }, endsAt] = await Promise.all([
+    admin.from("profiles").select("available_tokens").eq("id", userId).maybeSingle(),
+    admin.from("user_games").select("games_played, is_purchased").eq("user_id", userId).eq("game_id", gameId).maybeSingle(),
+    getSubscriptionEndsAt(admin, userId),
+  ]);
+  const tokens = (profile?.available_tokens as number | null) || 0;
+
+  if (userGame?.is_purchased) return { allowed: true, reason: "paid", availableTokens: tokens };
+  if (isSubscriptionActive(endsAt)) return { allowed: true, reason: "subscription", availableTokens: tokens };
+  if (((userGame?.games_played as number | null) || 0) === 0) {
+    return { allowed: true, reason: "free_trial", availableTokens: tokens };
+  }
+  if (tokens > 0) return { allowed: true, reason: "paid", availableTokens: tokens };
+  return { allowed: false, reason: "no_tokens", availableTokens: tokens };
+}
+
+export async function consumeGameSessionAction(gameId: string, clientUserId: string, _reason?: string) {
   try {
     // 🛡️ حماية أمنية: التأكد من هوية المستخدم الحقيقية من الكوكيز (السيرفر)
     const supabaseServer = await getSupabaseServer();
@@ -52,6 +86,9 @@ export async function consumeGameSessionAction(gameId: string, clientUserId: str
       }
     });
 
+    // 0. سبب الدخول نحسبه هنا بالسيرفر (قبل ما نزيد عداد اللعب) — ما نعتمد على اللي يرسله المتصفح
+    const access = await computeAccess(supabaseAdmin, userId, gameId);
+
     // 1. Fetch user_games record for this game
     const { data: userGame } = await supabaseAdmin
       .from("user_games")
@@ -77,8 +114,8 @@ export async function consumeGameSessionAction(gameId: string, clientUserId: str
         });
     }
 
-    // 2. Deduct token if paid and not purchased
-    if (reason === "paid") {
+    // 2. Deduct token if paid and not purchased (المشترك والتجربة المجانية ما ينخصم منهم)
+    if (access.reason === "paid") {
       // If the user already owns the game (lifetime), we shouldn't deduct a token.
       if (userGame?.is_purchased) {
         return { success: true };
@@ -183,55 +220,35 @@ export async function checkAccessAction(gameId: string) {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // 1. Get user profile for tokens
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("available_tokens")
-      .eq("id", userId)
-      .maybeSingle();
-
-    const tokens = profile?.available_tokens || 0;
-
-    // 2. Get user game record to check if THIS game is purchased
-    const { data: userGame } = await supabaseAdmin
-      .from("user_games")
-      .select("is_purchased")
-      .eq("user_id", userId)
-      .eq("game_id", gameId)
-      .maybeSingle();
-
-    const isPurchased = userGame?.is_purchased || false;
-
-    // Rule 1: Lifetime purchased
-    if (isPurchased) {
-      return { allowed: true, reason: "paid" as const, availableTokens: tokens };
-    }
-
-    // 3. Get TOTAL games played across ALL games to check global free trial
-    const { data: allGames } = await supabaseAdmin
-      .from("user_games")
-      .select("games_played")
-      .eq("user_id", userId);
-
-    let totalGamesPlayed = 0;
-    if (allGames) {
-      totalGamesPlayed = allGames.reduce((acc: number, g: any) => acc + (g.games_played || 0), 0);
-    }
-
-    // Rule 2: Global Free Trial (only if they never played ANY game)
-    if (totalGamesPlayed === 0) {
-      return { allowed: true, reason: "free_trial" as const, availableTokens: tokens };
-    }
-
-    // Rule 3: Has Tokens
-    if (tokens > 0) {
-      return { allowed: true, reason: "paid" as const, availableTokens: tokens };
-    }
-
-    // Blocked
-    return { allowed: false, reason: "no_tokens" as const, availableTokens: tokens };
+    return await computeAccess(supabaseAdmin, userId, gameId);
   } catch (err) {
     console.error("checkAccessAction Error:", err);
     return { allowed: false, reason: "error" as const, availableTokens: 0 };
+  }
+}
+
+/** حالة حسابي لصفحات الموقع: نهاية الاشتراك (لو فيه) والرصيد القديم */
+export async function fetchMyPlanAction(): Promise<{ endsAt: string | null; tokens: number } | null> {
+  try {
+    const supabaseServer = await getSupabaseServer();
+    const { data: { user } } = await supabaseServer.auth.getUser();
+    if (!user) return null;
+
+    const serviceKey = getServiceRoleKey();
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!serviceKey || !url) return null;
+
+    const supabaseAdmin = createClient(url, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    const [{ data: profile }, endsAt] = await Promise.all([
+      supabaseAdmin.from("profiles").select("available_tokens").eq("id", user.id).maybeSingle(),
+      getSubscriptionEndsAt(supabaseAdmin, user.id),
+    ]);
+    return { endsAt, tokens: profile?.available_tokens || 0 };
+  } catch (err) {
+    console.error("fetchMyPlanAction Error:", err);
+    return null;
   }
 }

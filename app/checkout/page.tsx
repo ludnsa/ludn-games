@@ -63,8 +63,9 @@ function CheckoutContentInner({ moyasarLoaded }: { moyasarLoaded: boolean }) {
         return;
       }
 
+      // الباقات القديمة ما تنشرى من جديد (تظل بس عشان الدفعات اللي بالطريق تنحسب)
       const foundPkg = getPackageById(pkgId);
-      if (foundPkg) {
+      if (foundPkg && !foundPkg.legacy) {
         setPkg(foundPkg);
       } else {
         router.push("/packages");
@@ -100,7 +101,8 @@ function CheckoutContentInner({ moyasarLoaded }: { moyasarLoaded: boolean }) {
           element: ".mysr-form",
           amount: amountInHalalas,
           currency: "SAR",
-          description: `شراء ${pkg.name} - ${pkg.tokens} رصيد`,
+          description:
+            pkg.kind === "subscription" ? `اشتراك ${pkg.name} - كل الألعاب` : `شراء ${pkg.name} - ${pkg.tokens} رصيد`,
           publishable_api_key: publishableKey,
           callback_url: callbackUrl,
           methods: ["creditcard", "applepay"],
@@ -149,8 +151,12 @@ function CheckoutContentInner({ moyasarLoaded }: { moyasarLoaded: boolean }) {
           <div className="rounded-2xl bg-ludn-surface-2 p-4 grid gap-3">
             <div className="flex justify-between items-start gap-3">
               <div className="min-w-0">
-                <h3 className="font-black text-lg">{pkg.name}</h3>
-                <p className="text-ludn-muted text-sm font-bold">رصيد للألعاب داخل المنصة</p>
+                <h3 className="font-black text-lg">{pkg.kind === "subscription" ? `اشتراك ${pkg.name}` : pkg.name}</h3>
+                <p className="text-ludn-muted text-sm font-bold">
+                  {pkg.kind === "subscription"
+                    ? `${pkg.days} يوم لكل الألعاب — بدون تجديد تلقائي`
+                    : "رصيد للألعاب داخل المنصة"}
+                </p>
               </div>
               <p className="shrink-0">
                 <span className="text-xl font-black tabular-nums">{pkg.price}</span>

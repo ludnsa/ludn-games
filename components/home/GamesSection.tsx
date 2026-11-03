@@ -26,6 +26,8 @@ interface HomeGame {
   /** رسمة اللعبة، أو غلاف مؤقت مرسوم بالكود لين تجهز رسمتها */
   cover: { img: string } | { art: GameArtKind };
   badge?: { text: string; icon: string };
+  /** مجانية دايماً (ما تحتاج اشتراك) — يطلع عليها تاق */
+  free?: boolean;
 }
 
 const GAMES: HomeGame[] = [
@@ -59,6 +61,7 @@ const GAMES: HomeGame[] = [
     category: "أسئلة",
     meta: ["مقدم وفريقين", "شاشة عرض"],
     cover: { art: "hive" },
+    free: true,
   },
   {
     id: "auction",
@@ -99,6 +102,7 @@ const GAMES: HomeGame[] = [
     category: "أدوات",
     meta: ["على جوالات الكل"],
     cover: { art: "madaqesh" },
+    free: true,
   },
 ];
 
@@ -138,6 +142,11 @@ function GameTile({ game, onOpen }: { game: HomeGame; onOpen: () => void }) {
           <span className="absolute top-2.5 start-2.5 z-[2] text-[11.5px] font-bold text-white px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-sm">
             {game.category}
           </span>
+          {game.free && (
+            <span className="absolute top-2.5 end-2.5 z-[2] text-[11.5px] font-black px-2.5 py-0.5 rounded-full bg-[#56c98d] text-[#05230f]">
+              مجانية
+            </span>
+          )}
           {game.badge && (
             <span className="absolute bottom-11 start-2.5 z-[2] inline-flex items-center gap-1.5 text-[11.5px] font-black text-[#1b1404] bg-[#e2b84a] ps-1 pe-2.5 py-0.5 rounded-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -188,6 +197,9 @@ function GameSheet({ game, onClose }: { game: HomeGame; onClose: () => void }) {
         </h3>
         <p className="text-ludn-muted font-semibold leading-relaxed">{game.description}</p>
         <div className="flex flex-wrap gap-1.5">
+          {game.free && (
+            <span className="text-[12.5px] font-black px-3 py-0.5 rounded-full bg-[#56c98d] text-[#05230f]">مجانية</span>
+          )}
           {[game.category, ...game.meta].map((m) => (
             <span key={m} className="text-[12.5px] font-bold px-3 py-0.5 rounded-full bg-ludn-surface-2">
               {m}

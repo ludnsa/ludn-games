@@ -1,6 +1,6 @@
 import { consumeGameSessionAction, checkAccessAction } from "@/app/actions/gameAccess";
 
-export type AccessReason = "free_trial" | "paid" | "no_tokens" | "error";
+export type AccessReason = "free_trial" | "paid" | "subscription" | "no_tokens" | "error";
 
 export function useGameAccess() {
 

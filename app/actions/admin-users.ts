@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { cancelSubscription, extendSubscription, getAllSubscriptions } from "@/lib/subscriptions";
 
 /**
  * كل دالة هنا تتأكد بنفسها إن اللي يستدعيها مدير — Server Actions تنستدعى مباشرة
@@ -39,7 +40,10 @@ export async function getAdminUsers() {
   }
 
   // Fetch profiles to get tokens
-  const { data: profiles } = await supabase.from("profiles").select("id, available_tokens");
+  const [{ data: profiles }, subscriptions] = await Promise.all([
+    supabase.from("profiles").select("id, available_tokens"),
+    getAllSubscriptions(supabase),
+  ]);
   const profilesMap = new Map(profiles?.map(p => [p.id, p.available_tokens || 0]) || []);
 
   const users = data.users.map((user) => ({
@@ -49,9 +53,26 @@ export async function getAdminUsers() {
     name: user.user_metadata?.name || user.user_metadata?.full_name || "بدون اسم",
     createdAt: user.created_at,
     tokens: profilesMap.get(user.id) || 0,
+    subscriptionEndsAt: subscriptions.get(user.id) ?? null,
   }));
 
   return { users };
+}
+
+/** المدير يعطي اشتراك يدوياً (days: يتمدد من نهاية الحالي)، أو يلغيه (days = 0) */
+export async function setAdminSubscription(userId: string, days: number) {
+  if (!(await isAdmin())) return { success: false as const, error: NOT_ADMIN };
+  if (!Number.isInteger(days) || days < 0 || days > 3650) return { success: false as const, error: "مدة غير صحيحة" };
+  const supabase = getAdminClient();
+
+  if (days === 0) {
+    const ok = await cancelSubscription(supabase, userId);
+    revalidatePath("/admin");
+    return ok ? { success: true as const, endsAt: null } : { success: false as const, error: "تعذّر إلغاء الاشتراك" };
+  }
+  const endsAt = await extendSubscription(supabase, userId, days);
+  revalidatePath("/admin");
+  return endsAt ? { success: true as const, endsAt } : { success: false as const, error: "تعذّر تفعيل الاشتراك" };
 }
 
 export async function deleteAdminUser(userId: string) {

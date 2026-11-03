@@ -2,7 +2,8 @@
 
 import { randomUUID } from "crypto";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
-import { MAFIA_BOT_NAMES, MAFIA_CONFIG, MAFIA_NIGHT_ORDER, MAFIA_ROLES } from "@/constants/mafia";
+import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameAccess";
+import { MAFIA_BOT_NAMES, MAFIA_CONFIG, MAFIA_GAME, MAFIA_NIGHT_ORDER, MAFIA_ROLES } from "@/constants/mafia";
 import {
   MafiaCreateSchema,
   MafiaJoinSchema,
@@ -340,6 +341,11 @@ export async function createMafiaRoom(input: {
     data: { user },
   } = await userClient.auth.getUser();
   if (!user) return fail("يجب تسجيل الدخول لإنشاء غرفة.");
+
+  // الاشتراك يتفحص هنا بدري (بدون ما ينحسب شي) عشان المنشئ ما يجمع الشباب على الفاضي
+  if (!MAFIA_CONFIG.IS_FREE && !(await checkAccessAction(MAFIA_GAME.id)).allowed) {
+    return fail(MAFIA_CONFIG.NO_ACCESS_MESSAGE);
+  }
 
   const created = await createRoomInternal(getSupabaseServiceRole(), user.id, displayName, settings);
   if ("error" in created) return fail(created.error);
@@ -1394,6 +1400,11 @@ export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole |
     return fail(`لازم يكتمل العدد: ${players.length} من ${room.settings.maxPlayers}.`);
   }
 
+  // كل جولة تنحسب لعبة: اشتراك (بدون خصم)، أو التجربة المجانية، أو لعبة من الرصيد القديم
+  if (!MAFIA_CONFIG.IS_FREE && !(await checkAccessAction(MAFIA_GAME.id)).allowed) {
+    return fail(MAFIA_CONFIG.NO_ACCESS_MESSAGE);
+  }
+
   const deck = buildRoleDeck(room.settings);
   if (IS_DEV && devHostRole) {
     const hostIdx = players.findIndex((p) => p.id === room.host_player_id);
@@ -1428,6 +1439,7 @@ export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole |
     final_roles: null,
     phase_ends_at: mafiaDeadline("reveal"),
   });
+  if (ok && !MAFIA_CONFIG.IS_FREE) await consumeGameSessionAction(MAFIA_GAME.id, ctx.userId);
   return ok ? { success: true } : fail("تعذّر بدء اللعبة، حاول مرة ثانية.");
 }
 

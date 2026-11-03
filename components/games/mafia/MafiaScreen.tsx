@@ -159,6 +159,12 @@ export default function MafiaScreen({
         <div className={`${ERROR} animate-in fade-in`}>
           <AlertCircle size={18} className="shrink-0" />
           <span className="flex-1">{error}</span>
+          {/* المنشئ خلصت تجربته وما عنده اشتراك: زر للباقات */}
+          {error === MAFIA_CONFIG.NO_ACCESS_MESSAGE && (
+            <a href="/packages" className="shrink-0 px-3 py-1.5 -my-1 rounded-xl bg-ludn-gold text-ludn-gold-ink font-black">
+              الباقات
+            </a>
+          )}
           <button
             type="button"
             onClick={() => setError("")}

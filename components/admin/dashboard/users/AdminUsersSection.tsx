@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { Users, Trash2, Edit, Save, X, Loader2, Key, Search, Zap } from "lucide-react";
-import { getAdminUsers, deleteAdminUser, updateAdminUser } from "@/app/actions/admin-users";
+import { Users, Trash2, Edit, Save, X, Loader2, Key, Search, Zap, CalendarClock } from "lucide-react";
+import { getAdminUsers, deleteAdminUser, updateAdminUser, setAdminSubscription } from "@/app/actions/admin-users";
+import { formatPlanDate, isSubscriptionActive, subscriptionDaysLeft } from "@/lib/packages";
 import {
   PANEL, PANEL_TITLE, TITLE_ICON, FIELD, ICON_BTN, ICON_BTN_DANGER, BTN_SM_GOLD, BTN_SM_SOFT, SPINNER,
 } from "@/components/admin/layout/adminUi";
@@ -13,9 +14,17 @@ type AdminUser = {
   name: string;
   createdAt: string;
   tokens: number;
+  subscriptionEndsAt: string | null;
 };
 
 const EDIT_LABEL = "block text-xs font-bold text-ludn-muted mb-1.5";
+
+/** أزرار الاشتراك اليدوي بلوحة التحكم: تتمدد من نهاية الاشتراك الحالي */
+const SUB_GRANTS = [
+  { days: 30, label: "+ شهر" },
+  { days: 90, label: "+ 3 شهور" },
+  { days: 365, label: "+ سنة" },
+];
 
 export default function AdminUsersSection() {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -31,6 +40,23 @@ export default function AdminUsersSection() {
   const [editTokens, setEditTokens] = useState<number>(0);
   const [editPassword, setEditPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [subBusy, setSubBusy] = useState(false);
+
+  // الاشتراك ينحفظ على طول (مو مع زر الحفظ)
+  const changeSubscription = async (userId: string, days: number) => {
+    if (days === 0 && !confirm("متأكد تبي تلغي اشتراك هذا المستخدم؟")) return;
+    setSubBusy(true);
+    try {
+      const res = await setAdminSubscription(userId, days);
+      if (res.success) {
+        setUsers((list) => list.map((u) => (u.id === userId ? { ...u, subscriptionEndsAt: res.endsAt } : u)));
+      } else {
+        alert("فشل: " + res.error);
+      }
+    } finally {
+      setSubBusy(false);
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -120,9 +146,48 @@ export default function AdminUsersSection() {
   const formatJoined = (date: string) =>
     new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
+  const editingUser = users.find((u) => u.id === editingUserId) ?? null;
+  const editingActive = isSubscriptionActive(editingUser?.subscriptionEndsAt);
+
   // نموذج التعديل: نفسه بالجدول (الكمبيوتر) وبالبطاقة (الجوال)
   const renderEditForm = () => (
     <div className="rounded-2xl bg-ludn-surface-2 border border-ludn-gold/40 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="md:col-span-2 grid gap-3 rounded-2xl bg-ludn-surface border border-ludn-line p-4">
+        <p className="text-sm font-black text-ludn-gold-text flex items-center gap-2">
+          <CalendarClock size={16} />
+          الاشتراك
+          <span className="font-bold text-ludn-muted">
+            {editingActive && editingUser?.subscriptionEndsAt
+              ? `فعّال لين ${formatPlanDate(editingUser.subscriptionEndsAt)} (باقي ${subscriptionDaysLeft(editingUser.subscriptionEndsAt)} يوم)`
+              : "ما عنده اشتراك"}
+          </span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {SUB_GRANTS.map((g) => (
+            <button
+              key={g.days}
+              type="button"
+              disabled={subBusy || !editingUserId}
+              onClick={() => editingUserId && changeSubscription(editingUserId, g.days)}
+              className={BTN_SM_SOFT}
+            >
+              {g.label}
+            </button>
+          ))}
+          {editingActive && (
+            <button
+              type="button"
+              disabled={subBusy || !editingUserId}
+              onClick={() => editingUserId && changeSubscription(editingUserId, 0)}
+              className={`${BTN_SM_SOFT} text-rose-500`}
+            >
+              إلغاء الاشتراك
+            </button>
+          )}
+          {subBusy && <Loader2 size={18} className="animate-spin self-center text-ludn-muted" />}
+        </div>
+        <p className="text-xs font-bold text-ludn-muted">ينحفظ على طول، ويتمدد من نهاية الاشتراك الحالي</p>
+      </div>
       <div>
         <label className={EDIT_LABEL}>الإسم</label>
         <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className={FIELD} />
@@ -203,6 +268,15 @@ export default function AdminUsersSection() {
     </span>
   );
 
+  const subscriptionBadge = (user: AdminUser) =>
+    isSubscriptionActive(user.subscriptionEndsAt) && user.subscriptionEndsAt ? (
+      <span className="inline-block bg-ludn-gold/15 text-ludn-gold-text font-black text-xs px-3 py-1 rounded-full border border-ludn-gold/30 whitespace-nowrap">
+        لين {formatPlanDate(user.subscriptionEndsAt)}
+      </span>
+    ) : (
+      <span className="text-ludn-muted">—</span>
+    );
+
   if (loading) {
     return (
       <div className={`${PANEL} flex items-center justify-center min-h-[300px]`}>
@@ -257,7 +331,10 @@ export default function AdminUsersSection() {
                     <p className="font-black truncate">{user.name}</p>
                     <p className="text-sm text-ludn-muted break-all" dir="ltr">{user.email || "—"}</p>
                   </div>
-                  {tokensBadge(user)}
+                  <div className="flex flex-col items-end gap-1.5">
+                    {tokensBadge(user)}
+                    {subscriptionBadge(user)}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between gap-3 text-xs font-bold text-ludn-muted">
                   <span dir="ltr">{user.phone || "—"}</span>
@@ -273,12 +350,13 @@ export default function AdminUsersSection() {
 
       {/* الكمبيوتر: جدول */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-right border-collapse min-w-[800px]">
+        <table className="w-full text-right border-collapse min-w-[920px]">
           <thead>
             <tr className="border-b border-ludn-line">
               <th className="py-3 px-4 text-sm font-black text-ludn-muted">الإسم</th>
               <th className="py-3 px-4 text-sm font-black text-ludn-muted">البريد الإلكتروني</th>
               <th className="py-3 px-4 text-sm font-black text-ludn-muted text-center">رصيد الألعاب</th>
+              <th className="py-3 px-4 text-sm font-black text-ludn-muted text-center">الاشتراك</th>
               <th className="py-3 px-4 text-sm font-black text-ludn-muted">رقم الجوال</th>
               <th className="py-3 px-4 text-sm font-black text-ludn-muted text-center">تاريخ التسجيل</th>
               <th className="py-3 px-4 text-sm font-black text-ludn-muted text-center">إجراءات</th>
@@ -289,7 +367,7 @@ export default function AdminUsersSection() {
               <tr key={user.id} className="border-b border-ludn-line hover:bg-ludn-surface-2/60 transition-colors">
 
                 {editingUserId === user.id ? (
-                  <td colSpan={6} className="py-4 px-4">
+                  <td colSpan={7} className="py-4 px-4">
                     {renderEditForm()}
                   </td>
                 ) : (
@@ -297,6 +375,7 @@ export default function AdminUsersSection() {
                     <td className="py-4 px-4 font-bold">{user.name}</td>
                     <td className="py-4 px-4 text-ludn-muted" dir="ltr">{user.email || "—"}</td>
                     <td className="py-4 px-4 text-center">{tokensBadge(user)}</td>
+                    <td className="py-4 px-4 text-center">{subscriptionBadge(user)}</td>
                     <td className="py-4 px-4 text-ludn-muted" dir="ltr">{user.phone || "—"}</td>
                     <td className="py-4 px-4 text-ludn-muted text-sm text-center" dir="ltr">
                       {formatJoined(user.createdAt)}
@@ -311,7 +390,7 @@ export default function AdminUsersSection() {
 
             {filteredUsers.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-ludn-muted font-bold">
+                <td colSpan={7} className="py-12 text-center text-ludn-muted font-bold">
                   {emptyText}
                 </td>
               </tr>

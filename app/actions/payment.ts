@@ -2,7 +2,8 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { getPackageById } from "@/lib/packages";
+import { formatPlanDate, getPackageById } from "@/lib/packages";
+import { extendSubscription } from "@/lib/subscriptions";
 
 function getServiceCredentials() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -145,17 +146,42 @@ export async function verifyAndFulfillPayment(paymentId: string, pkgId: number) 
       .eq("payment_id", paymentId)
       .neq("status", "paid");
 
-    await supabaseAdmin.from("transactions").insert({
-      payment_id: paymentId,
-      user_id: userId,
-      package_id: pkgId,
-      amount: payment.amount,
-      currency: payment.currency,
-      status: "paid",
-      payment_method: payment.source?.type || "unknown",
-    });
+    const { data: savedTx, error: txError } = await supabaseAdmin
+      .from("transactions")
+      .insert({
+        payment_id: paymentId,
+        user_id: userId,
+        package_id: pkgId,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: "paid",
+        payment_method: payment.source?.type || "unknown",
+      })
+      .select("id")
+      .maybeSingle();
 
-    // 8. إضافة الرصيد للمستخدم
+    // نفس الدفعة انحفظت من طلب ثاني بنفس اللحظة (الصفحة انفتحت مرتين) — ما نحسبها مرتين
+    if (txError?.code === "23505") {
+      return { success: true, message: "تم معالجة هذا الدفع مسبقاً ✅" };
+    }
+    if (txError) console.error("transactions insert error:", txError);
+
+    // 8. الاشتراك: يتمدد من نهاية الاشتراك الحالي (أو من الحين لو منتهي)
+    if (pkg.kind === "subscription" && pkg.days) {
+      const endsAt = await extendSubscription(supabaseAdmin, userId, pkg.days);
+      if (!endsAt) {
+        // ما تفعّل: نشيل المعاملة عشان لو أعاد فتح الصفحة يتفعّل اشتراكه بدل "تم مسبقاً"
+        if (savedTx?.id) await supabaseAdmin.from("transactions").delete().eq("id", savedTx.id);
+        return { success: false, error: "تم الدفع بس صار خطأ بتفعيل الاشتراك — حدّث الصفحة، ولو تكرر تواصل معنا" };
+      }
+      return {
+        success: true,
+        message: `اشتراكك (${pkg.name}) فعّال لين ${formatPlanDate(endsAt)} 🎉`,
+        endsAt,
+      };
+    }
+
+    // 8. (الباقات القديمة) إضافة الرصيد للمستخدم
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("available_tokens")
@@ -163,15 +189,16 @@ export async function verifyAndFulfillPayment(paymentId: string, pkgId: number) 
       .maybeSingle();
 
     const currentTokens = profile?.available_tokens || 0;
+    const addTokens = pkg.tokens ?? 0;
     await supabaseAdmin
       .from("profiles")
-      .update({ available_tokens: currentTokens + pkg.tokens })
+      .update({ available_tokens: currentTokens + addTokens })
       .eq("id", userId);
 
     return {
       success: true,
-      message: `تم إضافة ${pkg.tokens} رصيد لحسابك بنجاح! 🎉`,
-      newBalance: currentTokens + pkg.tokens
+      message: `تم إضافة ${addTokens} رصيد لحسابك بنجاح! 🎉`,
+      newBalance: currentTokens + addTokens
     };
 
   } catch (err) {

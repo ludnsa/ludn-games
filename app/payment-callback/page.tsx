@@ -7,6 +7,7 @@ import Link from "next/link";
 import { SitePage } from "@/components/home/SitePage";
 import { BTN_GOLD, BTN_SOFT, CARD } from "@/components/home/ui";
 import { verifyAndFulfillPayment } from "@/app/actions/payment";
+import { subscriptionDaysLeft } from "@/lib/packages";
 
 function PaymentCallbackContent() {
   const searchParams = useSearchParams();
@@ -15,7 +16,7 @@ function PaymentCallbackContent() {
   const pkgId = parseInt(searchParams.get("pkg") || "0");
 
   const [verifying, setVerifying] = useState(true);
-  const [result, setResult] = useState<{ success: boolean; message: string; newBalance?: number } | null>(null);
+  const [result, setResult] = useState<{ success: boolean; message: string; newBalance?: number; endsAt?: string } | null>(null);
 
   useEffect(() => {
     const verify = async () => {
@@ -34,6 +35,7 @@ function PaymentCallbackContent() {
         success: res.success,
         message: res.message || res.error || "حدث خطأ غير متوقع",
         newBalance: res.success ? (res as { newBalance?: number }).newBalance : undefined,
+        endsAt: res.success ? (res as { endsAt?: string }).endsAt : undefined,
       });
       setVerifying(false);
     };
@@ -73,6 +75,16 @@ function PaymentCallbackContent() {
         {result?.message}
       </p>
 
+      {result?.success && result.endsAt && (
+        <div className="rounded-2xl bg-ludn-surface-2 px-5 py-3 flex items-center gap-2.5">
+          <span className="text-ludn-muted font-bold text-sm">باقي على اشتراكك:</span>
+          <span className="font-display text-[30px] leading-none pt-1 text-ludn-gold-text tabular-nums">
+            {subscriptionDaysLeft(result.endsAt)}
+          </span>
+          <span className="text-ludn-muted font-bold text-sm">يوم</span>
+        </div>
+      )}
+
       {result?.success && result.newBalance !== undefined && (
         <div className="rounded-2xl bg-ludn-surface-2 px-5 py-3 flex items-center gap-2.5">
           <span className="text-ludn-muted font-bold text-sm">رصيدك الحالي:</span>
@@ -86,8 +98,8 @@ function PaymentCallbackContent() {
             <Link href="/my-games" className={BTN_GOLD}>
               <Home size={20} /> ألعابي
             </Link>
-            <Link href="/packages" className={BTN_SOFT}>
-              <ArrowRight size={20} /> شراء المزيد
+            <Link href="/" className={BTN_SOFT}>
+              <ArrowRight size={20} /> العب الحين
             </Link>
           </>
         ) : (

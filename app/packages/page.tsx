@@ -1,41 +1,45 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, Zap, Crown, Shield, CreditCard, Loader2 } from "lucide-react";
+import { CheckCircle2, Crown, CreditCard, Loader2, Gift, CalendarClock, Sparkles } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { SitePage, PageHeading } from "@/components/home/SitePage";
 import { BTN_GOLD, BTN_SOFT, CARD } from "@/components/home/ui";
-import { GAME_PACKAGES, PackageData } from "@/lib/packages";
+import { fetchMyPlanAction } from "@/app/actions/gameAccess";
+import {
+  FREE_GAME_TITLES,
+  PAID_GAME_TITLES,
+  SUBSCRIPTION_PLANS,
+  formatPlanDate,
+  isSubscriptionActive,
+  planSaving,
+  pricePerMonth,
+  subscriptionDaysLeft,
+  type PackageData,
+} from "@/lib/packages";
 
-const PERKS = ["صلاحية لا تنتهي", "تستخدم لأي لعبة", "دخول فوري بعد الدفع"];
+const PERKS = ["كل الألعاب المدفوعة", "العب كل يوم وبأي عدد", "بدون تجديد تلقائي"];
 
 export default function PackagesPage() {
   const supabase = getSupabaseBrowser();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [loadingPkgId, setLoadingPkgId] = useState<number | null>(null);
-  const [availableTokens, setAvailableTokens] = useState<number>(0);
+  const [plan, setPlan] = useState<{ endsAt: string | null; tokens: number } | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
-        const { data } = await supabase.from("profiles").select("available_tokens").eq("id", user.id).single();
-        if (data) setAvailableTokens(data.available_tokens || 0);
+        setPlan(await fetchMyPlanAction());
       }
     };
     fetchUser();
   }, [supabase]);
 
-  // Icons mapping
-  const packageIcons: Record<number, React.ReactNode> = {
-    1: <Zap className="w-7 h-7" />,
-    2: <Shield className="w-7 h-7" />,
-    3: <Crown className="w-7 h-7" />,
-    4: <Crown className="w-7 h-7" />,
-  };
+  const active = isSubscriptionActive(plan?.endsAt);
 
   const handlePurchase = (pkg: PackageData) => {
     if (!userId) {
@@ -70,63 +74,131 @@ export default function PackagesPage() {
 
       <PageHeading
         back={{ href: "/", label: "رجوع" }}
-        title="شراء الألعاب"
-        subtitle="اختر الباقة المناسبة لك واستمتع باللعب فوراً"
-        aside={
-          <div className="h-12 px-4 rounded-2xl bg-ludn-surface border border-ludn-line flex items-center gap-2.5">
-            <span className="text-sm font-bold text-ludn-muted">الرصيد الحالي:</span>
-            <span className="font-display text-[26px] leading-none pt-1 text-ludn-gold-text tabular-nums">{availableTokens}</span>
-          </div>
-        }
+        title="الباقات"
+        subtitle="اشترك وتفتح لك كل الألعاب — العب كل يوم وبأي عدد"
       />
 
-      <ul className="grid gap-5 md:grid-cols-3">
-        {GAME_PACKAGES.map((pkg) => (
-          <li
-            key={pkg.id}
-            className={`relative flex flex-col gap-4 rounded-[22px] border p-5 md:p-6 bg-ludn-surface ${
-              pkg.popular ? "border-ludn-gold shadow-[0_14px_36px_var(--ludn-glow)]" : "border-ludn-line"
-            }`}
-          >
-            {pkg.popular && (
-              <span className="absolute -top-3 start-5 text-xs font-black px-3 py-1 rounded-full bg-ludn-gold text-ludn-gold-ink">
-                الأكثر مبيعاً
-              </span>
-            )}
-
-            <div className="flex items-center gap-3.5">
-              <span className="w-14 h-14 shrink-0 rounded-2xl bg-ludn-surface-2 text-ludn-gold-text grid place-items-center">
-                {packageIcons[pkg.id]}
-              </span>
-              <div className="min-w-0">
-                <h3 className="font-display text-[26px] leading-tight">{pkg.name}</h3>
-                <p className="text-[13px] font-semibold text-ludn-muted">رصيد يضاف لحسابك لتشغيل أي لعبة</p>
-              </div>
-            </div>
-
-            <p className="flex items-baseline gap-1.5">
-              <span className="font-display text-[46px] leading-none tabular-nums">{pkg.price}</span>
-              <span className="font-bold text-ludn-muted">ريال</span>
+      {/* حالة اشتراكي */}
+      {active && plan?.endsAt && (
+        <div className={`${CARD} border-ludn-gold/50 p-4 md:p-5 flex items-center gap-3.5`}>
+          <span className="w-12 h-12 shrink-0 rounded-2xl bg-ludn-gold/15 text-ludn-gold-text grid place-items-center">
+            <CalendarClock className="w-6 h-6" />
+          </span>
+          <div className="min-w-0">
+            <p className="font-black text-lg">اشتراكك فعّال لين {formatPlanDate(plan.endsAt)}</p>
+            <p className="text-sm font-bold text-ludn-muted">
+              باقي {subscriptionDaysLeft(plan.endsAt)} يوم — لو جددت الحين، المدة الجديدة تنضاف على الباقي
             </p>
+          </div>
+        </div>
+      )}
+      {!active && Boolean(plan?.tokens) && (
+        <p className="rounded-2xl bg-ludn-surface-2 px-4 py-3 text-sm font-bold text-ludn-muted">
+          عندك رصيد قديم: <b className="text-ludn-fg tabular-nums">{plan?.tokens}</b> ألعاب — ينخصم منه إذا لعبت وما عندك اشتراك
+        </p>
+      )}
 
-            <ul className="grid gap-2 text-sm font-bold flex-1">
-              {PERKS.map((perk) => (
-                <li key={perk} className="flex items-center gap-2">
-                  <CheckCircle2 className="w-[18px] h-[18px] shrink-0 text-ludn-green" /> {perk}
-                </li>
-              ))}
-            </ul>
-
-            <button
-              onClick={() => handlePurchase(pkg)}
-              disabled={loadingPkgId !== null}
-              className={`${pkg.popular ? BTN_GOLD : BTN_SOFT} w-full`}
+      <ul className="grid gap-5 md:grid-cols-3">
+        {SUBSCRIPTION_PLANS.map((pkg) => {
+          const featured = Boolean(pkg.badge);
+          const saving = planSaving(pkg);
+          return (
+            <li
+              key={pkg.id}
+              className={`relative flex flex-col gap-4 rounded-[22px] border p-5 md:p-6 bg-ludn-surface ${
+                featured ? "border-ludn-gold shadow-[0_14px_36px_var(--ludn-glow)]" : "border-ludn-line"
+              }`}
             >
-              {loadingPkgId === pkg.id ? <Loader2 className="animate-spin w-6 h-6" /> : <><CreditCard size={20} /> شراء</>}
-            </button>
-          </li>
-        ))}
+              {pkg.badge && (
+                <span className="absolute -top-3 start-5 text-xs font-black px-3 py-1 rounded-full bg-ludn-gold text-ludn-gold-ink">
+                  {pkg.badge}
+                </span>
+              )}
+
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-display text-[30px] leading-tight">{pkg.name}</h3>
+                  <p className="text-[13px] font-semibold text-ludn-muted">{pkg.days} يوم لكل الألعاب</p>
+                </div>
+                {saving > 0 && (
+                  <span className="shrink-0 text-xs font-black px-2.5 py-1 rounded-full bg-ludn-green/15 text-ludn-green border border-ludn-green/30">
+                    توفّر {saving} ريال
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <p className="flex items-baseline gap-1.5">
+                  <span className="font-display text-[46px] leading-none tabular-nums">{pkg.price}</span>
+                  <span className="font-bold text-ludn-muted">ريال</span>
+                </p>
+                {/* الشهري: سطر فاضي بس بالشاشات العريضة عشان الأسعار تكون على خط واحد */}
+                <p
+                  className={`text-[13px] font-bold text-ludn-muted mt-1.5 min-h-5 ${(pkg.months ?? 1) > 1 ? "" : "hidden md:block"}`}
+                >
+                  {(pkg.months ?? 1) > 1 ? `يعني ${pricePerMonth(pkg)} ريال بالشهر` : " "}
+                </p>
+              </div>
+
+              <ul className="grid gap-2 text-sm font-bold flex-1">
+                {PERKS.map((perk) => (
+                  <li key={perk} className="flex items-center gap-2">
+                    <CheckCircle2 className="w-[18px] h-[18px] shrink-0 text-ludn-green" /> {perk}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => handlePurchase(pkg)}
+                disabled={loadingPkgId !== null}
+                className={`${featured ? BTN_GOLD : BTN_SOFT} w-full`}
+              >
+                {loadingPkgId === pkg.id ? (
+                  <Loader2 className="animate-spin w-6 h-6" />
+                ) : (
+                  <>
+                    <CreditCard size={20} /> {active ? "مدّد اشتراكي" : "اشترك"}
+                  </>
+                )}
+              </button>
+            </li>
+          );
+        })}
       </ul>
+
+      {/* وش يفتح الاشتراك + التجربة المجانية + الألعاب المجانية */}
+      <div className={`${CARD} p-4 md:p-6 grid gap-4 md:grid-cols-2`}>
+        <div className="grid gap-2 content-start">
+          <p className="font-black flex items-center gap-2">
+            <Crown size={18} className="text-ludn-gold-text" /> الاشتراك يفتح لك
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {PAID_GAME_TITLES.map((t) => (
+              <span key={t} className="text-[13px] font-bold px-3 py-1 rounded-full bg-ludn-surface-2">
+                {t}
+              </span>
+            ))}
+          </div>
+          <p className="text-[13px] font-bold text-ludn-muted flex items-center gap-1.5 mt-1">
+            <Gift size={16} className="shrink-0 text-ludn-green" /> كل لعبة منها لها تجربة مجانية وحدة قبل ما تشترك
+          </p>
+        </div>
+        <div className="grid gap-2 content-start">
+          <p className="font-black flex items-center gap-2">
+            <Sparkles size={18} className="text-ludn-green" /> مجانية دايماً
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {FREE_GAME_TITLES.map((t) => (
+              <span key={t} className="text-[13px] font-bold px-3 py-1 rounded-full bg-ludn-green/15 text-ludn-green">
+                {t}
+              </span>
+            ))}
+          </div>
+          <p className="text-[13px] font-bold text-ludn-muted mt-1">
+            الاشتراك للي ينشئ اللعبة بس — الباقين يدخلون بالكود ببلاش
+          </p>
+        </div>
+      </div>
     </SitePage>
   );
 }
