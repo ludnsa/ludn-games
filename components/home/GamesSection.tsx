@@ -23,8 +23,11 @@ interface HomeGame {
   category: Category;
   /** معلومات سريعة تطلع بورقة اللعبة */
   meta: string[];
-  /** رسمة اللعبة، أو غلاف مؤقت مرسوم بالكود لين تجهز رسمتها */
-  cover: { img: string } | { art: GameArtKind };
+  /**
+   * رسمة اللعبة، أو غلاف مؤقت مرسوم بالكود لين تجهز رسمتها.
+   * full: الرسمة مقاسها من البطاقة (4:5) فتطلع كاملة بدون قص وتكبير.
+   */
+  cover: { img: string; full?: boolean } | { art: GameArtKind };
   badge?: { text: string; icon: string };
   /** مجانية دايماً (ما تحتاج اشتراك) — يطلع عليها تاق */
   free?: boolean;
@@ -82,7 +85,7 @@ const GAMES: HomeGame[] = [
     line: "هاجم ودافع، ودمّر قلاع خصمك.",
     category: "استراتيجية",
     meta: ["جوالات اللاعبين", "شاشة عرض"],
-    cover: { art: "castle" },
+    cover: { img: "/games/castle-war/castle-war-cover.webp", full: true },
   },
   {
     id: "world-domination",
@@ -112,18 +115,21 @@ const countText = (n: number) => (n === 1 ? "لعبة وحدة" : n === 2 ? "ل�
 /** الغلاف: صورة اللعبة مقصوصة على الشخصية، أو الرسمة المؤقتة */
 function GameCover({ game, wide = false }: { game: HomeGame; wide?: boolean }) {
   if ("art" in game.cover) return <GameArt kind={game.cover.art} wide={wide} />;
+  const { img, full } = game.cover;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={game.cover.img}
+      src={img}
       alt=""
       loading="lazy"
       draggable={false}
       className="absolute inset-0 w-full h-full object-cover"
       style={
         wide
-          ? { objectPosition: "50% 32%", transform: "scale(1.15)" }
-          : { objectPosition: "50% 20%", transform: "scale(1.3)", transformOrigin: "50% 58%" }
+          ? { objectPosition: "50% 32%", transform: full ? undefined : "scale(1.15)" }
+          : full
+            ? undefined
+            : { objectPosition: "50% 20%", transform: "scale(1.3)", transformOrigin: "50% 58%" }
       }
     />
   );
