@@ -117,6 +117,28 @@ const generateAlphanumericCode = (length: number) => {
   return result;
 };
 
+/** غرفة الحكم المحفوظة في هذا التبويب: تبقى بعد تحديث الصفحة، وتنمسح لما تنتهي اللعبة */
+export const getSavedCastleRoom = () =>
+  typeof window === "undefined" ? null : sessionStorage.getItem("cw_referee_room");
+
+/**
+ * إنشاء الغرفة، من زر "إنشاء الغرفة" بس. ما يحسب تجربة ولا اشتراك: الاحتساب عند "بدء الحرب".
+ * insert مو upsert: لو الكود طلع مكرر نجرب غيره، بدل ما نركب على غرفة قديمة وتطلع فرقها جاهزة.
+ */
+export async function createCastleRoom(team1Name: string, team2Name: string): Promise<boolean> {
+  const supabase = getSupabaseBrowser();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = "C" + generateAlphanumericCode(4);
+    const { error } = await supabase.from("cw_rooms").insert({ room_code: code, live_sync: { team1Name, team2Name } });
+    if (!error) {
+      sessionStorage.setItem("cw_referee_room", code);
+      return true;
+    }
+    if (error.code !== "23505") return false; // 23505: الكود مستخدم
+  }
+  return false;
+}
+
 export function useCastleWar() {
   const room = useCWRoom();
   const flow = useCWGameFlow();
@@ -284,8 +306,16 @@ export function useCastleWar() {
     }
   }, 50);
 
+  // pending: لسا ما قرأنا الغرفة، فالحالة افتراضية وما نكتبها فوق اللي في القاعدة
+  // skipSync: رجعنا الأسماء من القاعدة، فالكتابة اللي يسببها هذا ما لها داعي (التفصيل في initGame)
+  const nameRestoreRef = useRef<"pending" | "skipSync" | "done">("pending");
+
   useEffect(() => {
     if (!roomCodeRef.current) return;
+    if (nameRestoreRef.current !== "done") {
+      if (nameRestoreRef.current === "skipSync") nameRestoreRef.current = "done";
+      return;
+    }
     const liveData = {
       gameState, hp1, hp2, revealed1, revealed2, attackingTeam, turn,
       spiedTarget1, spiedTarget2, team1Data, team2Data, team1Name, team2Name,
@@ -318,10 +348,22 @@ export function useCastleWar() {
           roomCodeRef.current = savedRoom;
           setJoinUrl(`${window.location.origin}/games/castle-war/join?code=${savedRoom}`);
           const { data } = await supabase.from("cw_rooms").select("team1_setup, team2_setup, live_sync").eq("room_code", savedRoom).single();
+
+          // غرفة الانتظار: أسماء صفحة الإعداد (أو تعديل الحكم) ترجع بعد التحديث.
+          // ما نكتبها مرة ثانية: الحكم يكتب live_sync كامل، وهذا يمسح علامة "الفريق دخل" اللي يكتبها جوال الفريق
+          if (nameRestoreRef.current === "pending") {
+            const sync = data?.live_sync;
+            const inLobby = !sync?.gameState || sync.gameState === "lobby";
+            const namesChanged = inLobby && ((sync?.team1Name && sync.team1Name !== team1Name) || (sync?.team2Name && sync.team2Name !== team2Name));
+            nameRestoreRef.current = namesChanged && !data?.team1_setup && !data?.team2_setup ? "skipSync" : "done";
+            if (inLobby && sync?.team1Name) setTeam1Name(sync.team1Name);
+            if (inLobby && sync?.team2Name) setTeam2Name(sync.team2Name);
+          }
+
           if (data) {
              if (data.team1_setup) { setTeam1Data(data.team1_setup); setTeam1Ready(true); }
              if (data.team2_setup) { setTeam2Data(data.team2_setup); setTeam2Ready(true); }
-             
+
              if (data.live_sync && data.live_sync.gameState) {
                 if (data.live_sync.gameState !== "lobby") {
                   setGameState(data.live_sync.gameState);
@@ -356,13 +398,6 @@ export function useCastleWar() {
                 }
              }
           }
-        } else {
-          const newRoomCode = "C" + generateAlphanumericCode(4);
-          setRoomCode(newRoomCode);
-          roomCodeRef.current = newRoomCode;
-          setJoinUrl(`${window.location.origin}/games/castle-war/join?code=${newRoomCode}`);
-          sessionStorage.setItem("cw_referee_room", newRoomCode);
-          await supabase.from("cw_rooms").upsert({ room_code: newRoomCode, live_sync: {} });
         }
 
         const { data: questions } = await supabase.from("cw_questions").select("*");
@@ -384,6 +419,7 @@ export function useCastleWar() {
       } catch (err) {
         console.error(err);
       } finally {
+        if (nameRestoreRef.current === "pending") nameRestoreRef.current = "done";
         setIsLoading(false);
       }
     };

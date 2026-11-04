@@ -13,13 +13,29 @@ import {
 import InteractiveCastle from "@/components/games/castle-war/InteractiveCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
-import { useCastleWar, TOTAL_SOLDIERS } from "@/hooks/useCastleWar";
+import CastleWarSetup from "@/components/games/castle-war/CastleWarSetup";
+import { useCastleWar, getSavedCastleRoom, TOTAL_SOLDIERS } from "@/hooks/useCastleWar";
 
 import AccessLoadingScreen from "@/components/games/shared/AccessLoadingScreen";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
-export default function CastleBattleMainScreen() {
+const noopSubscribe = () => () => {};
+
+/**
+ * فيه غرفة في هذا التبويب: اللعبة مباشرة (وهذا اللي يصير بعد التحديث).
+ * ما فيه: صفحة الإعداد، وهوك اللعبة ما يشتغل أصلاً لين تنشأ الغرفة.
+ */
+export default function CastleWarPage() {
+  // الغرفة محفوظة في المتصفح والسيرفر ما يعرفها، فنعرض التحميل لين نوصل للمتصفح
+  const mounted = React.useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const [hasRoom, setHasRoom] = React.useState(() => getSavedCastleRoom() !== null);
+
+  if (!mounted) return <AccessLoadingScreen />;
+  return hasRoom ? <CastleBattleMainScreen /> : <CastleWarSetup onCreated={() => setHasRoom(true)} />;
+}
+
+function CastleBattleMainScreen() {
   const {
     gameState, isLoading, roomCode, joinUrl, linkCopied, copyToClipboard,
     team1Name, team2Name, updateTeamNameLocally, team1Ready, team2Ready, startBattle,
