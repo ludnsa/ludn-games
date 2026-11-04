@@ -5,13 +5,15 @@ import React from "react";
 import Link from "next/link";
 import { Cairo } from "next/font/google";
 import {
-  Shield, Crown, Bomb, CheckCircle2, Crosshair, Swords, Zap, Volume2,
+  Shield, Crown, CheckCircle2, Crosshair, Swords, Zap, Volume2,
   VolumeX, Flame, Eye, Lock, Skull, Clock, RefreshCw, Search, Ban, Copy,
   MonitorPlay, ArrowRight, Sun, Moon, Home, Info, QrCode
 } from "lucide-react";
 
 import SolidGamingBackground from "@/components/games/castle-war/SolidGamingBackground";
 import InteractiveCastle from "@/components/games/castle-war/InteractiveCastle";
+import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
+import CastleIcon from "@/components/games/castle-war/CastleIcon";
 import { useCastleWar, TOTAL_SOLDIERS } from "@/hooks/useCastleWar";
 
 import AccessLoadingScreen from "@/components/games/shared/AccessLoadingScreen";
@@ -39,6 +41,8 @@ export default function CastleBattleMainScreen() {
   const [showResetModal, setShowResetModal] = React.useState(false);
   const [showQRModal, setShowQRModal] = React.useState(false);
   const [showInstructionsModal, setShowInstructionsModal] = React.useState(false);
+  // عرض بس: الكشف فوق اللعبة، وصناديق النتيجة ولوحة الفخ تطلع بعد ما يخلص
+  const reveal = useCastleReveal({ enabled: !isLoading && !isAccessChecking, battleStep, resultType, attackingTeam, hp1, hp2 });
 
   if (isAccessChecking) {
     return <AccessLoadingScreen />;
@@ -67,6 +71,7 @@ export default function CastleBattleMainScreen() {
 
 
       <SolidGamingBackground />
+      <CastleReveal reveal={reveal} />
 
       {showQRModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
@@ -403,7 +408,7 @@ export default function CastleBattleMainScreen() {
                       </p>
 
                       <button onClick={useSpy} disabled={(attackingTeam === 1 && spyUsed1) || (attackingTeam === 2 && spyUsed2)} className={`w-full py-4 rounded-2xl text-lg font-black flex items-center justify-center gap-2 transition-all border-4 shadow-[4px_4px_0px_#0f172a] ${(attackingTeam === 1 && !spyUsed1) || (attackingTeam === 2 && !spyUsed2) ? "bg-amber-400 hover:bg-amber-300 text-slate-900 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-1" : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-300 dark:border-slate-700 border-b-4 cursor-not-allowed"}`}>
-                        {(attackingTeam === 1 && spyUsed1) || (attackingTeam === 2 && spyUsed2) ? <Lock className="w-5 h-5" strokeWidth={3} /> : <Eye className="w-5 h-5" strokeWidth={3} />}
+                        {(attackingTeam === 1 && spyUsed1) || (attackingTeam === 2 && spyUsed2) ? <Lock className="w-5 h-5" strokeWidth={3} /> : <CastleIcon kind="spy" />}
                         <span>{(attackingTeam === 1 && spyUsed1) || (attackingTeam === 2 && spyUsed2) ? "تم الاستخدام" : "استخدام الجاسوس"}</span>
                       </button>
 
@@ -413,10 +418,10 @@ export default function CastleBattleMainScreen() {
                     </div>
                   )}
 
-                  {battleStep === "trapChoice" && (
+                  {battleStep === "trapChoice" && !reveal && (
                     <div className="animate-in zoom-in w-full flex flex-col items-center justify-center h-full py-4 px-4">
-                      <Bomb className="mx-auto text-purple-600 dark:text-purple-400 mb-4 animate-pulse w-20 h-20" strokeWidth={2.5} />
-                      <h3 className="text-4xl font-black text-purple-700 dark:text-purple-400 mb-4">وقع في الفخ! 🪤</h3>
+                      <CastleIcon kind="trap" className="mx-auto mb-4 animate-pulse w-20 h-20" />
+                      <h3 className="text-4xl font-black text-purple-700 dark:text-purple-400 mb-4">وقع في الفخ!</h3>
                       <p className="text-slate-700 dark:text-slate-300 font-black mb-8 bg-purple-50 dark:bg-purple-900/30 px-6 py-3 rounded-2xl border-4 border-purple-200 dark:border-purple-800 text-lg">
                         يا فريق ({attackingTeam === 1 ? team2Name : team1Name}) اختر مصيرهم:
                       </p>
@@ -434,7 +439,7 @@ export default function CastleBattleMainScreen() {
               </>
             )}
 
-            {gameState === "gameOver" && (
+            {gameState === "gameOver" && !reveal && (
               <div className={`${cardClass} w-full text-center animate-in zoom-in-95 flex flex-col justify-center items-center p-8`}>
                 <div className="w-32 h-32 bg-amber-100 dark:bg-amber-900/40 rounded-[2rem] flex items-center justify-center border-4 border-amber-400 dark:border-amber-600 shadow-inner mb-6">
                   <Crown className="text-amber-500 w-16 h-16 animate-bounce" strokeWidth={2.5} />
@@ -477,15 +482,15 @@ export default function CastleBattleMainScreen() {
         </div>
       </div>
 
-      {gameState === "playing" && battleStep === "result" && (
+      {gameState === "playing" && battleStep === "result" && !reveal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 pointer-events-auto px-4">
           <div className={`flex flex-col items-center justify-center p-8 md:p-14 w-full max-w-3xl rounded-[3rem] border-8 shadow-[20px_20px_0px_#000] animate-in zoom-in-95 duration-300 ${resultType === "spy" ? "bg-yellow-400 border-yellow-600" : "bg-white dark:bg-slate-800 border-slate-900 dark:border-black"}`}>
             <div className={`w-28 h-28 rounded-full flex items-center justify-center mb-8 shadow-inner border-8 ${resultType === "spy" ? "border-yellow-500 bg-yellow-300" : "border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"}`}>
               {resultType === "hit" && <CheckCircle2 className="text-emerald-500 w-14 h-14" strokeWidth={3} />}
               {resultType === "miss" && <Shield className="text-slate-400 dark:text-slate-500 w-14 h-14" fill="none" strokeWidth={3} />}
-              {resultType === "trap" && <Bomb className="text-purple-600 dark:text-purple-400 animate-screen-shake w-14 h-14" strokeWidth={3} />}
-              {resultType === "commander" && <Crown className="text-amber-500 animate-pulse w-14 h-14" strokeWidth={3} />}
-              {resultType === "spy" && <Eye className="text-slate-900 animate-pulse w-14 h-14" strokeWidth={3} />}
+              {resultType === "trap" && <CastleIcon kind="trap" className="animate-screen-shake w-20 h-20" />}
+              {resultType === "commander" && <CastleIcon kind="commander" className="animate-pulse w-20 h-20" />}
+              {resultType === "spy" && <CastleIcon kind="spy" className="animate-pulse w-20 h-20" />}
             </div>
             <h3 className={`text-2xl md:text-4xl font-black mb-10 px-6 leading-relaxed py-8 rounded-2xl border-4 w-full text-center shadow-inner ${resultType === "spy" ? "bg-yellow-300 border-yellow-500 text-slate-900" : resultType === "hit" ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400" : resultType === "trap" ? "bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-400" : resultType === "commander" ? "bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400" : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white"}`}>
               {resultMsg}
@@ -553,7 +558,7 @@ export default function CastleBattleMainScreen() {
                   <ul className="list-disc list-inside space-y-2">
                     <li>كل فريق يستلم قلعة فيها 15 نافذة وعنده <span className="text-rose-500 font-black">120 جندي</span>.</li>
                     <li>يوزع الفريق جنوده على النوافذ بسرية تامة من جوالهم.</li>
-                    <li><span className="text-amber-500 font-black">الأهم:</span> لازم تختار نافذة تخبي فيها <strong>"القائد 👑"</strong> ونافذة ثانية تحط فيها <strong>"الفخ 🪤"</strong> وغرفة القائد والفخ ما تحط فيها جنود وتقدر توزع الجنود من زر توزيع عشوائي.</li>
+                    <li><span className="text-amber-500 font-black">الأهم:</span> لازم تختار نافذة تخبي فيها <strong>"القائد <CastleIcon kind="commander" className="inline-block align-middle w-12 h-12" />"</strong> ونافذة ثانية تحط فيها <strong>"الفخ <CastleIcon kind="trap" className="inline-block align-middle w-12 h-12" />"</strong> وغرفة القائد والفخ ما تحط فيها جنود وتقدر توزع الجنود من زر توزيع عشوائي.</li>
                   </ul>
                 </div>
 
@@ -561,14 +566,14 @@ export default function CastleBattleMainScreen() {
                   <h3 className="text-rose-600 dark:text-rose-400 font-black text-lg mb-2">🔥 وقت المعركة:</h3>
                   <ul className="list-disc list-inside space-y-2">
                     <li>تطلع لكم تحديات وأسئلة، الفريق اللي يفوز بالتحدي يصير له الدور في الهجوم! تختار نافذة من قلعة الخصم وتقصفها وإذا جاوبت خطأ الخصم بيختار غرفة من قلعتك ويقصفها 💣.</li>
-                    <li><strong>طيحة الفخ 🪤:</strong> لو ضربت الفخ.. أكلتها! الخصم بيقرر إما يصفي <span className="text-rose-500 font-black">20 جندي</span> من جيشك، أو يأسرهم ويضمهم لجيشه.</li>
+                    <li><strong>طيحة الفخ <CastleIcon kind="trap" className="inline-block align-middle w-12 h-12" />:</strong> لو ضربت الفخ.. أكلتها! الخصم بيقرر إما يصفي <span className="text-rose-500 font-black">20 جندي</span> من جيشك، أو يأسرهم ويضمهم لجيشه.</li>
                     <li><strong>إصابة عادية:</strong> إذا ضربت نافذة فيها جنود، تخسف فيهم وينقص عدد الجنود المندسين بالغرفة.</li>
-                    <li><strong>صيدة القائد 👑:</strong> لو طحت على القائد، هذي ضربة قاضية! الخصم يودع 30 جندي يطيرون من جيشه!</li>
+                    <li><strong>صيدة القائد <CastleIcon kind="commander" className="inline-block align-middle w-12 h-12" />:</strong> لو طحت على القائد، هذي ضربة قاضية! الخصم يودع 30 جندي يطيرون من جيشه!</li>
                   </ul>
                 </div>
 
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border-2 border-indigo-100 dark:border-indigo-800">
-                  <h3 className="text-indigo-600 dark:text-indigo-400 font-black text-lg mb-2">👁️ الجاسوس الذيب:</h3>
+                  <h3 className="text-indigo-600 dark:text-indigo-400 font-black text-lg mb-2 flex items-center gap-2"><CastleIcon kind="spy" /> الجاسوس الذيب:</h3>
                   <ul className="list-disc list-inside space-y-2">
                     <li>كل فريق يقدر يستخدم الجاسوس مرة وحدة طول اللعبة.</li>
                     <li>الجاسوس يروح يجيب لك أكثر نافذة مليانة جنود ويقصفها لك جاهزة مجهزة.</li>

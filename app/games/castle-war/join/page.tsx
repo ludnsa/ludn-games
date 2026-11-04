@@ -5,12 +5,13 @@ import React from "react";
 import { Cairo } from "next/font/google";
 import { useRouter } from "next/navigation";
 import {
-  Swords, CheckCircle2, Crown, Bomb, Minus, Plus, Shuffle, Lock, User,
+  Swords, CheckCircle2, Minus, Plus, Shuffle, Lock, User,
   AlertCircle, MapPin, Users, ChevronRight, Sun, Moon, RefreshCw, MonitorPlay,
 } from "lucide-react";
 
 import SolidGamingBackground from "@/components/games/castle-war/SolidGamingBackground";
 import JoinInteractiveCastle from "@/components/games/castle-war/join/JoinInteractiveCastle";
+import CastleIcon from "@/components/games/castle-war/CastleIcon";
 import { useCastleWarJoin, TOTAL_SOLDIERS } from "@/hooks/useCastleWarJoin";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
@@ -143,8 +144,9 @@ export default function CastleWarJoinPage() {
                     </h3>
                     <button onClick={() => setActiveRoomIdx(null)} className="text-rose-500 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 border-2 border-rose-200 dark:border-rose-800 border-b-4 active:border-b-2 active:translate-y-0.5 font-black text-xs px-4 py-2 rounded-xl transition-all">إغلاق ✕</button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center shadow-inner">
+                  {/* مربع الجنود بسطر كامل: + و− والخانة يحتاجون 184 بكسل، ونص العرض ما يكفيهم */}
+                  <div className="grid gap-3">
+                    <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-2xl border-2 border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center shadow-inner">
                       <label className="text-[10px] uppercase tracking-widest font-black text-slate-500 dark:text-slate-400 mb-3">تعديل الجنود</label>
                       <div className="flex items-center gap-3">
                         <button onClick={() => handleRoomChange(activeRoomIdx, -1)} disabled={rooms[activeRoomIdx] === 0 || commanderRoom === activeRoomIdx || trapRoom === activeRoomIdx} className="w-12 h-12 shrink-0 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 disabled:opacity-30 disabled:border-b-2 flex items-center justify-center active:translate-y-0.5 border-2 border-rose-300 dark:border-rose-800 border-b-4 active:border-b-2 transition-all">
@@ -156,12 +158,12 @@ export default function CastleWarJoinPage() {
                         </button>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <button onClick={() => assignSpecialRole(activeRoomIdx, "commander")} className={`w-full h-full rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all border-2 border-b-4 active:border-b-2 active:translate-y-0.5 ${commanderRoom === activeRoomIdx ? "bg-amber-400 text-slate-900 border-amber-600" : "bg-slate-50 dark:bg-slate-900 text-amber-600 dark:text-amber-500 border-slate-200 dark:border-slate-700 hover:bg-amber-50 dark:hover:bg-slate-800"}`}>
-                        <Crown size={20} strokeWidth={2.5} /> <span className="hidden sm:inline">{commanderRoom === activeRoomIdx ? "غرفة القائد" : "تعيين كقائد"}</span> <span className="sm:hidden">قائد</span>
+                        <CastleIcon kind="commander" /> <span className="hidden sm:inline">{commanderRoom === activeRoomIdx ? "غرفة القائد" : "تعيين كقائد"}</span> <span className="sm:hidden">قائد</span>
                       </button>
                       <button onClick={() => assignSpecialRole(activeRoomIdx, "trap")} className={`w-full h-full rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all border-2 border-b-4 active:border-b-2 active:translate-y-0.5 ${trapRoom === activeRoomIdx ? "bg-purple-500 text-white border-purple-700" : "bg-slate-50 dark:bg-slate-900 text-purple-600 dark:text-purple-400 border-slate-200 dark:border-slate-700 hover:bg-purple-50 dark:hover:bg-slate-800"}`}>
-                        <Bomb size={20} strokeWidth={2.5} /> <span className="hidden sm:inline">{trapRoom === activeRoomIdx ? "غرفة الفخ" : "تعيين كفخ"}</span> <span className="sm:hidden">فخ</span>
+                        <CastleIcon kind="trap" /> <span className="hidden sm:inline">{trapRoom === activeRoomIdx ? "غرفة الفخ" : "تعيين كفخ"}</span> <span className="sm:hidden">فخ</span>
                       </button>
                     </div>
                   </div>

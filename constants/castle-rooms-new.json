@@ -1,0 +1,252 @@
+{
+  "canvas": {
+    "width": 2400,
+    "height": 2240,
+    "unit": "px",
+    "origin": "top-left"
+  },
+  "image": "castle-war-castle.webp",
+  "note": "Room boxes measured on the new castle art: outer stone arch of each window, sill excluded. Arched top.",
+  "rooms": [
+    {
+      "number": 1,
+      "codeId": 0,
+      "x": 437,
+      "y": 843,
+      "width": 150,
+      "height": 186,
+      "centerX": 512,
+      "centerY": 936,
+      "gameShape": {
+        "x": 437,
+        "y": 843,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 2,
+      "codeId": 1,
+      "x": 437,
+      "y": 1092,
+      "width": 150,
+      "height": 186,
+      "centerX": 512,
+      "centerY": 1185,
+      "gameShape": {
+        "x": 437,
+        "y": 1092,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 3,
+      "codeId": 2,
+      "x": 437,
+      "y": 1340,
+      "width": 150,
+      "height": 186,
+      "centerX": 512,
+      "centerY": 1433,
+      "gameShape": {
+        "x": 437,
+        "y": 1340,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 4,
+      "codeId": 3,
+      "x": 285,
+      "y": 1588,
+      "width": 150,
+      "height": 186,
+      "centerX": 360,
+      "centerY": 1681,
+      "gameShape": {
+        "x": 285,
+        "y": 1588,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 5,
+      "codeId": 4,
+      "x": 598,
+      "y": 1588,
+      "width": 150,
+      "height": 186,
+      "centerX": 673,
+      "centerY": 1681,
+      "gameShape": {
+        "x": 598,
+        "y": 1588,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 6,
+      "codeId": 5,
+      "x": 1155,
+      "y": 540,
+      "width": 145,
+      "height": 185,
+      "centerX": 1227,
+      "centerY": 632,
+      "gameShape": {
+        "x": 1155,
+        "y": 540,
+        "width": 145,
+        "height": 185
+      }
+    },
+    {
+      "number": 7,
+      "codeId": 6,
+      "x": 912,
+      "y": 850,
+      "width": 150,
+      "height": 186,
+      "centerX": 987,
+      "centerY": 943,
+      "gameShape": {
+        "x": 912,
+        "y": 850,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 8,
+      "codeId": 7,
+      "x": 1393,
+      "y": 850,
+      "width": 150,
+      "height": 186,
+      "centerX": 1468,
+      "centerY": 943,
+      "gameShape": {
+        "x": 1393,
+        "y": 850,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 9,
+      "codeId": 8,
+      "x": 912,
+      "y": 1180,
+      "width": 150,
+      "height": 186,
+      "centerX": 987,
+      "centerY": 1273,
+      "gameShape": {
+        "x": 912,
+        "y": 1180,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 10,
+      "codeId": 9,
+      "x": 1393,
+      "y": 1180,
+      "width": 150,
+      "height": 186,
+      "centerX": 1468,
+      "centerY": 1273,
+      "gameShape": {
+        "x": 1393,
+        "y": 1180,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 11,
+      "codeId": 10,
+      "x": 1873,
+      "y": 843,
+      "width": 150,
+      "height": 186,
+      "centerX": 1948,
+      "centerY": 936,
+      "gameShape": {
+        "x": 1873,
+        "y": 843,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 12,
+      "codeId": 11,
+      "x": 1873,
+      "y": 1092,
+      "width": 150,
+      "height": 186,
+      "centerX": 1948,
+      "centerY": 1185,
+      "gameShape": {
+        "x": 1873,
+        "y": 1092,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 13,
+      "codeId": 12,
+      "x": 1873,
+      "y": 1340,
+      "width": 150,
+      "height": 186,
+      "centerX": 1948,
+      "centerY": 1433,
+      "gameShape": {
+        "x": 1873,
+        "y": 1340,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 14,
+      "codeId": 13,
+      "x": 1715,
+      "y": 1588,
+      "width": 150,
+      "height": 186,
+      "centerX": 1790,
+      "centerY": 1681,
+      "gameShape": {
+        "x": 1715,
+        "y": 1588,
+        "width": 150,
+        "height": 186
+      }
+    },
+    {
+      "number": 15,
+      "codeId": 14,
+      "x": 2027,
+      "y": 1588,
+      "width": 150,
+      "height": 186,
+      "centerX": 2102,
+      "centerY": 1681,
+      "gameShape": {
+        "x": 2027,
+        "y": 1588,
+        "width": 150,
+        "height": 186
+      }
+    }
+  ]
+}

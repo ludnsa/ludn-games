@@ -4,11 +4,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Cairo } from "next/font/google";
 import {
-  Shield, Crown, Bomb, Swords, Crosshair, Skull, Eye, Flame, CheckCircle2, Lock,
+  Shield, Crown, Swords, Crosshair, Skull, Eye, Flame, CheckCircle2, Lock,
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import AudienceBackground from "@/components/games/castle-war/display/AudienceBackground";
 import AudienceCastle from "@/components/games/castle-war/display/AudienceCastle";
+import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
+import CastleIcon from "@/components/games/castle-war/CastleIcon";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -23,6 +25,17 @@ export default function CastleWarDisplay() {
   const [displayTimer, setDisplayTimer] = useState<number>(0);
 
   const lastTimestampRef = useRef<number | null>(null);
+
+  // عرض بس: الكشف فوق اللعبة، وصناديق النتيجة تطلع بعد ما يخلص
+  const reveal = useCastleReveal({
+    enabled: !!liveData,
+    battleStep: liveData?.battleStep,
+    resultType: liveData?.resultType,
+    attackingTeam: liveData?.attackingTeam,
+    hp1: liveData?.hp1,
+    hp2: liveData?.hp2,
+  });
+  const revealing = reveal !== null;
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -84,7 +97,7 @@ export default function CastleWarDisplay() {
   }, []);
 
   useEffect(() => {
-    if (liveData?.battleStep === "result" && liveData?.targetRoomIndex === null) {
+    if (liveData?.battleStep === "result" && liveData?.targetRoomIndex === null && !revealing) {
        setHideResultModal(false);
        const timer = setTimeout(() => {
           setHideResultModal(true);
@@ -93,7 +106,7 @@ export default function CastleWarDisplay() {
     } else {
        setHideResultModal(false);
     }
-  }, [liveData?.battleStep, liveData?.targetRoomIndex]);
+  }, [liveData?.battleStep, liveData?.targetRoomIndex, revealing]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
@@ -143,6 +156,7 @@ export default function CastleWarDisplay() {
 
 
       <AudienceBackground />
+      <CastleReveal reveal={reveal} />
 
       <div className="relative z-10 w-full min-h-screen md:h-full flex flex-col md:flex-row items-center justify-center md:justify-between px-4 md:px-16 gap-8 md:gap-10 pt-28 pb-12 md:py-0">
         <div className="w-full md:flex-1 flex flex-col justify-center items-center z-20 order-1 md:order-none">
@@ -279,14 +293,14 @@ export default function CastleWarDisplay() {
           </div>
         )}
 
-        {liveData.battleStep === "result" && liveData.targetRoomIndex === null && !hideResultModal && liveData.gameState !== "gameOver" && (
+        {liveData.battleStep === "result" && liveData.targetRoomIndex === null && !hideResultModal && !revealing && liveData.gameState !== "gameOver" && (
           <div className={`border-8 rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 text-center shadow-[16px_16px_0px_#000] animate-in zoom-in duration-500 w-full max-w-2xl md:max-w-3xl ${liveData.resultType === "spy" ? "bg-yellow-400 border-yellow-600" : liveData.resultType === "hit" ? "bg-emerald-400 border-black text-slate-900" : liveData.resultType === "trap" ? "bg-purple-500 border-black text-white" : liveData.resultType === "commander" ? "bg-amber-400 border-black text-slate-900" : "bg-slate-200 border-black text-slate-900"}`}>
             <div className={`mx-auto w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-4 md:mb-6 shadow-inner border-8 ${liveData.resultType === "spy" ? "border-yellow-500 bg-yellow-300" : "border-slate-100/20 bg-black/10"}`}>
               {liveData.resultType === "hit" && <CheckCircle2 className="w-10 h-10 md:w-12 md:h-12" strokeWidth={3} />}
               {liveData.resultType === "miss" && <Shield className="w-10 h-10 md:w-12 md:h-12 opacity-60" fill="none" strokeWidth={3} />}
-              {liveData.resultType === "trap" && <Bomb className="w-10 h-10 md:w-12 md:h-12 animate-pulse drop-shadow-[4px_4px_0_#000]" strokeWidth={2.5} />}
-              {liveData.resultType === "commander" && <Crown className="w-10 h-10 md:w-12 md:h-12 animate-bounce drop-shadow-[4px_4px_0_#000]" strokeWidth={2.5} />}
-              {liveData.resultType === "spy" && <Eye className="text-slate-900 w-10 h-10 md:w-12 md:h-12 animate-pulse drop-shadow-[4px_4px_0_rgba(0,0,0,0.3)]" strokeWidth={3} />}
+              {liveData.resultType === "trap" && <CastleIcon kind="trap" className="w-14 h-14 md:w-16 md:h-16 animate-pulse" />}
+              {liveData.resultType === "commander" && <CastleIcon kind="commander" className="w-14 h-14 md:w-16 md:h-16 animate-bounce" />}
+              {liveData.resultType === "spy" && <CastleIcon kind="spy" className="w-14 h-14 md:w-16 md:h-16 animate-pulse" />}
             </div>
             <h2 className="text-2xl md:text-4xl font-black leading-tight drop-shadow-sm">
               {liveData.resultMsg}
@@ -294,7 +308,7 @@ export default function CastleWarDisplay() {
           </div>
         )}
 
-        {liveData.gameState === "gameOver" && (
+        {liveData.gameState === "gameOver" && !revealing && (
           <div className="bg-amber-400 border-8 border-black rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 text-center shadow-[16px_16px_0px_#000] animate-in zoom-in-95 pointer-events-auto w-full max-w-2xl md:max-w-4xl">
             <Crown className="mx-auto text-white w-20 h-20 md:w-32 md:h-32 mb-4 drop-shadow-[6px_6px_0_#000] animate-bounce" strokeWidth={2.5} />
             <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-2 border-b-4 border-black/10 pb-2 inline-block">انتهت الحرب!</h2>
