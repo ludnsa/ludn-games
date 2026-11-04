@@ -147,6 +147,8 @@ export function useCastleWar() {
   const router = useRouter();
   const { checkAccess, consumeGameSession } = useGameAccess();
   const [userId, setUserId] = useState<string | null>(null);
+  // التصفير المجاني لهالغرفة (عمود free_reset). null: ما قرأناه، أو العمود مو موجود فالوضع مثل قبل
+  const [freeReset, setFreeReset] = useState<"none" | "credit" | "used" | null>(null);
 
   const {
     roomCode, setRoomCode, roomCodeRef, joinUrl, setJoinUrl, linkCopied, setLinkCopied,
@@ -216,6 +218,20 @@ export function useCastleWar() {
   };
 
   const resetGame = async () => {
+    // نمسح من القاعدة أول: مسح الحالة يعيد قراءة الفرق، ولو سبق المسح يرجّع التوزيع القديم "جاهز"
+    const code = roomCodeRef.current;
+    if (code) {
+      const cleared = { team1_setup: null, team2_setup: null, live_sync: null };
+      // الحرب شغالة وأول مرة في هالغرفة: البدء الجاي ما ينحسب.
+      // نفس التحديث يمسح ويمنح، وبشرط القيمة الحالية، فالمجاني ما يتكرر حتى من تبويبين.
+      // أي خطأ (مثل إن العمود مو موجود) يرجع صفوف فاضية، فيصير مسح عادي والبدء ينحسب مثل قبل
+      const { data: granted } = gameState === "playing"
+        ? await supabase.from("cw_rooms").update({ ...cleared, free_reset: "credit" }).eq("room_code", code).eq("free_reset", "none").select("room_code")
+        : { data: null };
+      if (granted?.length) setFreeReset("credit");
+      else await supabase.from("cw_rooms").update(cleared).eq("room_code", code);
+    }
+
     setGameState("lobby");
     setTeam1Ready(false);
     setTeam2Ready(false);
@@ -250,14 +266,6 @@ export function useCastleWar() {
     setIsGenTimerRunning(false);
     setTimerStarted(false);
     setTargetEndTime(null);
-
-    if (roomCodeRef.current) {
-      await supabase.from("cw_rooms").update({
-        team1_setup: null,
-        team2_setup: null,
-        live_sync: null
-      }).eq("room_code", roomCodeRef.current);
-    }
   };
 
   const [isAccessChecking, setIsAccessChecking] = useState(true);
@@ -348,6 +356,10 @@ export function useCastleWar() {
           roomCodeRef.current = savedRoom;
           setJoinUrl(`${window.location.origin}/games/castle-war/join?code=${savedRoom}`);
           const { data } = await supabase.from("cw_rooms").select("team1_setup, team2_setup, live_sync").eq("room_code", savedRoom).single();
+
+          // بطلب منفصل: لو العمود مو موجود الخطأ يبقى هنا، واسترجاع الغرفة فوق ما يتأثر
+          const { data: freeResetRow } = await supabase.from("cw_rooms").select("free_reset").eq("room_code", savedRoom).maybeSingle();
+          if (freeResetRow?.free_reset) setFreeReset(freeResetRow.free_reset);
 
           // غرفة الانتظار: أسماء صفحة الإعداد (أو تعديل الحكم) ترجع بعد التحديث.
           // ما نكتبها مرة ثانية: الحكم يكتب live_sync كامل، وهذا يمسح علامة "الفريق دخل" اللي يكتبها جوال الفريق
@@ -521,29 +533,44 @@ export function useCastleWar() {
     }, isMajor ? 1000 : 600);
   };
 
+  // الزر يبقى شغال لين يخلص الفحص، فبدون هذا ضغطتين ورا بعض تنحسب لعبتين
+  const startingRef = useRef(false);
+
   const startBattle = async () => {
+    if (startingRef.current) return;
     if (team1Ready && team2Ready && team1Data && team2Data) {
       if (!userId) {
         alert("يجب تسجيل الدخول لبدء اللعبة.");
         return;
       }
 
-      // Gatekeeper Check
-      const access = await checkAccess("castle-war", userId);
-      if (!access.allowed) {
-        if (window.confirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟")) {
-          router.push("/packages");
+      startingRef.current = true;
+      try {
+        // بعد تصفير مجاني: هالبدء ما ينحسب ولا يحتاج فحص. أي خطأ يرجع صفوف فاضية، فيكمل الاحتساب العادي
+        const { data: freeStart } = await supabase.from("cw_rooms").update({ free_reset: "used" }).eq("room_code", roomCodeRef.current).eq("free_reset", "credit").select("room_code");
+        if (freeStart?.length) {
+          setFreeReset("used");
+        } else {
+          // Gatekeeper Check
+          const access = await checkAccess("castle-war", userId);
+          if (!access.allowed) {
+            if (window.confirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟")) {
+              router.push("/packages");
+            }
+            return;
+          }
+
+          // Consume the token or free trial
+          await consumeGameSession("castle-war", userId, access.reason);
         }
-        return;
+
+        // حفظ علامة لعبة نشطة لتجاوز فحص الرصيد عند التحديث
+        sessionStorage.setItem("cw_active_session", "true");
+
+        setGameState("playing");
+      } finally {
+        startingRef.current = false;
       }
-
-      // Consume the token or free trial
-      await consumeGameSession("castle-war", userId, access.reason);
-
-      // حفظ علامة لعبة نشطة لتجاوز فحص الرصيد عند التحديث
-      sessionStorage.setItem("cw_active_session", "true");
-      
-      setGameState("playing");
     }
   };
 
@@ -885,6 +912,6 @@ export function useCastleWar() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame, freeReset
   };
 }

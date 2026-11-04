@@ -48,7 +48,7 @@ function CastleBattleMainScreen() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame, freeReset
   } = useCastleWar();
 
   const cardClass = "bg-white dark:bg-slate-800 border-4 border-slate-900 dark:border-black rounded-3xl shadow-[6px_6px_0px_#0f172a] dark:shadow-[6px_6px_0px_#000] transition-colors duration-300";
@@ -547,6 +547,16 @@ function CastleBattleMainScreen() {
             <p className="text-slate-500 dark:text-slate-400 font-bold mb-8 text-lg">
               هل أنت متأكد من تصفير اللعبة والبدء من جديد؟ سيتم مسح جميع بيانات الفرق والجنود ولن تتمكن من التراجع.
             </p>
+            {gameState === "playing" && freeReset === "none" && (
+              <p className="-mt-4 mb-6 text-emerald-600 dark:text-emerald-400 font-black text-sm leading-relaxed">
+                هذا التصفير مجاني: البدء الجاي ما ينحسب لعبة جديدة. يتاح مرة وحدة لكل غرفة.
+              </p>
+            )}
+            {gameState === "playing" && freeReset === "used" && (
+              <p className="-mt-4 mb-6 text-amber-600 dark:text-amber-400 font-black text-sm leading-relaxed">
+                استخدمت التصفير المجاني لهذي الغرفة، فالبدء الجاي ينحسب لعبة جديدة.
+              </p>
+            )}
             <div className="flex gap-4">
               <button onClick={() => setShowResetModal(false)} className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-black rounded-2xl border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-1 transition-all">
                 إلغاء
