@@ -9,7 +9,6 @@ import {
   AlertCircle, MapPin, Users, ChevronRight, Sun, Moon, RefreshCw, MonitorPlay,
 } from "lucide-react";
 
-import SolidGamingBackground from "@/components/games/castle-war/SolidGamingBackground";
 import JoinInteractiveCastle from "@/components/games/castle-war/join/JoinInteractiveCastle";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
 import { useCastleWarJoin, TOTAL_SOLDIERS } from "@/hooks/useCastleWarJoin";
@@ -40,10 +39,8 @@ export default function CastleWarJoinPage() {
   };
 
   return (
-    <main className={`min-h-[100dvh] relative flex flex-col items-center p-4 ${cairo.className} bg-slate-50 dark:bg-[#0f172a] transition-colors duration-500`} dir="rtl">
+    <main className={`min-h-[100dvh] relative flex flex-col items-center p-4 ${cairo.className} transition-colors duration-500`} dir="rtl">
 
-
-      <SolidGamingBackground />
 
       {step !== "setup" && (
         <button type="button" onClick={toggleTheme} className="absolute top-6 left-6 z-[60] p-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-500 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-700 active:translate-y-1 transition-all shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4">
@@ -100,7 +97,7 @@ export default function CastleWarJoinPage() {
         )}
 
         {step === "setup" && selectedTeam && (
-          <div className="flex-1 flex flex-col animate-in slide-in-from-bottom-10 duration-500 w-full h-full bg-white dark:bg-slate-800 rounded-3xl border-4 border-slate-900 dark:border-black shadow-[8px_8px_0px_#0f172a] dark:shadow-[8px_8px_0px_#000] overflow-hidden">
+          <div className="flex-1 flex flex-col animate-in slide-in-from-bottom-10 duration-500 w-full h-full rounded-3xl border-4 border-slate-900 dark:border-black shadow-[8px_8px_0px_#0f172a] dark:shadow-[8px_8px_0px_#000] overflow-hidden">
             <div className={`bg-slate-50 dark:bg-slate-900 border-b-4 border-slate-200 dark:border-slate-700 p-4 flex flex-col gap-3 shrink-0 transition-colors`}>
               <div className="flex gap-2 w-full justify-start">
                 <button type="button" onClick={toggleTheme} className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 border-b-4 text-slate-500 dark:text-amber-400 px-3 py-2 rounded-xl flex items-center justify-center active:translate-y-0.5 active:border-b-2 transition-all shadow-sm">
@@ -119,6 +116,8 @@ export default function CastleWarJoinPage() {
               </div>
             </div>
 
+            {/* لون الشريط شفاف في الداكن، فله أرضية تحته عشان خلفية المعركة ما تبين من خلاله */}
+            <div className="shrink-0 bg-white dark:bg-slate-800">
             <div className={`${theme.lightBg} border-b-4 border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between shadow-inner shrink-0`}>
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 border-slate-900 dark:border-black shadow-sm ${selectedTeam === 1 ? "bg-cyan-100 text-cyan-600" : "bg-rose-100 text-rose-600"}`}>
@@ -130,8 +129,9 @@ export default function CastleWarJoinPage() {
                 {remainingSoldiers}
               </div>
             </div>
+            </div>
 
-            <div className={`flex-1 relative flex flex-col items-center justify-start p-4 overflow-y-auto overflow-x-hidden custom-scroll bg-slate-50 dark:bg-[#0f172a]`}>
+            <div className={`flex-1 relative flex flex-col items-center justify-start p-4 overflow-y-auto overflow-x-hidden custom-scroll`}>
               <JoinInteractiveCastle selectedTeam={selectedTeam} rooms={rooms} commanderRoom={commanderRoom} trapRoom={trapRoom} activeRoomIdx={activeRoomIdx} setActiveRoomIdx={setActiveRoomIdx} />
             </div>
 

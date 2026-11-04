@@ -10,7 +10,6 @@ import {
   MonitorPlay, ArrowRight, Sun, Moon, Home, Info, QrCode
 } from "lucide-react";
 
-import SolidGamingBackground from "@/components/games/castle-war/SolidGamingBackground";
 import InteractiveCastle from "@/components/games/castle-war/InteractiveCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
@@ -50,7 +49,7 @@ export default function CastleBattleMainScreen() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-slate-50 dark:bg-[#0f172a] text-slate-900 dark:text-white font-black text-2xl" dir="rtl">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center text-slate-900 dark:text-white font-black text-2xl" dir="rtl">
         <div className="relative flex items-center justify-center mb-8">
           <Shield className="w-24 h-24 text-slate-200 dark:text-slate-800 animate-pulse" />
           <Swords className="w-16 h-16 text-rose-500 absolute animate-spin-slow drop-shadow-lg" strokeWidth={2.5} />
@@ -65,12 +64,11 @@ export default function CastleBattleMainScreen() {
 
   return (
     <main
-      className={`min-h-[100dvh] relative flex flex-col pt-8 md:pt-12 pb-8 px-2 md:px-4 ${cairo.className} overflow-x-hidden ${screenShake ? "animate-screen-shake" : ""} transition-colors duration-500 bg-slate-50 dark:bg-[#0f172a]`}
+      className={`min-h-[100dvh] relative flex flex-col pt-8 md:pt-12 pb-8 px-2 md:px-4 ${cairo.className} overflow-x-hidden ${screenShake ? "animate-screen-shake" : ""} transition-colors duration-500`}
       dir="rtl"
     >
 
 
-      <SolidGamingBackground />
       <CastleReveal reveal={reveal} />
 
       {showQRModal && (
@@ -96,14 +94,15 @@ export default function CastleBattleMainScreen() {
           <Link href="/" className="py-2 px-3 md:px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
             <Home size={18} strokeWidth={3} /> <span className="hidden sm:inline">الرئيسية</span>
           </Link>
-          <button onClick={() => setShowInstructionsModal(true)} className="py-2 px-3 md:px-4 bg-sky-100 dark:bg-sky-900/40 hover:bg-sky-200 dark:hover:bg-sky-800 text-sky-600 dark:text-sky-400 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
+          {/* #0a2b46 و #34122e تحت: نفس لون sky-900/40 و rose-900/30 لما كانوا فوق الكحلي، بس ثابت عشان خلفية المعركة ما تبين من خلال الزر */}
+          <button onClick={() => setShowInstructionsModal(true)} className="py-2 px-3 md:px-4 bg-sky-100 dark:bg-[#0a2b46] hover:bg-sky-200 dark:hover:bg-sky-800 text-sky-600 dark:text-sky-400 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
             <Info size={18} strokeWidth={3} /> <span className="hidden sm:inline">التعليمات</span>
           </button>
           <button onClick={() => window.open(`/games/castle-war/display?code=${roomCode}`, "_blank")} className="py-2 px-3 md:px-4 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400 rounded-xl border-2 border-slate-900 dark:border-black border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] flex items-center justify-center gap-1.5 font-black text-xs md:text-sm">
             <MonitorPlay size={16} /> <span className="hidden sm:inline">شاشة الجمهور 📺</span>
           </button>
 
-          <button onClick={() => setShowResetModal(true)} className="py-2 px-3 md:px-4 bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-900/30 text-rose-500 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
+          <button onClick={() => setShowResetModal(true)} className="py-2 px-3 md:px-4 bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-[#34122e] text-rose-500 border-2 border-slate-900 dark:border-black rounded-xl border-b-4 active:border-b-2 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#0f172a] dark:shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs md:text-sm">
             <RefreshCw size={18} strokeWidth={3} /> <span className="hidden sm:inline">تصفير اللعبة</span>
           </button>
           {gameState === "playing" && (

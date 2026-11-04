@@ -7,7 +7,6 @@ import {
   Shield, Crown, Swords, Crosshair, Skull, Eye, Flame, CheckCircle2, Lock,
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
-import AudienceBackground from "@/components/games/castle-war/display/AudienceBackground";
 import AudienceCastle from "@/components/games/castle-war/display/AudienceCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
@@ -138,9 +137,8 @@ export default function CastleWarDisplay() {
 
   if (!liveData) {
     return (
-      <div className={`h-screen bg-[#0f172a] flex flex-col items-center justify-center text-white ${cairo.className}`} dir="rtl">
+      <div className={`h-screen flex flex-col items-center justify-center text-white ${cairo.className}`} dir="rtl">
 
-        <AudienceBackground />
         <div className="relative z-10 bg-slate-800 border-8 border-black p-16 rounded-[4rem] shadow-[16px_16px_0px_#000] flex flex-col items-center animate-in zoom-in-95">
           <Swords className="w-32 h-32 text-slate-500 animate-pulse mb-8" strokeWidth={2.5} />
           <h1 className="text-5xl md:text-6xl font-black text-slate-300 tracking-tight">
@@ -152,10 +150,9 @@ export default function CastleWarDisplay() {
   }
 
   return (
-    <main className={`min-h-[100dvh] md:h-screen w-full relative bg-[#0f172a] ${cairo.className} overflow-y-auto md:overflow-hidden`} dir="rtl">
+    <main className={`min-h-[100dvh] md:h-screen w-full relative ${cairo.className} overflow-y-auto md:overflow-hidden`} dir="rtl">
 
 
-      <AudienceBackground />
       <CastleReveal reveal={reveal} />
 
       <div className="relative z-10 w-full min-h-screen md:h-full flex flex-col md:flex-row items-center justify-center md:justify-between px-4 md:px-16 gap-8 md:gap-10 pt-28 pb-12 md:py-0">
