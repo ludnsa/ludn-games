@@ -23,7 +23,7 @@ export default function AudienceCastle({
   const teamStroke = isTeam1Castle ? "#22d3ee" : "#fb7185";
 
   return (
-    <div className={`relative inline-block w-full max-w-[320px] md:max-w-[400px] lg:max-w-[460px] xl:max-w-[500px] shadow-[16px_16px_0px_#000] rounded-[3rem] overflow-hidden border-[8px] border-black bg-[#050b14] mx-auto transition-all duration-500 ${isTargetTeam && liveData.battleStep === "target" ? "scale-[1.02] ring-8 ring-amber-500/50" : "scale-100"}`}>
+    <div className={`relative inline-block w-full max-w-[320px] md:max-w-[400px] lg:max-w-[460px] xl:max-w-[500px] shadow-[var(--ludn-shadow)] rounded-[2rem] overflow-hidden border border-ludn-line bg-[#050b14] mx-auto transition-all duration-500 ${isTargetTeam && liveData.battleStep === "target" ? "scale-[1.02] ring-4 ring-ludn-gold/50" : "scale-100"}`}>
       <svg
         viewBox={CASTLE_VIEWBOX}
         className={`w-full h-auto select-none transition-all duration-500 ${isTargetTeam ? "opacity-100" : "opacity-60 grayscale-[50%]"}`}
@@ -108,8 +108,8 @@ export default function AudienceCastle({
 
                   {isExploding && !isTargetedNow && (
                     <div className="absolute z-50 pointer-events-none flex items-center justify-center">
-                      <div className={`w-32 h-32 rounded-full animate-ping border-[10px] border-black shadow-inner ${liveData.resultType === "commander" ? "bg-yellow-500" : liveData.resultType === "trap" ? "bg-purple-600" : "bg-rose-500"}`} />
-                      <Flame size={60} className="absolute text-white animate-pulse drop-shadow-[3px_3px_0_#000]" />
+                      <div className={`w-32 h-32 rounded-full animate-ping border-[10px] border-black/40 ${liveData.resultType === "commander" ? "bg-yellow-500" : liveData.resultType === "trap" ? "bg-purple-600" : "bg-rose-500"}`} />
+                      <Flame size={60} className="absolute text-white animate-pulse drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]" />
                     </div>
                   )}
                 </div>

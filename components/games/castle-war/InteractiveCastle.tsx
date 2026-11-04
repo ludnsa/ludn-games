@@ -18,7 +18,7 @@ export default function InteractiveCastle({
   const teamColorClass = isTeam1Castle ? "text-cyan-400" : "text-rose-400";
 
   return (
-    <div className="relative inline-block w-full rounded-[2rem] overflow-hidden border-4 bg-[#050b14] border-slate-900 dark:border-black shadow-[8px_8px_0px_#0f172a] dark:shadow-[8px_8px_0px_#000] transition-colors duration-500">
+    <div className="relative inline-block w-full rounded-[2rem] overflow-hidden border bg-[#050b14] border-ludn-line shadow-[var(--ludn-shadow)] transition-colors duration-500">
       <svg
         viewBox={CASTLE_VIEWBOX}
         className="w-full h-auto select-none"

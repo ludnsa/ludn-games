@@ -8,7 +8,7 @@ export default function JoinInteractiveCastle({
   selectedTeam, rooms, commanderRoom, trapRoom, activeRoomIdx, setActiveRoomIdx
 }: any) {
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden bg-[#050b14] shadow-[4px_4px_0px_#0f172a] dark:shadow-[4px_4px_0px_#000] transition-colors duration-500">
+    <div className="relative w-full rounded-2xl overflow-hidden border border-ludn-line bg-[#050b14] shadow-[var(--ludn-shadow)] transition-colors duration-500">
       <svg viewBox={CASTLE_VIEWBOX} className="w-full h-auto select-none" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="team1Glow" x1="0%" y1="0%" x2="0%" y2="100%">

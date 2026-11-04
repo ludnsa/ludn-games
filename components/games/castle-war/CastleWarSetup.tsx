@@ -72,7 +72,7 @@ export default function CastleWarSetup({ onCreated }: { onCreated: () => void })
     setBusy(false);
   };
 
-  if (!userId) return <AccessLoadingScreen />;
+  if (!userId) return <div className="dark"><AccessLoadingScreen /></div>;
 
   const card = "shrink-0 aspect-[512/693] rounded-xl shadow-[0_14px_30px_rgba(0,0,0,0.6)] select-none";
 

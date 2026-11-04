@@ -10,6 +10,7 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import AudienceCastle from "@/components/games/castle-war/display/AudienceCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
+import { INSET, MODAL, MODAL_GOLD, PANEL, TEAM1_AUDIENCE_HP, TEAM2_AUDIENCE_HP, timerTone } from "@/components/games/castle-war/castleUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -137,11 +138,11 @@ export default function CastleWarDisplay() {
 
   if (!liveData) {
     return (
-      <div className={`h-screen flex flex-col items-center justify-center text-white ${cairo.className}`} dir="rtl">
+      <div className={`dark h-screen flex flex-col items-center justify-center px-4 text-ludn-fg ${cairo.className}`} dir="rtl">
 
-        <div className="relative z-10 bg-slate-800 border-8 border-black p-16 rounded-[4rem] shadow-[16px_16px_0px_#000] flex flex-col items-center animate-in zoom-in-95">
-          <Swords className="w-32 h-32 text-slate-500 animate-pulse mb-8" strokeWidth={2.5} />
-          <h1 className="text-5xl md:text-6xl font-black text-slate-300 tracking-tight">
+        <div className={`relative z-10 ${PANEL} p-10 md:p-16 flex flex-col items-center text-center animate-in zoom-in-95`}>
+          <Swords className="w-32 h-32 text-ludn-muted animate-pulse mb-8" strokeWidth={2.5} />
+          <h1 className="font-display text-5xl md:text-6xl leading-tight text-ludn-fg">
             {roomCode ? "جاري الاتصال بغرفة العمليات..." : "بانتظار بدء الحرب..."}
           </h1>
         </div>
@@ -150,7 +151,7 @@ export default function CastleWarDisplay() {
   }
 
   return (
-    <main className={`min-h-[100dvh] md:h-screen w-full relative ${cairo.className} overflow-y-auto md:overflow-hidden`} dir="rtl">
+    <main className={`dark text-ludn-fg min-h-[100dvh] md:h-screen w-full relative ${cairo.className} overflow-y-auto md:overflow-hidden`} dir="rtl">
 
 
       <CastleReveal reveal={reveal} />
@@ -158,8 +159,8 @@ export default function CastleWarDisplay() {
       <div className="relative z-10 w-full min-h-screen md:h-full flex flex-col md:flex-row items-center justify-center md:justify-between px-4 md:px-16 gap-8 md:gap-10 pt-28 pb-12 md:py-0">
         <div className="w-full md:flex-1 flex flex-col justify-center items-center z-20 order-1 md:order-none">
           <div className="flex flex-col items-center mb-4 w-full max-w-[320px]">
-            <div className="bg-cyan-500 border-4 border-black text-white font-black text-3xl md:text-4xl py-3 px-6 rounded-[2rem] shadow-[8px_8px_0px_#000] text-center flex items-center justify-center gap-3 w-full">
-              {liveData.hp1} <span className="text-xl text-cyan-900 font-bold hidden xl:block">جندي</span>
+            <div className={TEAM1_AUDIENCE_HP}>
+              {liveData.hp1} <span className="text-xl text-ludn-muted hidden xl:block">جندي</span>
             </div>
           </div>
           <AudienceCastle
@@ -172,8 +173,8 @@ export default function CastleWarDisplay() {
 
         <div className="w-full md:flex-1 flex flex-col justify-center items-center z-20 order-3 md:order-none">
           <div className="flex flex-col items-center mb-4 w-full max-w-[320px]">
-            <div className="bg-rose-500 border-4 border-black text-white font-black text-3xl md:text-4xl py-3 px-6 rounded-[2rem] shadow-[8px_8px_0px_#000] text-center flex items-center justify-center gap-3 w-full">
-              {liveData.hp2} <span className="text-xl text-rose-900 font-bold hidden xl:block">جندي</span>
+            <div className={TEAM2_AUDIENCE_HP}>
+              {liveData.hp2} <span className="text-xl text-ludn-muted hidden xl:block">جندي</span>
             </div>
           </div>
           <AudienceCastle
@@ -191,20 +192,20 @@ export default function CastleWarDisplay() {
           const usedT1 = liveData.usedChallengesT1 || [];
           const usedT2 = liveData.usedChallengesT2 || [];
           const currentTeamUsed = liveData.turn === 1 ? usedT1 : usedT2;
-          const teamColorBg = liveData.turn === 1 ? "bg-cyan-500" : "bg-rose-500";
-          const teamTextColor = liveData.turn === 1 ? "text-cyan-400" : "text-rose-400";
+          const teamColorBg = liveData.turn === 1 ? "border-cyan-400/50 text-cyan-200" : "border-rose-400/50 text-rose-200";
+          const teamTextColor = liveData.turn === 1 ? "text-cyan-300" : "text-rose-300";
           const teamName = liveData.turn === 1 ? liveData.team1Name : liveData.team2Name;
 
           return (
-            <div className="bg-slate-800 border-8 border-black rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-8 text-center shadow-[16px_16px_0px_#000] animate-in zoom-in duration-300 w-full max-w-4xl mx-auto overflow-hidden">
-              <h3 className={`text-2xl md:text-3xl font-black mb-6 ${teamTextColor} drop-shadow-[2px_2px_0_#000]`}>
+            <div className={`${MODAL} p-6 md:p-8 text-center animate-in zoom-in duration-300 w-full max-w-4xl mx-auto overflow-hidden`}>
+              <h3 className={`font-display text-2xl md:text-3xl leading-tight mb-6 ${teamTextColor}`}>
                 بانتظار اختيار فريق ({teamName})
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-5 w-full">
                 {allAvailableTypes.map((cType) => {
                   const isUsed = currentTeamUsed.includes(cType);
                   return (
-                    <div key={cType} className={`py-4 md:py-5 rounded-2xl md:rounded-3xl font-black text-lg md:text-xl border-4 md:border-8 transition-all flex items-center justify-center ${isUsed ? "bg-slate-900 text-slate-700 border-slate-950 opacity-40 shadow-inner" : `${teamColorBg} text-white border-black shadow-[4px_4px_0px_#000] md:shadow-[6px_6px_0px_#000] animate-pulse`}`}>
+                    <div key={cType} className={`py-4 md:py-5 rounded-2xl font-black text-lg md:text-xl border bg-ludn-surface-2 transition-all flex items-center justify-center ${isUsed ? "text-ludn-muted border-ludn-line" : `${teamColorBg} animate-pulse`}`}>
                       {getChallengeTitle(cType)}
                     </div>
                   );
@@ -215,13 +216,13 @@ export default function CastleWarDisplay() {
         })()}
 
         {liveData.battleStep === "challenge" && liveData.isChallengeRevealed && liveData.activeChallengeData && (
-          <div className="bg-white border-8 border-black rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-8 text-center shadow-[16px_16px_0px_#000] animate-in zoom-in duration-300 pointer-events-auto w-full overflow-y-auto max-h-[85vh]">
-            <h3 className="bg-slate-100 border-4 border-slate-200 text-slate-600 font-black mb-3 md:mb-4 uppercase tracking-widest text-base md:text-lg py-2 px-6 rounded-2xl inline-block">
+          <div className={`${MODAL} p-6 md:p-8 text-center animate-in zoom-in duration-300 pointer-events-auto w-full overflow-y-auto max-h-[85vh]`}>
+            <h3 className={`${INSET} text-ludn-muted font-black mb-3 md:mb-4 text-base md:text-lg py-2 px-6 inline-block`}>
               {liveData.activeChallengeName}
             </h3>
 
             <div className="animate-in fade-in duration-500">
-                <p className="text-xl md:text-3xl font-black text-slate-900 leading-relaxed mb-4 md:mb-6">
+                <p className="text-xl md:text-3xl font-black text-ludn-fg leading-relaxed mb-4 md:mb-6">
                   {liveData.activeChallengeData.q || liveData.activeChallengeData}
                 </p>
 
@@ -232,11 +233,11 @@ export default function CastleWarDisplay() {
                       const isWrongSelected = liveData.showGenAnswer && liveData.selectedOption && opt === liveData.selectedOption && opt !== liveData.activeChallengeData.a;
                       const isFaded = liveData.showGenAnswer && !isCorrect && !isWrongSelected;
                       return (
-                        <div key={i} className={`border-4 rounded-xl md:rounded-2xl py-2 md:py-3 text-lg md:text-xl font-black shadow-[4px_4px_0px_#000] transition-colors ${
-                          isCorrect ? "bg-emerald-400 border-black text-slate-900 scale-[1.02]" : 
-                          isWrongSelected ? "bg-rose-500 border-black text-white" : 
-                          isFaded ? "bg-slate-100 border-slate-300 text-slate-400 opacity-50" : 
-                          "bg-slate-100 border-slate-900 text-slate-800"
+                        <div key={i} className={`border rounded-xl md:rounded-2xl py-2 md:py-3 text-lg md:text-xl font-black transition-colors ${
+                          isCorrect ? "bg-emerald-500/20 border-emerald-400 text-emerald-200 scale-[1.02]" :
+                          isWrongSelected ? "bg-rose-500/20 border-rose-400 text-rose-200" :
+                          isFaded ? "bg-ludn-surface-2 border-ludn-line text-ludn-muted" :
+                          "bg-ludn-surface-2 border-ludn-line text-ludn-fg"
                         }`}>
                           {opt}
                         </div>
@@ -246,13 +247,13 @@ export default function CastleWarDisplay() {
                 )}
 
                 {!liveData.activeChallengeData.options && liveData.activeChallengeType === "general" && liveData.showGenAnswer && (
-                  <div className="bg-emerald-100 border-4 border-emerald-400 text-emerald-800 font-black text-2xl md:text-3xl py-4 px-6 rounded-2xl mb-6 shadow-inner animate-in zoom-in">
+                  <div className="bg-emerald-500/15 border border-emerald-400/50 text-emerald-200 font-black text-2xl md:text-3xl py-4 px-6 rounded-2xl mb-6 animate-in zoom-in">
                     {liveData.activeChallengeData.a}
                   </div>
                 )}
 
                 {(!liveData.showGenAnswer && displayTimer > 0) && (
-                  <div className={`text-4xl md:text-6xl font-mono font-black py-3 md:py-4 rounded-[1.5rem] md:rounded-3xl border-8 shadow-inner transition-colors ${displayTimer <= 5 ? "bg-rose-100 text-rose-600 border-rose-500 animate-pulse" : "bg-slate-900 border-black text-amber-400"}`}>
+                  <div className={`text-4xl md:text-6xl font-mono font-black py-3 md:py-4 rounded-2xl border transition-colors ${timerTone(displayTimer)}`}>
                     {formatTime(displayTimer)}
                   </div>
                 )}
@@ -261,28 +262,28 @@ export default function CastleWarDisplay() {
         )}
 
         {liveData.battleStep === "challenge" && liveData.activeChallengeType === "guess" && (
-          <div className="bg-white border-8 border-black rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-8 text-center shadow-[16px_16px_0px_#000] animate-in zoom-in duration-300 pointer-events-auto w-full max-w-2xl mx-auto">
-            <h3 className="bg-slate-100 border-4 border-slate-200 text-slate-600 font-black mb-6 uppercase tracking-widest text-base md:text-lg py-2 px-6 rounded-2xl inline-block">
+          <div className={`${MODAL} p-6 md:p-8 text-center animate-in zoom-in duration-300 pointer-events-auto w-full max-w-2xl mx-auto`}>
+            <h3 className={`${INSET} text-ludn-muted font-black mb-6 text-base md:text-lg py-2 px-6 inline-block`}>
               {liveData.activeChallengeName}
             </h3>
             <div className="flex gap-4 md:gap-8 justify-center mt-4">
               <div className="flex-1 max-w-[200px]">
-                <div className="text-xl md:text-2xl font-black text-cyan-600 mb-4">{liveData.team1Name}</div>
-                <div className="bg-slate-100 border-4 border-black rounded-3xl h-24 md:h-32 flex items-center justify-center shadow-inner relative overflow-hidden">
+                <div className="font-display text-xl md:text-2xl leading-tight text-cyan-300 mb-4">{liveData.team1Name}</div>
+                <div className={`${INSET} h-24 md:h-32 flex items-center justify-center relative overflow-hidden`}>
                    {liveData.guessesRevealed ? (
-                     <span className="text-4xl md:text-6xl font-black text-slate-900 animate-in zoom-in">{liveData.guessT1}</span>
+                     <span className="font-display text-4xl md:text-6xl text-ludn-fg animate-in zoom-in">{liveData.guessT1}</span>
                    ) : (
-                     <Eye className="w-10 h-10 text-slate-300 animate-pulse" />
+                     <Eye className="w-10 h-10 text-ludn-muted animate-pulse" />
                    )}
                 </div>
               </div>
               <div className="flex-1 max-w-[200px]">
-                <div className="text-xl md:text-2xl font-black text-rose-600 mb-4">{liveData.team2Name}</div>
-                <div className="bg-slate-100 border-4 border-black rounded-3xl h-24 md:h-32 flex items-center justify-center shadow-inner relative overflow-hidden">
+                <div className="font-display text-xl md:text-2xl leading-tight text-rose-300 mb-4">{liveData.team2Name}</div>
+                <div className={`${INSET} h-24 md:h-32 flex items-center justify-center relative overflow-hidden`}>
                    {liveData.guessesRevealed ? (
-                     <span className="text-4xl md:text-6xl font-black text-slate-900 animate-in zoom-in">{liveData.guessT2}</span>
+                     <span className="font-display text-4xl md:text-6xl text-ludn-fg animate-in zoom-in">{liveData.guessT2}</span>
                    ) : (
-                     <Eye className="w-10 h-10 text-slate-300 animate-pulse" />
+                     <Eye className="w-10 h-10 text-ludn-muted animate-pulse" />
                    )}
                 </div>
               </div>
@@ -291,27 +292,27 @@ export default function CastleWarDisplay() {
         )}
 
         {liveData.battleStep === "result" && liveData.targetRoomIndex === null && !hideResultModal && !revealing && liveData.gameState !== "gameOver" && (
-          <div className={`border-8 rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 text-center shadow-[16px_16px_0px_#000] animate-in zoom-in duration-500 w-full max-w-2xl md:max-w-3xl ${liveData.resultType === "spy" ? "bg-yellow-400 border-yellow-600" : liveData.resultType === "hit" ? "bg-emerald-400 border-black text-slate-900" : liveData.resultType === "trap" ? "bg-purple-500 border-black text-white" : liveData.resultType === "commander" ? "bg-amber-400 border-black text-slate-900" : "bg-slate-200 border-black text-slate-900"}`}>
-            <div className={`mx-auto w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-4 md:mb-6 shadow-inner border-8 ${liveData.resultType === "spy" ? "border-yellow-500 bg-yellow-300" : "border-slate-100/20 bg-black/10"}`}>
+          <div className={`bg-ludn-surface border rounded-[26px] p-6 md:p-10 text-center animate-in zoom-in duration-500 w-full max-w-2xl md:max-w-3xl ${liveData.resultType === "spy" ? "border-ludn-gold/60 text-ludn-gold-text shadow-[0_0_40px_var(--ludn-glow)]" : liveData.resultType === "hit" ? "border-emerald-400/60 text-emerald-200 shadow-[var(--ludn-shadow)]" : liveData.resultType === "trap" ? "border-purple-400/60 text-purple-200 shadow-[var(--ludn-shadow)]" : liveData.resultType === "commander" ? "border-amber-400/60 text-amber-200 shadow-[var(--ludn-shadow)]" : "border-ludn-line text-ludn-fg shadow-[var(--ludn-shadow)]"}`}>
+            <div className={`mx-auto w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center mb-4 md:mb-6 border ${liveData.resultType === "spy" ? "border-ludn-gold/50 bg-ludn-gold/10" : "border-ludn-line bg-ludn-surface-2"}`}>
               {liveData.resultType === "hit" && <CheckCircle2 className="w-10 h-10 md:w-12 md:h-12" strokeWidth={3} />}
               {liveData.resultType === "miss" && <Shield className="w-10 h-10 md:w-12 md:h-12 opacity-60" fill="none" strokeWidth={3} />}
               {liveData.resultType === "trap" && <CastleIcon kind="trap" className="w-14 h-14 md:w-16 md:h-16 animate-pulse" />}
               {liveData.resultType === "commander" && <CastleIcon kind="commander" className="w-14 h-14 md:w-16 md:h-16 animate-bounce" />}
               {liveData.resultType === "spy" && <CastleIcon kind="spy" className="w-14 h-14 md:w-16 md:h-16 animate-pulse" />}
             </div>
-            <h2 className="text-2xl md:text-4xl font-black leading-tight drop-shadow-sm">
+            <h2 className="text-2xl md:text-4xl font-black leading-tight">
               {liveData.resultMsg}
             </h2>
           </div>
         )}
 
         {liveData.gameState === "gameOver" && !revealing && (
-          <div className="bg-amber-400 border-8 border-black rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-10 text-center shadow-[16px_16px_0px_#000] animate-in zoom-in-95 pointer-events-auto w-full max-w-2xl md:max-w-4xl">
-            <Crown className="mx-auto text-white w-20 h-20 md:w-32 md:h-32 mb-4 drop-shadow-[6px_6px_0_#000] animate-bounce" strokeWidth={2.5} />
-            <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-2 border-b-4 border-black/10 pb-2 inline-block">انتهت الحرب!</h2>
-            <h1 className="text-4xl md:text-5xl font-black text-white leading-tight drop-shadow-[4px_4px_0_#000]">
+          <div className={`${MODAL_GOLD} p-6 md:p-10 text-center animate-in zoom-in-95 pointer-events-auto w-full max-w-2xl md:max-w-4xl`}>
+            <Crown className="mx-auto text-amber-300 w-20 h-20 md:w-32 md:h-32 mb-4 animate-bounce" strokeWidth={2.5} />
+            <h2 className="font-display text-3xl md:text-4xl leading-tight text-ludn-fg mb-2 border-b border-ludn-line pb-2 inline-block">انتهت الحرب!</h2>
+            <h1 className="font-display text-4xl md:text-5xl text-ludn-muted leading-tight">
               الفريق المنتصر<br />
-              <span className={`block mt-4 text-5xl md:text-7xl drop-shadow-[6px_6px_0_#000] ${liveData.hp1 > 0 ? "text-cyan-300" : "text-rose-300"}`}>
+              <span className={`block mt-4 text-5xl md:text-7xl ${liveData.hp1 > 0 ? "text-cyan-300" : "text-rose-300"}`}>
                 {liveData.hp1 > 0 ? liveData.team1Name : liveData.team2Name}
               </span>
             </h1>
@@ -320,14 +321,14 @@ export default function CastleWarDisplay() {
       </div>
 
       </div>
-      
+
       {/* Floating Status Box */}
       <div className="absolute top-4 md:top-8 lg:top-12 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto">
-        <div className="animate-floating-box px-6 md:px-8 py-2 md:py-3 rounded-3xl border-8 border-black flex items-center gap-3 md:gap-4 shadow-[8px_8px_0px_#000] bg-white transition-colors duration-300 scale-90 md:scale-100">
-          <Swords size={28} className={liveData.attackingTeam === 1 ? "text-cyan-500" : "text-rose-500"} strokeWidth={2.5} />
+        <div className="animate-floating-box px-6 md:px-8 py-2 md:py-3 rounded-2xl border border-ludn-line flex items-center gap-3 md:gap-4 shadow-[var(--ludn-shadow)] bg-ludn-surface transition-colors duration-300 scale-90 md:scale-100">
+          <Swords size={28} className={liveData.attackingTeam === 1 ? "text-cyan-300" : "text-rose-300"} strokeWidth={2.5} />
           <div className="flex flex-col items-center">
-            <span className="text-xs md:text-sm font-black text-slate-500 uppercase tracking-widest">دور الهجوم</span>
-            <span className={`text-lg md:text-2xl font-black ${liveData.attackingTeam === 1 ? "text-cyan-500" : "text-rose-500"}`}>
+            <span className="text-xs md:text-sm font-black text-ludn-muted">دور الهجوم</span>
+            <span className={`font-display text-lg md:text-2xl leading-tight ${liveData.attackingTeam === 1 ? "text-cyan-300" : "text-rose-300"}`}>
               {liveData.attackingTeam === 1 ? liveData.team1Name : liveData.team2Name}
             </span>
           </div>
