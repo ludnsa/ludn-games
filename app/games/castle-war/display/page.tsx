@@ -73,6 +73,19 @@ export default function CastleWarDisplay() {
     };
 
     if (code) {
+      // جوال لاعب اعتمد خطته في هذي الغرفة ثم جاء من زر "الانتقال لشاشة المعركة".
+      // التلفزيون ما عنده هذي القيم: playerTeam يبقى null، وكل اللي تحت مربوط فيها فما يتأثر
+      const playerTeam = sessionStorage.getItem("cw_player_room") === code && sessionStorage.getItem("cw_player_step") === "done"
+        ? sessionStorage.getItem("cw_player_team")
+        : null;
+      const backToPlan = () => window.location.replace(`/games/castle-war/join?code=${code}`);
+      // الجوال كان مقفل وفاته التصفير: يقارن باللي في القاعدة لما يرجع
+      const recheckPlayer = async () => {
+        if (document.visibilityState !== "visible") return;
+        const { data } = await supabase.from("cw_rooms").select("team1_setup, team2_setup").eq("room_code", code).single();
+        if (data && !(playerTeam === "1" ? data.team1_setup : data.team2_setup)) backToPlan();
+      };
+
       const fetchInitial = async () => {
         const { data } = await supabase.from("cw_rooms").select("live_sync").eq("room_code", code).single();
         if (data && data.live_sync) handleSyncData(data.live_sync);
@@ -83,11 +96,21 @@ export default function CastleWarDisplay() {
       const channel = supabase.channel(`display_room_${code}`)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "cw_rooms", filter: `room_code=eq.${code}` },
           (payload) => {
+            if (playerTeam && payload.new && payload.new.live_sync === null && payload.new.team1_setup === null && payload.new.team2_setup === null) {
+              backToPlan();
+              return;
+            }
             if (payload.new && payload.new.live_sync) handleSyncData(payload.new.live_sync);
           }
         ).subscribe();
 
+      if (playerTeam) {
+        void recheckPlayer();
+        document.addEventListener("visibilitychange", recheckPlayer);
+      }
+
       return () => {
+        if (playerTeam) document.removeEventListener("visibilitychange", recheckPlayer);
         supabase.removeChannel(channel);
         document.documentElement.classList.remove("dark");
       };
