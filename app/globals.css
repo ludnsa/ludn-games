@@ -250,11 +250,23 @@
   .ludn-fan-l { transform: translateX(22px) rotate(-10deg) translateY(10px); animation: ludnFanL 800ms cubic-bezier(.2, .8, .2, 1) both; }
   .ludn-fan-mid { animation: ludnRise 700ms cubic-bezier(.2, .8, .2, 1) both; }
 
+  /* مروحة الأربع بطاقات بالرئيسية: الإزاحة نسبة من عرض البطاقة عشان تكبر وتصغر معها */
+  @keyframes ludnFan4 { from { transform: translateX(var(--fan-from)) rotate(0); } }
+  .ludn-fan4-outer-r { --fan-from: -100%; transform: translateX(-40%) rotate(12deg) translateY(6%); }
+  .ludn-fan4-inner-r { --fan-from: -30%; transform: translateX(-5%) rotate(4deg); }
+  .ludn-fan4-inner-l { --fan-from: 30%; transform: translateX(5%) rotate(-4deg); }
+  .ludn-fan4-outer-l { --fan-from: 100%; transform: translateX(40%) rotate(-12deg) translateY(6%); }
+  .ludn-fan4-outer-r, .ludn-fan4-inner-r, .ludn-fan4-inner-l, .ludn-fan4-outer-l { animation: ludnFan4 800ms cubic-bezier(.2, .8, .2, 1) both; }
+  /* الظاهر من البطاقة الخارجية أضيق: نصغّر الرسمة ونزيحها لبرا عشان ما تختفي تحت اللي قدامها */
+  .ludn-fan4-outer-r svg { width: 56%; transform: translateX(25%); }
+  .ludn-fan4-outer-l svg { width: 56%; transform: translateX(-25%); }
+
   @keyframes ludnSheetUp { from { transform: translateY(40px); } }
   .ludn-sheet-up { animation: ludnSheetUp 240ms cubic-bezier(.2, .8, .2, 1) both; }
 
   @media (prefers-reduced-motion: reduce) {
-    .ludn-fan-r, .ludn-fan-l, .ludn-fan-mid, .ludn-sheet-up { animation: none; }
+    .ludn-fan-r, .ludn-fan-l, .ludn-fan-mid, .ludn-sheet-up,
+    .ludn-fan4-outer-r, .ludn-fan4-inner-r, .ludn-fan4-inner-l, .ludn-fan4-outer-l { animation: none; }
   }
 }
 

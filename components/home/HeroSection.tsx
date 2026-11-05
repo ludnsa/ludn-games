@@ -6,6 +6,9 @@ import { mafiaCardSrc } from "@/constants/mafia";
 import { GameArt } from "./GameArt";
 
 const FAN_CARD = "relative shrink-0 aspect-[512/752] rounded-[14px] overflow-hidden ludn-shadow";
+// العرض مربوط بالشاشة عشان الأربع بطاقات يدخلون في الجوالات الصغيرة بدون ما يطلعون برا الحواف
+const FAN_INNER = "w-[min(29.7vw,136px)] lg:w-[min(14vw,160px)]";
+const FAN_OUTER = "w-[min(25vw,116px)] lg:w-[min(11.8vw,134px)]";
 
 export const HeroSection = ({
   scrollToSection,
@@ -28,16 +31,22 @@ export const HeroSection = ({
       <div aria-hidden className="ludn-lattice absolute inset-0 pointer-events-none" />
 
       {/* مروحة بطاقات من الألعاب */}
-      {/* min-w-0: المروحة أعرض شوي من الجوالات الصغيرة — تطلع برا الحواف بدل ما توسّع العمود كله */}
-      <div aria-hidden className="relative min-w-0 flex justify-center items-end h-[214px] lg:h-[330px] pb-1.5 lg:col-start-2 lg:row-start-1">
-        <div className={`${FAN_CARD} ludn-fan-r w-[116px] lg:w-[160px]`}>
+      {/* min-w-0: عرض البطاقات المتراكبة أكبر من مجموعها الظاهر، فما نخليها توسّع العمود */}
+      <div aria-hidden className="relative min-w-0 flex justify-center items-end lg:items-center h-[min(47vw,214px)] lg:h-[330px] pb-1.5 lg:col-start-2 lg:row-start-1">
+        <div className={`${FAN_CARD} ludn-fan4-outer-r ${FAN_OUTER}`}>
           <GameArt kind="quiz" />
         </div>
-        <div className={`${FAN_CARD} ludn-fan-mid z-[2] w-[136px] lg:w-[188px]`}>
+        <div className={`${FAN_CARD} ludn-fan4-inner-r z-[2] ${FAN_INNER}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={mafiaCardSrc("mafia")} alt="" draggable={false} className="w-full h-full object-cover" />
         </div>
-        <div className={`${FAN_CARD} ludn-fan-l w-[116px] lg:w-[160px]`}>
+        {/* نفس تقسيمة بطاقة مافيا: إطار، ورسمة، وشريط الاسم تحت */}
+        <div className={`${FAN_CARD} ludn-fan4-inner-l z-[3] ${FAN_INNER} [container-type:inline-size] flex flex-col border-2 border-[#c0ada0] bg-[#0b0c10]`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/games/castle-war/castle-war-cover.webp" alt="" draggable={false} className="flex-1 min-h-0 w-full object-cover object-[50%_30%]" />
+          <div className="h-[21%] grid place-items-center whitespace-nowrap font-display text-[20cqw] leading-none text-white">حرب القلاع</div>
+        </div>
+        <div className={`${FAN_CARD} ludn-fan4-outer-l ${FAN_OUTER}`}>
           <GameArt kind="hive" />
         </div>
       </div>
