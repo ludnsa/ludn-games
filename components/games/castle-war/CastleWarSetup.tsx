@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Cairo } from "next/font/google";
-import { AlertCircle, Loader2, Play } from "lucide-react";
+import { AlertCircle, Home, Loader2, Play } from "lucide-react";
 import AccessLoadingScreen from "@/components/games/shared/AccessLoadingScreen";
-import { BTN_GOLD, CARD, ERROR, FIELD, H_PAGE, LABEL } from "@/components/games/mafia/mafiaUi";
+import { BAR_BTN, BTN_GOLD, CARD, ERROR, FIELD, H_PAGE, LABEL } from "@/components/games/mafia/mafiaUi";
 import { CASTLE_CARDS } from "@/constants/castle-war";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { createCastleRoom } from "@/hooks/useCastleWar";
@@ -78,6 +79,12 @@ export default function CastleWarSetup({ onCreated }: { onCreated: () => void })
 
   return (
     <main className={`dark min-h-[100dvh] text-ludn-fg p-4 md:p-6 flex flex-col relative z-10 ${cairo.className}`} dir="rtl">
+      {/* وقت إنشاء الغرفة ما ينضغط، عشان ما تنشأ غرفة ويطلع من الصفحة */}
+      <div className="w-full max-w-md mx-auto mb-2">
+        <Link href="/" className={`${BAR_BTN} w-fit ${busy ? "pointer-events-none" : ""}`}>
+          <Home size={18} strokeWidth={2.5} /> الرئيسية
+        </Link>
+      </div>
       <div className="w-full max-w-md mx-auto my-auto">
         <div className="grid justify-items-center gap-1 text-center mb-4">
           {/* الصف من اليمين: الجاسوس، ثم القائد في النص، ثم الفخ */}
