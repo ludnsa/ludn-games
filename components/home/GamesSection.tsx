@@ -95,7 +95,7 @@ const GAMES: HomeGame[] = [
     line: "وسّع نفوذك وسيطر على القارات.",
     category: "استراتيجية",
     meta: ["فرق", "الجمهور يشارك"],
-    cover: { art: "world" },
+    cover: { img: "/games/world-domination/world-domination-cover.webp", full: true },
   },
   {
     id: MADAQESH_GAME.id,

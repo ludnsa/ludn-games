@@ -85,11 +85,12 @@ export default function MyGamesPage() {
   }
 
   // الألعاب اللي يفتحها الاشتراك — كل وحدة لها تجربة مجانية
-  const gamesList: { id: string; title: string; art?: GameArtKind; img?: string }[] = [
+  // full: نفس معناها بالرئيسية — صورة الغلاف تطلع كاملة بدون قص وتكبير
+  const gamesList: { id: string; title: string; art?: GameArtKind; img?: string; full?: boolean }[] = [
     { id: QUIZ_GAME.id, title: QUIZ_GAME.title, art: 'quiz' },
     { id: 'auction', title: 'المزاد', art: 'auction' },
-    { id: 'castle-war', title: 'حرب القلاع', art: 'castle' },
-    { id: 'world-domination', title: 'السيطرة على العالم', art: 'world' },
+    { id: 'castle-war', title: 'حرب القلاع', img: '/games/castle-war/castle-war-cover.webp', full: true },
+    { id: 'world-domination', title: 'السيطرة على العالم', img: '/games/world-domination/world-domination-cover.webp', full: true },
   ];
   const active = isSubscriptionActive(endsAt);
 
@@ -154,7 +155,7 @@ export default function MyGamesPage() {
                 <span className="relative w-14 h-14 shrink-0 rounded-xl overflow-hidden">
                   {game.img ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={game.img} alt="" className="absolute inset-0 w-full h-full object-cover object-[50%_20%] scale-125" />
+                    <img src={game.img} alt="" className={`absolute inset-0 w-full h-full object-cover ${game.full ? "" : "object-[50%_20%] scale-125"}`} />
                   ) : (
                     game.art && <GameArt kind={game.art} />
                   )}

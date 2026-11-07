@@ -7,13 +7,21 @@ import { Swords, Globe, Gavel, Users, Clock, Trophy, Target, Sparkles, ChevronLe
 import Link from "next/link";
 
 // غلاف كل دليل من نفس رسومات الألعاب بالرئيسية (التحديات ما لها لعبة، فلها رسمة بسيطة)
+// اللعبة اللي لها صورة غلاف: نفس صورتها بالرئيسية وبنفس قص النافذة العريضة هناك
+const GUIDE_IMG: Record<string, string> = {
+  "castle-war": "/games/castle-war/castle-war-cover.webp",
+  "world-domination": "/games/world-domination/world-domination-cover.webp",
+};
 const GUIDE_ART: Record<string, GameArtKind> = {
   auction: "auction",
-  "castle-war": "castle",
-  "world-domination": "world",
 };
 
 function GuideCover({ id }: { id: string }) {
+  const img = GUIDE_IMG[id];
+  if (img) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={img} alt="" draggable={false} className="absolute inset-0 w-full h-full object-cover object-[50%_32%]" />;
+  }
   const kind = GUIDE_ART[id];
   if (kind) return <GameArt kind={kind} wide />;
   return (
