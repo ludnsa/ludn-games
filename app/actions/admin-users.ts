@@ -180,3 +180,58 @@ export async function updateAdminUser(userId: string, updates: { name?: string; 
   revalidatePath("/admin");
   return { success: true };
 }
+
+/**
+ * المشتريات: كل عملية دفع ناجحة من جدول transactions، الأحدث أول. قراءة بس.
+ * ميسّر يحفظ المبلغ بالهللة، فنقسمه على 100. اسم الباقة يطلع بالواجهة من lib/packages.
+ */
+export async function getAdminPurchases() {
+  if (!(await isAdmin())) return { error: NOT_ADMIN };
+  const supabase = getAdminClient();
+
+  const { data: rows, error } = await supabase
+    .from("transactions")
+    .select("id, payment_id, user_id, package_id, amount, currency, payment_method, created_at")
+    .eq("status", "paid")
+    .order("created_at", { ascending: false });
+  if (error) return { error: error.message };
+
+  // أسماء المشترين من كل صفحات المستخدمين (نفس طريقة getAdminUsers)
+  const PER_PAGE = 1000;
+  const people = new Map<string, { name: string; email: string; phone: string }>();
+  for (let page = 1; ; page++) {
+    const { data, error: usersError } = await supabase.auth.admin.listUsers({ page, perPage: PER_PAGE });
+    if (usersError) return { error: usersError.message };
+    for (const user of data.users) {
+      people.set(user.id, {
+        name: user.user_metadata?.name || user.user_metadata?.full_name || "بدون اسم",
+        email: user.email || "",
+        phone: user.phone || user.user_metadata?.phone_number || user.user_metadata?.phone || "",
+      });
+    }
+    if (data.users.length < PER_PAGE) break;
+  }
+
+  const subscriptions = await getAllSubscriptions(supabase);
+  const now = Date.now();
+  const activeSubscribers = [...subscriptions.values()].filter((endsAt) => Date.parse(endsAt) > now).length;
+
+  const purchases = (rows ?? []).map((t) => {
+    const person = people.get(t.user_id);
+    return {
+      id: String(t.id),
+      paymentId: t.payment_id as string,
+      name: person?.name ?? "حساب محذوف",
+      email: person?.email ?? "",
+      phone: person?.phone ?? "",
+      packageId: t.package_id as number,
+      amount: (Number(t.amount) || 0) / 100,
+      currency: (t.currency as string) || "SAR",
+      method: (t.payment_method as string) || "",
+      createdAt: t.created_at as string,
+      subscriptionEndsAt: subscriptions.get(t.user_id) ?? null,
+    };
+  });
+
+  return { purchases, activeSubscribers };
+}

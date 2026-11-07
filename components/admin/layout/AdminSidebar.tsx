@@ -2,7 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Globe, Swords, Gavel, LayoutGrid, Inbox, Users, LayoutDashboard } from "lucide-react";
+import { Globe, Swords, Gavel, LayoutGrid, Inbox, Users, Receipt, LayoutDashboard } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 
 /** أقسام لوحة التحكم: شريط يتمرر بالعرض على الجوال، وقائمة جانبية ثابتة على الكمبيوتر */
@@ -25,6 +25,7 @@ export default function AdminSidebar() {
     { href: QUIZ_GAME.adminPath, label: QUIZ_GAME.title, icon: LayoutGrid },
     { href: "/admin/messages", label: "صندوق الوارد", icon: Inbox },
     { href: "/admin/users", label: "المستخدمين", icon: Users },
+    { href: "/admin/purchases", label: "المشتريات", icon: Receipt },
   ];
 
   return (
