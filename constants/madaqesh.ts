@@ -10,6 +10,9 @@ export const MADAQESH_GAME = {
 } as const;
 
 export const MADAQESH_CONFIG = {
+  /** من ضمن الاشتراك: يطلع للمنشئ لو ما عنده اشتراك ولا تجربة ولا رصيد */
+  NO_ACCESS_MESSAGE: "خلصت تجربتك المجانية لحاسبة مداقش — اشترك وتفتح لك كل الألعاب",
+
   MIN_PLAYERS: 2,
   MAX_PLAYERS: 12,
 

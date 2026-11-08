@@ -3,7 +3,8 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Cairo } from "next/font/google";
-import { Monitor, Settings2, Square, Undo2, Shuffle, Home, X, Play, Eraser } from "lucide-react";
+import { Monitor, Settings2, Square, Undo2, Shuffle, Home, X, Play, Eraser, Crown, Loader2 } from "lucide-react";
+import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameAccess";
 import { LETTERS_HIVE_CONFIG, LETTERS_HIVE_GAME, LETTERS_HIVE_TEAMS } from "@/constants/letters-hive";
 import {
   HIVE_TEAMS,
@@ -99,6 +100,53 @@ function Setup({
 }) {
   const [teams, setTeams] = useState(state.teams);
   const [hard, setHard] = useState(state.hardLetters);
+  const [busy, setBusy] = useState(false);
+  const [accessError, setAccessError] = useState("");
+
+  // من ضمن الاشتراك (نفس المافيا): لو ما عنده اشتراك ولا تجربة ولا رصيد، نوريه الباقات بدل الإعدادات
+  const [noAccess, setNoAccess] = useState(false);
+  useEffect(() => {
+    checkAccessAction(LETTERS_HIVE_GAME.id).then((a) => {
+      if (!a.allowed && a.reason === "no_tokens") setNoAccess(true);
+    });
+  }, []);
+
+  // كل بدء جلسة ينحسب لعبة (جولة جديدة داخل الجلسة ما تنحسب): نفحص أول، وننحسب بعد ما تبدأ
+  const start = async () => {
+    setBusy(true);
+    setAccessError("");
+    const access = await checkAccessAction(LETTERS_HIVE_GAME.id).catch(() => null);
+    if (!access?.allowed) {
+      setBusy(false);
+      if (access?.reason === "no_tokens") setNoAccess(true);
+      else setAccessError("ما قدرنا نتأكد من اشتراكك، تأكد من الاتصال وحاول مرة ثانية.");
+      return;
+    }
+    onStart(teams, hard);
+    consumeGameSessionAction(LETTERS_HIVE_GAME.id, "").catch(() => {});
+  };
+
+  if (noAccess) {
+    return (
+      <div className="w-full max-w-md mx-auto my-6 flex flex-col gap-4">
+        <div className="text-center">
+          <p className="text-6xl mb-2">🐝</p>
+          <h1 className="text-4xl font-black">{LETTERS_HIVE_GAME.title}</h1>
+        </div>
+        <section className="bg-slate-900/80 border-2 border-slate-800 rounded-[2rem] p-6 grid gap-3 justify-items-center text-center">
+          <Crown size={40} className="text-emerald-400" />
+          <h2 className="text-2xl font-black">{LETTERS_HIVE_GAME.title} من ضمن الاشتراك</h2>
+          <p className="font-bold text-slate-400 text-sm leading-relaxed">{LETTERS_HIVE_CONFIG.NO_ACCESS_MESSAGE}</p>
+          <a href="/packages" className={`${btn.primary} mt-2`}>
+            شوف الباقات
+          </a>
+        </section>
+        <Link href="/" className="mx-auto text-sm font-bold text-slate-400 hover:text-white flex items-center gap-1.5">
+          <Home size={16} /> الرئيسية
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto my-6 flex flex-col gap-4">
@@ -111,9 +159,10 @@ function Setup({
       <section className="bg-slate-900/80 border-2 border-slate-800 rounded-[2rem] p-5 flex flex-col gap-4">
         <TeamFields teams={teams} onChange={setTeams} />
         <HardLettersToggle value={hard} onChange={setHard} />
-        <button type="button" onClick={() => onStart(teams, hard)} className={btn.primary}>
-          <Play size={22} /> ابدأ الجلسة
+        <button type="button" onClick={start} disabled={busy} className={btn.primary}>
+          {busy ? <Loader2 size={22} className="animate-spin" /> : <Play size={22} />} ابدأ الجلسة
         </button>
+        {accessError && <p className="text-center text-sm font-bold text-red-300">{accessError}</p>}
       </section>
 
       <button type="button" onClick={onDisplay} className={btn.ghost}>

@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, Crown, CreditCard, Loader2, Gift, CalendarClock, Sparkles } from "lucide-react";
+import { CheckCircle2, Crown, CreditCard, Loader2, Gift, CalendarClock } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { SitePage, PageHeading } from "@/components/home/SitePage";
 import { BTN_GOLD, BTN_SOFT, CARD } from "@/components/home/ui";
 import { fetchMyPlanAction } from "@/app/actions/gameAccess";
 import {
-  FREE_GAME_TITLES,
   PAID_GAME_TITLES,
   SUBSCRIPTION_PLANS,
   formatPlanDate,
@@ -19,7 +18,7 @@ import {
   type PackageData,
 } from "@/lib/packages";
 
-const PERKS = ["كل الألعاب المدفوعة", "العب كل يوم وبأي عدد", "بدون تجديد تلقائي"];
+const PERKS = ["كل الألعاب", "العب كل يوم وبأي عدد", "بدون تجديد تلقائي"];
 
 export default function PackagesPage() {
   const supabase = getSupabaseBrowser();
@@ -166,8 +165,8 @@ export default function PackagesPage() {
         })}
       </ul>
 
-      {/* وش يفتح الاشتراك + التجربة المجانية + الألعاب المجانية */}
-      <div className={`${CARD} p-4 md:p-6 grid gap-4 md:grid-cols-2`}>
+      {/* وش يفتح الاشتراك (كل الألعاب) + التجربة المجانية */}
+      <div className={`${CARD} p-4 md:p-6 grid gap-4`}>
         <div className="grid gap-2 content-start">
           <p className="font-black flex items-center gap-2">
             <Crown size={18} className="text-ludn-gold-text" /> الاشتراك يفتح لك
@@ -182,19 +181,7 @@ export default function PackagesPage() {
           <p className="text-[13px] font-bold text-ludn-muted flex items-center gap-1.5 mt-1">
             <Gift size={16} className="shrink-0 text-ludn-green" /> كل لعبة منها لها تجربة مجانية وحدة قبل ما تشترك
           </p>
-        </div>
-        <div className="grid gap-2 content-start">
-          <p className="font-black flex items-center gap-2">
-            <Sparkles size={18} className="text-ludn-green" /> مجانية دايماً
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {FREE_GAME_TITLES.map((t) => (
-              <span key={t} className="text-[13px] font-bold px-3 py-1 rounded-full bg-ludn-green/15 text-ludn-green">
-                {t}
-              </span>
-            ))}
-          </div>
-          <p className="text-[13px] font-bold text-ludn-muted mt-1">
+          <p className="text-[13px] font-bold text-ludn-muted">
             الاشتراك للي ينشئ اللعبة بس — الباقين يدخلون بالكود ببلاش
           </p>
         </div>

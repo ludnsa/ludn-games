@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Cairo } from "next/font/google";
-import { LogIn, Loader2, AlertCircle, DoorOpen, Undo2 } from "lucide-react";
+import { LogIn, Loader2, AlertCircle, DoorOpen, Undo2, Crown } from "lucide-react";
 import { createMadaqeshRoom, getMadaqeshRoomPublicInfo, joinMadaqeshRoom, leaveMadaqeshRoom } from "@/actions/madaqesh";
+import { checkAccessAction } from "@/app/actions/gameAccess";
 import { MADAQESH_CONFIG, MADAQESH_GAME } from "@/constants/madaqesh";
 import { useMadaqeshGame, type MadaqeshSession } from "@/hooks/games/madaqesh/useMadaqeshGame";
 import { readMadaqeshSession, writeMadaqeshSession } from "@/lib/game/madaqesh-session";
@@ -162,6 +163,29 @@ function CreateRoom({ onCreated, notice }: { onCreated: (s: MadaqeshSession) => 
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // من ضمن الاشتراك (نفس المافيا): لو ما عنده اشتراك ولا تجربة ولا رصيد، نوريه الباقات بدل الإعدادات
+  const [noAccess, setNoAccess] = useState(false);
+  useEffect(() => {
+    checkAccessAction(MADAQESH_GAME.id).then((a) => {
+      if (!a.allowed && a.reason === "no_tokens") setNoAccess(true);
+    });
+  }, []);
+
+  if (noAccess) {
+    return (
+      <div className="w-full max-w-md mx-auto my-auto">
+        <Header subtitle="السوم والتوزيع والمداقشة، والأرصدة تنحسب لحالها" />
+        <Panel className="text-center grid gap-3 justify-items-center">
+          <Crown size={40} className="text-amber-400" />
+          <h2 className="text-2xl font-black">{MADAQESH_GAME.title} من ضمن الاشتراك</h2>
+          <p className="font-bold text-slate-400 text-sm leading-relaxed">{MADAQESH_CONFIG.NO_ACCESS_MESSAGE}</p>
+          <a href="/packages" className={`${btn.primary} mt-2`}>
+            شوف الباقات
+          </a>
+        </Panel>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto my-auto">

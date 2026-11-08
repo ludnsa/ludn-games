@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { Play, BookOpen, X } from "lucide-react";
+import { Play, BookOpen, X, Gift } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { MAFIA_CONFIG, MAFIA_GAME, mafiaCardSrc, mafiaIconSrc } from "@/constants/mafia";
 import { MADAQESH_GAME } from "@/constants/madaqesh";
@@ -44,7 +44,6 @@ const GAMES: HomeGame[] = [
     meta: [`من ${MAFIA_CONFIG.MIN_PLAYERS} إلى ${MAFIA_CONFIG.MAX_PLAYERS} لاعب`, "كل واحد بجواله", "فئة جديدة: الشيخ"],
     cover: { img: mafiaCardSrc("mafia") },
     badge: { text: "جديد: الشيخ", icon: mafiaIconSrc("sheikh") },
-    free: true,
   },
   {
     id: QUIZ_GAME.id,
@@ -65,7 +64,6 @@ const GAMES: HomeGame[] = [
     category: "أسئلة",
     meta: ["مقدم وفريقين", "شاشة عرض"],
     cover: { art: "hive" },
-    free: true,
   },
   {
     id: "auction",
@@ -106,7 +104,6 @@ const GAMES: HomeGame[] = [
     category: "أدوات",
     meta: ["على جوالات الكل"],
     cover: { art: "madaqesh" },
-    free: true,
   },
 ];
 
@@ -254,9 +251,13 @@ export const GamesSection = () => {
 
   return (
     <section id="games-section" className="w-full max-w-6xl mx-auto px-4 py-8 md:py-12 grid gap-4">
-      <div className="flex items-baseline gap-2.5">
+      {/* flex-wrap: بالجوالات الضيقة تاق التجربة ينزل تحت العنوان بدل ما يطلع برا الشاشة */}
+      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-2">
         <h2 className="font-display text-[30px] md:text-[40px] leading-tight text-ludn-fg">الألعاب</h2>
         <span className="text-sm font-bold text-ludn-muted">{countText(shown.length)}</span>
+        <span className="ms-auto self-center inline-flex items-center gap-1.5 text-[12.5px] font-black px-3 py-1 rounded-full bg-[#56c98d] text-[#05230f]">
+          <Gift size={14} /> تجربة مجانية لكل لعبة
+        </span>
       </div>
 
       <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-1" role="group" aria-label="تصفية الألعاب">

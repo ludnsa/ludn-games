@@ -4,7 +4,7 @@ import { MADAQESH_GAME } from "@/constants/madaqesh";
 import { LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 
 /**
- * الباقات: اشتراك بمدة (شهر / 3 شهور / سنة) مفتوح لكل الألعاب المدفوعة.
+ * الباقات: اشتراك بمدة (شهر / 3 شهور / سنة) مفتوح لكل الألعاب.
  * الباقات القديمة (رصيد ألعاب) مخفية: ما تطلع بصفحة الباقات، بس تظل هنا عشان
  * أي دفعة قديمة بالطريق تنحسب صح — والرصيد القديم يظل شغال لين يخلص.
  */
@@ -38,10 +38,16 @@ export const GAME_PACKAGES: PackageData[] = [
 /** الباقات اللي تطلع للناس */
 export const SUBSCRIPTION_PLANS = GAME_PACKAGES.filter((p) => !p.legacy);
 
-/** الألعاب اللي يفتحها الاشتراك — وكل وحدة منها لها تجربة مجانية */
-export const PAID_GAME_TITLES = [QUIZ_GAME.title, "المزاد", "حرب القلاع", "السيطرة على العالم"];
-/** مجانية دايماً (ما تفحص اشتراك) */
-export const FREE_GAME_TITLES = [MAFIA_GAME.title, MADAQESH_GAME.title, LETTERS_HIVE_GAME.title];
+/** الألعاب اللي يفتحها الاشتراك (كلها) — وكل وحدة منها لها تجربة مجانية */
+export const PAID_GAME_TITLES = [
+  QUIZ_GAME.title,
+  "المزاد",
+  "حرب القلاع",
+  "السيطرة على العالم",
+  MAFIA_GAME.title,
+  MADAQESH_GAME.title,
+  LETTERS_HIVE_GAME.title,
+];
 
 export const getPackageById = (id: number): PackageData | undefined => {
   return GAME_PACKAGES.find((pkg) => pkg.id === id);

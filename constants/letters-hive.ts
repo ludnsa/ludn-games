@@ -15,6 +15,9 @@ export const LETTERS_HIVE_GAME = {
 } as const;
 
 export const LETTERS_HIVE_CONFIG = {
+  /** من ضمن الاشتراك: يطلع للمقدم لو ما عنده اشتراك ولا تجربة ولا رصيد */
+  NO_ACCESS_MESSAGE: "خلصت تجربتك المجانية لخلية الحروف — اشترك وتفتح لك كل الألعاب",
+
   ROWS: 5,
   COLS: 5,
   TEAM_NAME_MAX: 20,

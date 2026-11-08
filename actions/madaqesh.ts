@@ -2,7 +2,8 @@
 
 import { randomUUID } from "crypto";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
-import { MADAQESH_BOT_NAMES, MADAQESH_CONFIG } from "@/constants/madaqesh";
+import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameAccess";
+import { MADAQESH_BOT_NAMES, MADAQESH_CONFIG, MADAQESH_GAME } from "@/constants/madaqesh";
 import {
   MadaqeshCreateSchema,
   MadaqeshDecisionSchema,
@@ -400,6 +401,9 @@ export async function createMadaqeshRoom(input: {
   } = await userClient.auth.getUser();
   if (!user) return fail("يجب تسجيل الدخول لإنشاء غرفة.");
 
+  // نفس المافيا: الاشتراك يتفحص هنا بدري (بدون ما ينحسب شي) عشان المنشئ ما يجمع الشباب على الفاضي
+  if (!(await checkAccessAction(MADAQESH_GAME.id)).allowed) return fail(MADAQESH_CONFIG.NO_ACCESS_MESSAGE);
+
   const admin = getSupabaseServiceRole();
   let roomCode = "";
   for (let attempt = 0; attempt < 8 && !roomCode; attempt++) {
@@ -670,6 +674,10 @@ export async function startMadaqeshGame(roomCode: string): Promise<ActionResult>
   const players = await loadPlayers(admin, room.room_code);
   if (players.length < MADAQESH_CONFIG.MIN_PLAYERS) return fail(`لازم ${MADAQESH_CONFIG.MIN_PLAYERS} لاعبين على الأقل.`);
 
+  // كل بدء ينحسب لعبة (نفس المافيا): اشتراك بدون خصم، أو التجربة المجانية، أو لعبة من الرصيد القديم.
+  // الفحص قبل تصفير الأرصدة، عشان اللي ما عنده اشتراك ما تنمسح لعبته الحالية
+  if (!(await checkAccessAction(MADAQESH_GAME.id)).allowed) return fail(MADAQESH_CONFIG.NO_ACCESS_MESSAGE);
+
   await admin.from("madaqesh_rounds").delete().eq("room_code", room.room_code);
   await admin
     .from("madaqesh_players")
@@ -677,6 +685,7 @@ export async function startMadaqeshGame(roomCode: string): Promise<ActionResult>
     .eq("room_code", room.room_code);
   const ok = await startRound(admin, { ...room, round_number: 0 }, null);
   if (!ok) return fail("تعذّر بدء اللعبة، حاول مرة ثانية.");
+  await consumeGameSessionAction(MADAQESH_GAME.id, ctx.userId);
   await runBots(admin, room.room_code);
   return { success: true };
 }
