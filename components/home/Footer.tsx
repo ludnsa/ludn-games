@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { Swords, Globe, Gavel, LayoutGrid, Calculator, Hexagon } from "lucide-react";
+import { Globe, Gavel, LayoutGrid, Calculator, Hexagon } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { MAFIA_GAME, mafiaIconSrc } from "@/constants/mafia";
 import { MADAQESH_GAME } from "@/constants/madaqesh";
@@ -62,8 +62,19 @@ export const Footer = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
           <div className="grid gap-3 content-start">
             <h3 className="font-display text-xl text-ludn-fg">الألعاب</h3>
             <ul className="grid gap-2.5 font-bold text-sm">
-              <li><Link href="/games/castle-war" className={`${LINK} flex items-center gap-2`}><Swords className={GAME_ICON} /> حرب القلاع</Link></li>
-              <li><Link href="/games/world-domination" className={`${LINK} flex items-center gap-2`}><Globe className={GAME_ICON} /> السيطرة على العالم</Link></li>
+              {/* أيقونات الألعاب اللي لها رسمة (نفس شخصية الغلاف)، والباقي رموز */}
+              {/* eslint-disable @next/next/no-img-element */}
+              <li>
+                <Link href="/games/castle-war" className={`${LINK} flex items-center gap-2`}>
+                  <img src="/games/castle-war/cards/commander_icon.webp" alt="" className="w-5 h-5 shrink-0" /> حرب القلاع
+                </Link>
+              </li>
+              <li>
+                <Link href="/games/world-domination" className={`${LINK} flex items-center gap-2`}>
+                  <img src="/games/world-domination/cards/occupy_icon.webp" alt="" className="w-5 h-5 shrink-0" /> السيطرة على العالم
+                </Link>
+              </li>
+              {/* eslint-enable @next/next/no-img-element */}
               <li><Link href="/games/auction" className={`${LINK} flex items-center gap-2`}><Gavel className={GAME_ICON} /> حرب المزايدات</Link></li>
               <li><Link href={QUIZ_GAME.path} className={`${LINK} flex items-center gap-2`}><LayoutGrid className={GAME_ICON} /> {QUIZ_GAME.title}</Link></li>
               <li>

@@ -33,8 +33,10 @@ export const HeroSection = ({
       {/* مروحة بطاقات من الألعاب */}
       {/* min-w-0: عرض البطاقات المتراكبة أكبر من مجموعها الظاهر، فما نخليها توسّع العمود */}
       <div aria-hidden className="relative min-w-0 flex justify-center items-end lg:items-center h-[min(47vw,214px)] lg:h-[330px] pb-1.5 lg:col-start-2 lg:row-start-1">
-        <div className={`${FAN_CARD} ludn-fan4-outer-r ${FAN_OUTER}`}>
-          <GameArt kind="quiz" />
+        {/* غلاف السيطرة على العالم بنفس إطار حرب القلاع. بدون شريط اسم: البطاقة الخارجية أغلبها تحت مافيا فالاسم ما يبان */}
+        <div className={`${FAN_CARD} ludn-fan4-outer-r ${FAN_OUTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/games/world-domination/world-domination-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[70%_50%]" />
         </div>
         <div className={`${FAN_CARD} ludn-fan4-inner-r z-[2] ${FAN_INNER}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}

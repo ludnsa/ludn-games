@@ -258,7 +258,6 @@
   .ludn-fan4-outer-l { --fan-from: 100%; transform: translateX(40%) rotate(-12deg) translateY(6%); }
   .ludn-fan4-outer-r, .ludn-fan4-inner-r, .ludn-fan4-inner-l, .ludn-fan4-outer-l { animation: ludnFan4 800ms cubic-bezier(.2, .8, .2, 1) both; }
   /* الظاهر من البطاقة الخارجية أضيق: نصغّر الرسمة ونزيحها لبرا عشان ما تختفي تحت اللي قدامها */
-  .ludn-fan4-outer-r svg { width: 56%; transform: translateX(25%); }
   .ludn-fan4-outer-l svg { width: 56%; transform: translateX(-25%); }
 
   @keyframes ludnSheetUp { from { transform: translateY(40px); } }
