@@ -91,7 +91,7 @@ export default function MyGamesPage() {
   // full: نفس معناها بالرئيسية — صورة الغلاف تطلع كاملة بدون قص وتكبير
   const gamesList: { id: string; title: string; art?: GameArtKind; img?: string; full?: boolean }[] = [
     { id: QUIZ_GAME.id, title: QUIZ_GAME.title, art: 'quiz' },
-    { id: 'auction', title: 'المزاد', art: 'auction' },
+    { id: 'auction', title: 'المزاد', img: '/games/auction/auction-cover.webp', full: true },
     { id: 'castle-war', title: 'حرب القلاع', img: '/games/castle-war/castle-war-cover.webp', full: true },
     { id: 'world-domination', title: 'السيطرة على العالم', img: '/games/world-domination/world-domination-cover.webp', full: true },
     // بطاقة المافيا فيها اسمها تحت: القص الافتراضي (تكبير على الوجه) يناسبها

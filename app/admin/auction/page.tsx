@@ -15,7 +15,7 @@ export default function AuctionAdminPage() {
     return (
       <GamingLoadingScreen
         title="جاري تجهيز مزاد الأسئلة وتحديد المستويات..."
-        subtitle="يتم تحميل مجالات وبنك أسئلة المزايدات من السيرفر..."
+        subtitle="يتم تحميل مجالات وبنك أسئلة المزاد من السيرفر..."
       />
     );
   }

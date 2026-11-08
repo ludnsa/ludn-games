@@ -73,7 +73,7 @@ const GAMES: HomeGame[] = [
     line: "زايد على السؤال اللي تعرف جوابه.",
     category: "أسئلة",
     meta: ["فرق", "مزايدة"],
-    cover: { art: "auction" },
+    cover: { img: "/games/auction/auction-cover.webp", full: true },
   },
   {
     id: "castle-war",

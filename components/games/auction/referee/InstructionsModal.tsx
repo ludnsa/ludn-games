@@ -17,7 +17,7 @@ export default function InstructionsModal({
        <div className="bg-white dark:bg-slate-900 border-4 border-amber-500 p-6 md:p-8 rounded-3xl max-w-2xl w-full text-right shadow-[8px_8px_0px_#f59e0b] animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scroll">
           <div className="flex items-center justify-center gap-3 mb-6">
             <Info className="w-8 h-8 text-amber-500" strokeWidth={3} />
-            <h2 className="text-3xl font-black text-slate-800 dark:text-white">كيف نلعب المزايدات؟ ⚖️</h2>
+            <h2 className="text-3xl font-black text-slate-800 dark:text-white">كيف نلعب المزاد؟ ⚖️</h2>
           </div>
           
           <div className="space-y-4 text-slate-700 dark:text-slate-300 font-bold text-sm md:text-base leading-relaxed">

@@ -194,7 +194,7 @@ export function useAuctionQuestions() {
       q.difficulty || "متوسط"
     ]);
 
-    exportToCSV("اسئلة_حرب_المزايدات", headers, rows);
+    exportToCSV("اسئلة_المزاد", headers, rows);
     toast.success("تم تصدير ملف CSV بنجاح!");
   };
 

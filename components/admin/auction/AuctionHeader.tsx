@@ -35,7 +35,7 @@ export default function AuctionHeader({
       <AdminPageHeader
         back
         art="auction"
-        title="بنك أسئلة حرب المزايدات"
+        title="بنك أسئلة المزاد"
         subtitle={
           <span className="flex items-center gap-1.5">
             <Database size={15} />

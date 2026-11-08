@@ -1,19 +1,15 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { SitePage, PageHeading } from "@/components/home/SitePage";
-import { GameArt, type GameArtKind } from "@/components/home/GameArt";
 import { BTN_GOLD, CARD } from "@/components/home/ui";
 import { Swords, Globe, Gavel, Users, Clock, Trophy, Target, Sparkles, ChevronLeft, Shield, Rocket, Crown, Crosshair, Radiation, BadgeDollarSign, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
-// غلاف كل دليل من نفس رسومات الألعاب بالرئيسية (التحديات ما لها لعبة، فلها رسمة بسيطة)
-// اللعبة اللي لها صورة غلاف: نفس صورتها بالرئيسية وبنفس قص النافذة العريضة هناك
+// غلاف كل دليل: نفس صورة اللعبة بالرئيسية وبنفس قص النافذة العريضة هناك (التحديات ما لها لعبة، فلها رسمة بسيطة)
 const GUIDE_IMG: Record<string, string> = {
+  auction: "/games/auction/auction-cover.webp",
   "castle-war": "/games/castle-war/castle-war-cover.webp",
   "world-domination": "/games/world-domination/world-domination-cover.webp",
-};
-const GUIDE_ART: Record<string, GameArtKind> = {
-  auction: "auction",
 };
 
 function GuideCover({ id }: { id: string }) {
@@ -22,8 +18,6 @@ function GuideCover({ id }: { id: string }) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={img} alt="" draggable={false} className="absolute inset-0 w-full h-full object-cover object-[50%_32%]" />;
   }
-  const kind = GUIDE_ART[id];
-  if (kind) return <GameArt kind={kind} wide />;
   return (
     <div aria-hidden className="ludn-art ludn-art-quiz ludn-art-wide">
       <Sparkles strokeWidth={1.5} className="w-[24%]!" />
@@ -83,7 +77,7 @@ export default function GameGuidesPage() {
   const games = [
     {
       id: "auction",
-      title: "المزايدات",
+      title: "المزاد",
       icon: Gavel,
       color: "amber",
       players: "فريقان (مع حكم)",

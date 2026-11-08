@@ -21,7 +21,7 @@ export default function AdminSidebar() {
     { href: "/admin", label: "الرئيسية", icon: LayoutDashboard, exact: true },
     { href: "/admin/world-domination", label: "السيطرة على العالم", icon: Globe },
     { href: "/admin/castle-war", label: "حرب القلاع", icon: Swords },
-    { href: "/admin/auction", label: "حرب المزايدات", icon: Gavel },
+    { href: "/admin/auction", label: "المزاد", icon: Gavel },
     { href: QUIZ_GAME.adminPath, label: QUIZ_GAME.title, icon: LayoutGrid },
     { href: "/admin/messages", label: "صندوق الوارد", icon: Inbox },
     { href: "/admin/users", label: "المستخدمين", icon: Users },

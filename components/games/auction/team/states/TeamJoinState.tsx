@@ -12,7 +12,7 @@ export default function TeamJoinState({ ctx }: { ctx: any }) {
     <div className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[2.5rem] shadow-2xl border-4 border-yellow-500 text-center w-full max-w-md animate-in zoom-in-95 mx-auto mt-[10vh]">
       <Wallet className="w-16 h-16 text-yellow-500 mx-auto mb-6 animate-pulse" />
       <h1 className="text-3xl font-black mb-2 text-slate-800 dark:text-white">دخول الفرق</h1>
-      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-8">حرب المزايدات - شاشة اللاعبين</p>
+      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-8">المزاد - شاشة اللاعبين</p>
 
       <div className="space-y-6 text-right">
         <div>

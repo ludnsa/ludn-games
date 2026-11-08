@@ -104,8 +104,8 @@ export default function AdminStatsSection({ wdStats, cwStats, awStats, quizStats
           </div>
         </GameCard>
 
-        {/* حرب المزايدات */}
-        <GameCard art="auction" title="حرب المزايدات" subtitle="إحصائية المزاد والأسئلة">
+        {/* المزاد */}
+        <GameCard art="auction" title="المزاد" subtitle="إحصائية المزاد والأسئلة">
           <div className="grid gap-2">
             <StatItem icon={<HelpCircle size={18} />} title="إجمالي أسئلة المزايدة" count={awStats.questions} />
           </div>

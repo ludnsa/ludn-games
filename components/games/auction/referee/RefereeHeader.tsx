@@ -62,7 +62,7 @@ export default function RefereeHeader({ roomCode, setShowQRModal, copyLink, rese
       <div className="flex items-center gap-3">
         <Gavel className="text-yellow-500 w-6 h-6 md:w-8 md:h-8" />
         <div className="text-right sm:text-left">
-          <h1 className="text-base md:text-lg font-black tracking-wide text-slate-900 dark:text-white">حرب المزايدات</h1>
+          <h1 className="text-base md:text-lg font-black tracking-wide text-slate-900 dark:text-white">المزاد</h1>
           <p className="text-[10px] md:text-xs font-bold text-yellow-600 dark:text-yellow-500">الكنترول المركزي</p>
         </div>
       </div>
