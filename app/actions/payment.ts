@@ -126,7 +126,8 @@ export async function verifyAndFulfillPayment(paymentId: string, pkgId: number) 
 
     if (payment.status !== "paid") {
       const failReason = payment.source?.message || "";
-      console.log("Moyasar Failed Payment Raw Data:", { status: payment.status, message: failReason, source: payment.source });
+      // الحالة وسبب الفشل بس: تفاصيل وسيلة الدفع (اسم حامل البطاقة ورقمها المخفي) ما تنكتب في السجل
+      console.log("Moyasar Failed Payment:", { status: payment.status, message: failReason });
       const translatedError = translateMoyasarError(payment.status, failReason);
       return { success: false, error: translatedError };
     }
