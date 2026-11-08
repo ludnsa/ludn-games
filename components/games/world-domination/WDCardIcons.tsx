@@ -2,7 +2,11 @@
 import React from "react";
 import { WD_CARDS, WD_CARD_ORDER, wdCardCount, type WDCardKey } from "./wdCards";
 
-/** أيقونة البطاقة المدورة مع عددها — عرض بس. البطاقة اللي خلصت تصير رمادية والرقم يبقى مقروء. */
+/**
+ * أيقونة البطاقة المدورة مع عددها — عرض بس. البطاقة اللي خلصت تصير رمادية والرقم يبقى مقروء.
+ * دائرة الرقم فاتحة والرقم غامق عن قصد: الوضع الليلي في بعض المتصفحات (مثل سامسونج) يقلب الألوان بالقوة،
+ * والدائرة الغامقة كانت تنقلب فاتحة والرقم الأبيض يضيع. الفاتح مع الغامق ينقلب صح ويبقى واضح بالحالتين.
+ */
 export function WDCardIcon({
   card,
   count,
@@ -25,7 +29,7 @@ export function WDCardIcon({
         className={`block w-full h-full rounded-full ${count === 0 ? "grayscale opacity-40" : ""}`}
       />
       {showCount && count !== undefined && (
-        <span className="absolute -bottom-1 -left-1 min-w-5 h-5 px-1 rounded-full bg-slate-950 border border-white/25 text-white text-[11px] font-black leading-none grid place-items-center tabular-nums">
+        <span className={`absolute -bottom-1 -left-1 min-w-5 h-5 px-1 rounded-full border border-slate-950/60 text-[11px] font-black leading-none grid place-items-center tabular-nums ${count === 0 ? "bg-slate-300 text-slate-800" : "bg-amber-200 text-slate-950"}`}>
           {count}
         </span>
       )}
