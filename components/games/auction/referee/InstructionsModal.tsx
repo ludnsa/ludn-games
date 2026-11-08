@@ -50,7 +50,7 @@ export default function InstructionsModal({
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border-2 border-indigo-100 dark:border-indigo-800">
               <h3 className="text-indigo-600 dark:text-indigo-400 font-black text-lg mb-3">🃏 أفياش المساعدة (استخدمها بوقتها):</h3>
               <div className="flex flex-col gap-3 pr-2">
-                <span className="flex items-start gap-2"><BadgeDollarSign size={20} className="text-emerald-500 shrink-0 mt-0.5" /> <span><strong>بيع سؤال (3 أفياش):</strong> تورطت بسؤال؟ تقدر تبيعه إجباري على الخصم بـ 5000 كوينز. (بس لا تزايد بأكثر من 5000 وتبيع لأن الفرق بيروح عليك! وما يمديك تبيعه لو كنت مختار دبل).</span></span>
+                <span className="flex items-start gap-2"><BadgeDollarSign size={20} className="text-emerald-500 shrink-0 mt-0.5" /> <span><strong>بيع سؤال (3 أفياش):</strong> تورطت بسؤال؟ تقدر تبيعه إجباري على الخصم بـ 5000 كوينز. (بس لا تزايد بأكثر من 5000 وتبيع لأن الفرق بيروح عليك! وما يمديك تبيعه لو كنت مختار دبل).<span className="block mt-1">ما تقدر تبيع السؤال إذا رصيد خصمك أقل من 5000.</span></span></span>
                 <span className="flex items-start gap-2"><ShieldAlert size={20} className="text-rose-500 shrink-0 mt-0.5" /> <span><strong>كمين (3 أفياش):</strong> جاوبت صح؟ تقدر تضحي بالكؤوس وتستخدم كمين! يرجع لك فلوس مزايدتك، ويسحب من الخصم نفس مبلغ مزايدته!</span></span>
               </div>
             </div>

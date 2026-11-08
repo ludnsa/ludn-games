@@ -13,6 +13,10 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
     selectedOption, setSelectedOption, handleAnswer, triggerConfirm, roomCode, playMode, nextQuestion
   } = ctx;
 
+  // سبب قفل زر البيع (لو فيه): الدبل أول، بعدين البطاقات، بعدين رصيد الخصم
+  const sellCardsLeft = ctx.winner === 1 ? ctx.t1SellCards : ctx.t2SellCards;
+  const sellLock = isDoubleRisk ? "غير متاح مع الدبل" : sellCardsLeft <= 0 ? "خلصت بطاقات البيع" : !ctx.canForceSale ? "رصيد الخصم أقل من 5000" : null;
+
   return (
     <>
       {/* كشف السؤال والقرار */}
@@ -60,7 +64,7 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
                    <span className="text-[10px] md:text-xs font-bold opacity-90 bg-black/30 px-2 py-1 rounded-lg">مكافأة: {ctx.isSuddenDeath ? 20 : 5} نقاط</span>
                 </button>
                 {!ctx.isSuddenDeath && (
-                  !isDoubleRisk ? (
+                  !sellLock ? (
                     <button onClick={() => triggerConfirm("تأكيد إجبار الخصم على شراء السؤال بـ 5000؟ ستفقد بطاقة بيع واحدة.", () => ctx.handleBuyQuestion())} className="p-3 md:p-4 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl border-b-4 border-purple-800 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
                        <span className="flex items-center gap-2 text-sm md:text-lg">
                          <AuctionCardGlyph card="sell" className="w-7 h-7 md:w-9 md:h-9" /> إجبار الخصم عالشراء
@@ -72,7 +76,7 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
                        <span className="flex items-center gap-2 text-sm md:text-lg">
                          <AuctionCardGlyph card="sell" off className="w-7 h-7 md:w-9 md:h-9" /> بيع السؤال (مغلق)
                        </span>
-                       <span className="text-[10px] md:text-xs font-bold opacity-90">غير متاح مع الدبل</span>
+                       <span className="text-[10px] md:text-xs font-bold opacity-90">{sellLock}</span>
                     </div>
                   )
                 )}

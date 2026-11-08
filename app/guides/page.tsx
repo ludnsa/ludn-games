@@ -109,7 +109,7 @@ export default function GameGuidesPage() {
             <div key="cards-rule" className="flex flex-col gap-3 mt-2">
               <span>عندك 6 أفياش مساعدة استخدمها في الوقت الصح:</span>
               <div className="flex flex-col gap-2 pl-2 lg:pl-0 pr-2 lg:pr-4">
-                <span className="flex items-start gap-1.5"><BadgeDollarSign size={18} className="text-emerald-500 shrink-0 mt-0.5" /> <span>3 أفياش بيع سؤال: لو شريت سؤال ولا عرفت تجاوبه تقدر تبيعه إجباري على الخصم بقيمة ثابتة 5000 كوينز، لا تشتري سؤال أكثر من 5000 وتبيع السؤال لأن مزايدتك بتروح عليك وتاخذ قيمة البيع، وما تقدر تبيع السؤال لو كنت مختار (دبل).</span></span>
+                <span className="flex items-start gap-1.5"><BadgeDollarSign size={18} className="text-emerald-500 shrink-0 mt-0.5" /> <span>3 أفياش بيع سؤال: لو شريت سؤال ولا عرفت تجاوبه تقدر تبيعه إجباري على الخصم بقيمة ثابتة 5000 كوينز، لا تشتري سؤال أكثر من 5000 وتبيع السؤال لأن مزايدتك بتروح عليك وتاخذ قيمة البيع، وما تقدر تبيع السؤال لو كنت مختار (دبل).<span className="block mt-1">ما تقدر تبيع السؤال إذا رصيد خصمك أقل من 5000.</span></span></span>
                 <span className="flex items-start gap-1.5"><ShieldAlert size={18} className="text-rose-500 shrink-0 mt-0.5" /> <span>3 أفياش كمين: إذا جاوبت صح إما تختار تاخذ كؤوس أو تستخدم فيش كمين (ترجع لك فلوسك اللي دفعتها في المزايدة ويسحب من الخصم مبلغ مزايدته).</span></span>
               </div>
             </div>,

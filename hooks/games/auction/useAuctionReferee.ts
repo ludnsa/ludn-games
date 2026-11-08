@@ -8,6 +8,8 @@ import { useGameTimer } from "@/hooks/shared/useGameTimer";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { useRouter } from "next/navigation";
 
+// سعر بيع السؤال ثابت: الخصم يدفعه كامل والبائع ياخذه كامل
+const SELL_PRICE = 5000;
 
 export function useAuctionReferee() {
   const supabase = getSupabaseBrowser();
@@ -452,25 +454,40 @@ export function useAuctionReferee() {
     setGameState("questionReveal");
   };
 
+  // البيع مسموح بس إذا رصيد الخصم يغطي السعر كامل (عشان ما تطلع فلوس للبائع من لا شي)
+  const canForceSale = (winner === 1 ? t2Balance : t1Balance) >= SELL_PRICE;
+
   const handleBuyQuestion = (accept: boolean = true) => {
     // accept is no longer relevant as it's forced, but we keep the signature or just ignore it.
     const loser = winner === 1 ? 2 : 1;
     const sellCards = winner === 1 ? t1SellCards : t2SellCards;
     
+    // حماية في المنطق نفسه (مو بس قفل الزر): ما ينفع بيع السؤال مع الدبل
+    if (isDoubleRisk) {
+      triggerAlert("لا يمكن بيع السؤال مع الدبل.");
+      return;
+    }
+
     if (sellCards <= 0) {
       triggerAlert("لا تملك بطاقات بيع متبقية!");
       return;
     }
 
-    const offerPrice = 5000;
+    // حماية في المنطق نفسه (مو بس قفل الزر): ما ينفذ البيع لو الخصم ما يقدر يدفع
+    if (!canForceSale) {
+      triggerAlert("لا يمكن بيع السؤال: رصيد الخصم أقل من 5000.");
+      return;
+    }
+
+    const offerPrice = SELL_PRICE;
 
     // Deduct sell card from winner
     if (winner === 1) setT1SellCards(p => Math.max(0, p - 1));
     else setT2SellCards(p => Math.max(0, p - 1));
 
-    // Force deduct 5000 from loser
-    if (loser === 1) setT1Balance(p => Math.max(0, p - offerPrice));
-    else setT2Balance(p => Math.max(0, p - offerPrice));
+    // Force deduct 5000 from loser (exactly; the balance was checked above)
+    if (loser === 1) setT1Balance(p => p - offerPrice);
+    else setT2Balance(p => p - offerPrice);
 
     // Pay the winner 5000
     if (winner === 1) setT1Balance(p => p + offerPrice);
@@ -664,7 +681,7 @@ export function useAuctionReferee() {
     t1Bid, setT1Bid, t2Bid, setT2Bid, winner, isDoubleRisk, playMode, setPlayMode, selectedOption, setSelectedOption,
     timer, isTimerRunning, setIsTimerRunning, isQuestionVisible, setIsQuestionVisible, alertConfig,
     triggerAlert, closeAlert, triggerConfirm, copyLink, startGame, calculateMinBid, handleBidsSubmit, handlePreRiskDecision,
-    handleBuyQuestion, handleAnswer, handleRewardChoice, nextQuestion, getWinnerName, getWinnerBid,
+    handleBuyQuestion, canForceSale, handleAnswer, handleRewardChoice, nextQuestion, getWinnerName, getWinnerBid,
     getLoserBid, getWinnerCurrentBalance, resetTeamDevice, handleChangeQuestion, resetGame, isAccessChecking
   };
 }
