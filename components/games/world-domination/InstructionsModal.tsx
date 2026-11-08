@@ -1,5 +1,6 @@
 import React from "react";
-import { Info, Globe, Shield, Rocket, Crown, Radiation, Crosshair } from "lucide-react";
+import { Info } from "lucide-react";
+import { WDCardGlyph } from "./WDCardIcons";
 
 interface InstructionsModalProps {
   showInstructionsModal: boolean;
@@ -50,12 +51,12 @@ export default function InstructionsModal({
               <h3 className="text-indigo-600 dark:text-indigo-400 font-black text-lg mb-3">🃏 البطاقات التكتيكية (لعب الكبار):</h3>
               <p className="mb-3 text-sm">عندك 6 أنواع من البطاقات، استخدمها بذكاء عشان تقلب الطاولة:</p>
               <div className="flex flex-col gap-3 pr-2">
-                <span className="flex items-start gap-2"><Globe size={20} className="text-slate-600 dark:text-slate-400 shrink-0 mt-0.5" /> <span><strong>احتلال (3):</strong> تاخذ الدولة على طول بدون سؤال (بس لا تصير محمية!).</span></span>
-                <span className="flex items-start gap-2"><Rocket size={20} className="text-orange-500 shrink-0 mt-0.5" /> <span><strong>قصف (3):</strong> تكسر فيها حماية الخصم، أو تطير نص نقاط دولته! (ما تقدر تقصف العاصمة).</span></span>
-                <span className="flex items-start gap-2"><Shield size={20} className="text-emerald-500 shrink-0 mt-0.5" /> <span><strong>حماية (3):</strong> درع لدولتك، والأذكى يحمي الدول اللي بـ 2000 نقطة.</span></span>
-                <span className="flex items-start gap-2"><Crosshair size={20} className="text-indigo-500 shrink-0 mt-0.5" /> <span><strong>تجسس (2):</strong> تجيب لك دولة دسمة بـ 2000 نقطة جاهزة وتجاوب على سؤالها.</span></span>
-                <span className="flex items-start gap-2"><Crown size={20} className="text-amber-500 shrink-0 mt-0.5" /> <span><strong>غزو (2):</strong> بس للعاصمة! شرط تكون نقاطك فوق 5000 والخصم فوق 10,000. فزت؟ تلطش ثلث نقاطه!</span></span>
-                <span className="flex items-start gap-2"><Radiation size={20} className="text-red-500 shrink-0 mt-0.5" /> <span><strong>نووي (1):</strong> ورقة الدمار الشامل! ما تضربها إلا إذا الخصم متقدم عليك بنقاطه الدبل أو أكثر.. ترجع نقاطه للنص وتكسر هيبته!</span></span>
+                <span className="flex items-start gap-2"><WDCardGlyph card="capture" className="w-8 h-8 -mt-1" /> <span><strong>احتلال (3):</strong> تاخذ الدولة على طول بدون سؤال (بس لا تصير محمية!).</span></span>
+                <span className="flex items-start gap-2"><WDCardGlyph card="airStrike" className="w-8 h-8 -mt-1" /> <span><strong>قصف (3):</strong> تكسر فيها حماية الخصم، أو تطير نص نقاط دولته! (ما تقدر تقصف العاصمة).</span></span>
+                <span className="flex items-start gap-2"><WDCardGlyph card="protect" className="w-8 h-8 -mt-1" /> <span><strong>حماية (3):</strong> درع لدولتك، والأذكى يحمي الدول اللي بـ 2000 نقطة.</span></span>
+                <span className="flex items-start gap-2"><WDCardGlyph card="spy" className="w-8 h-8 -mt-1" /> <span><strong>تجسس (2):</strong> تجيب لك دولة دسمة بـ 2000 نقطة جاهزة وتجاوب على سؤالها.</span></span>
+                <span className="flex items-start gap-2"><WDCardGlyph card="capitalCapture" className="w-8 h-8 -mt-1" /> <span><strong>غزو (2):</strong> بس للعاصمة! شرط تكون نقاطك فوق 5000 والخصم فوق 10,000. فزت؟ تلطش ثلث نقاطه!</span></span>
+                <span className="flex items-start gap-2"><WDCardGlyph card="nuke" className="w-8 h-8 -mt-1" /> <span><strong>نووي (1):</strong> ورقة الدمار الشامل! ما تضربها إلا إذا الخصم متقدم عليك بنقاطه الدبل أو أكثر.. ترجع نقاطه للنص وتكسر هيبته!</span></span>
               </div>
             </div>
 

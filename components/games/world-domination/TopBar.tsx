@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { ArrowRight, MonitorPlay, HelpCircle, PowerOff, Home, Sun, Moon } from "lucide-react";
-import { useTheme } from "next-themes";
+import React, { useState } from "react";
+import { ArrowRight, MonitorPlay, HelpCircle, PowerOff, Home } from "lucide-react";
 import Link from "next/link";
 import InstructionsModal from "./InstructionsModal";
 
@@ -36,16 +35,6 @@ export default function TopBar({
   setShowAudienceModal,
 }: TopBarProps) {
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
 
   return (
     <>
@@ -101,14 +90,6 @@ export default function TopBar({
           <span className="sm:hidden">عرض</span>
         </button>
 
-        {mounted && (
-          <button
-            onClick={toggleTheme}
-            className="px-3 py-1.5 lg:px-4 lg:py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-amber-400 rounded-xl flex items-center gap-1.5 lg:gap-2 font-black text-[10px] lg:text-xs border-b-4 border-slate-300 dark:border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all"
-          >
-            {theme === "dark" ? <Sun size={14} className="lg:w-4 lg:h-4 animate-spin-slow" /> : <Moon size={14} className="lg:w-4 lg:h-4 animate-wiggle" />}
-          </button>
-        )}
       </div>
 
       {gameState === "playing" && (

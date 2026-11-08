@@ -1,19 +1,8 @@
 "use client";
 
 import React from "react";
-import { MapPin, Crown, RefreshCw, X, Play, Shield, Swords, Rocket, Star, Unlock, Flag } from "lucide-react";
-
-const TankIcon = ({ className, size = 24 }: { className?: string; size?: number }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M8 11V9a2 2 0 0 1 2-2h4" />
-    <path d="M14 7h6" />
-    <rect x="2" y="13" width="20" height="6" rx="3" />
-    <path d="M5 13v-1.5a1.5 1.5 0 0 1 1.5-1.5h11a1.5 1.5 0 0 1 1.5 1.5V13" />
-    <circle cx="6" cy="16" r="1" />
-    <circle cx="12" cy="16" r="1" />
-    <circle cx="18" cy="16" r="1" />
-  </svg>
-);
+import { MapPin, Crown, RefreshCw, X, Play, Shield, Swords, Star, Unlock, Flag } from "lucide-react";
+import { WDCardGlyph } from "./WDCardIcons";
 
 // إخفاء السكرول بشكل كامل مع إبقاء إمكانية السحب
 const modernScrollbar =
@@ -107,7 +96,7 @@ export default function QuestionModal({
     const isCorrect = option === selectedCountry.activeQuestion?.a;
     const isActiveTeam = (team === 1 && turn === 1) || (team === 2 && turn === 2);
 
-    // في حالة الهجوم (استحلال/غزو عاصمة): الفريق المهاجم فقط يجيب → نُظهر النتيجة فوراً
+    // في حالة الهجوم (احتلال/غزو عاصمة): الفريق المهاجم فقط يجيب → نُظهر النتيجة فوراً
     if (isAttacking) {
       handleConfirmAnswers(true);
       return;
@@ -315,7 +304,7 @@ export default function QuestionModal({
                                   إجابة صحيحة! 🎉
                                 </h3>
                                 <p className="text-xs lg:text-lg font-bold text-slate-700 dark:text-slate-300">
-                                  تم الاستحلال لـ{" "}
+                                  تم الاحتلال لـ{" "}
                                   {winner === 1 ? team1Name : team2Name}
                                 </p>
                                 {selectedCountry.id === capitals.team1 ||
@@ -349,7 +338,7 @@ export default function QuestionModal({
                                   إجابة خاطئة! ❌
                                 </h3>
                                 <p className="text-xs lg:text-lg font-bold text-slate-700 dark:text-slate-300 mb-3">
-                                  فشل الاستحلال والهجوم
+                                  فشل الاحتلال والهجوم
                                 </p>
                                 <button
                                   onClick={handleMiss}
@@ -565,17 +554,17 @@ export default function QuestionModal({
                   {/* شريط أزرار الهجوم */}
                   {(hasAnyAction || hasOwnAction) && (
                     <div className="flex justify-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-3 lg:p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-                      {/* زر الاستحلال الأبدي */}
+                      {/* زر الاحتلال الأبدي */}
                       {selectedCountry.owner !== turn &&
                         canBeAttacked &&
                         !isProtected &&
                         !isOpponentCapital && (
                           <button
                             onClick={useCaptureCard}
-                            title="بدء الاستحلال الأبدي"
-                            className="p-3 lg:p-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl transition-all shadow-sm border border-purple-700 hover:scale-105 active:scale-95"
+                            title="بدء الاحتلال الأبدي"
+                            className="p-1.5 lg:p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl transition-all shadow-sm border border-purple-700 hover:scale-105 active:scale-95"
                           >
-                            <TankIcon size={22} />
+                            <WDCardGlyph card="capture" className="w-9 h-9 lg:w-10 lg:h-10" />
                           </button>
                         )}
 
@@ -586,9 +575,9 @@ export default function QuestionModal({
                           <button
                             onClick={useCaptureCard}
                             title="غزو العاصمة"
-                            className="p-3 lg:p-4 bg-slate-800 hover:bg-slate-700 text-yellow-400 rounded-xl transition-all shadow-sm border border-slate-600 hover:scale-105 active:scale-95"
+                            className="p-1.5 lg:p-2 bg-slate-800 hover:bg-slate-700 text-yellow-400 rounded-xl transition-all shadow-sm border border-slate-600 hover:scale-105 active:scale-95"
                           >
-                            <Crown size={22} />
+                            <WDCardGlyph card="capitalCapture" className="w-9 h-9 lg:w-10 lg:h-10" />
                           </button>
                         )}
 
@@ -599,9 +588,9 @@ export default function QuestionModal({
                           <button
                             onClick={useAirStrike}
                             title="قصف مدمر (- نصف الدولة)"
-                            className="p-3 lg:p-4 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition-all shadow-sm border border-rose-700 hover:scale-105 active:scale-95"
+                            className="p-1.5 lg:p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl transition-all shadow-sm border border-rose-700 hover:scale-105 active:scale-95"
                           >
-                            <Rocket size={22} />
+                            <WDCardGlyph card="airStrike" className="w-9 h-9 lg:w-10 lg:h-10" />
                           </button>
                         )}
 
@@ -611,9 +600,9 @@ export default function QuestionModal({
                           <button
                             onClick={useProtectCard}
                             title="تفعيل بطاقة الحماية (درع دائم)"
-                            className="p-3 lg:p-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all shadow-sm border border-emerald-700 hover:scale-105 active:scale-95"
+                            className="p-1.5 lg:p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all shadow-sm border border-emerald-700 hover:scale-105 active:scale-95"
                           >
-                            <Shield size={22} />
+                            <WDCardGlyph card="protect" className="w-9 h-9 lg:w-10 lg:h-10" />
                           </button>
                         )}
                     </div>
@@ -625,7 +614,7 @@ export default function QuestionModal({
                     !isOpponentCapital && (
                       <div className="px-3 py-2 lg:px-4 lg:py-3 bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 rounded-xl font-bold shadow-inner w-full flex items-center justify-center gap-2 text-[10px] lg:text-sm text-center mt-2">
                         <Shield size={18} className="shrink-0" /> الدولة محمية بشكل كامل ضد
-                        الاستحلال المباشر بالدبابة
+                        الاحتلال المباشر بالدبابة
                       </div>
                     )}
 
@@ -640,7 +629,7 @@ export default function QuestionModal({
 
                   {isChallengeOwned && selectedCountry.owner !== turn && (
                       <div className="px-3 py-2 lg:px-4 lg:py-3 bg-slate-100 dark:bg-slate-800 text-purple-600 dark:text-purple-400 rounded-xl font-bold shadow-inner w-full flex items-center justify-center gap-2 text-[10px] lg:text-sm text-center mt-2">
-                      <Star size={18} className="shrink-0" /> دولة التحدي غير قابلة للاستحلال
+                      <Star size={18} className="shrink-0" /> دولة التحدي غير قابلة للاحتلال
                       أو القصف
                     </div>
                   )}
@@ -649,7 +638,7 @@ export default function QuestionModal({
                     selectedCountry.owner !== turn &&
                     !isOpponentCapital && (
                       <div className="px-3 py-2 lg:px-4 lg:py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-bold shadow-inner w-full flex items-center justify-center gap-2 text-[10px] lg:text-sm text-center mt-2">
-                        <Swords size={18} className="shrink-0" /> الدولة مستحلة أبدياً بالبطاقة
+                        <Swords size={18} className="shrink-0" /> الدولة محتلة أبدياً بالبطاقة
                         ولا يمكن الهجوم عليها
                       </div>
                     )}

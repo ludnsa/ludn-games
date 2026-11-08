@@ -8,7 +8,7 @@ const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
 export default function AudienceMap({ gameState, mapPosition, countries, spiedCountryId, isDark, protectedCountries, capitals }: any) {
   return (
-    <div className="col-span-2 lg:col-span-2 order-2 lg:order-2 w-full h-[45vh] lg:h-auto bg-blue-50/50 dark:bg-[#1e293b] rounded-[2rem] lg:rounded-[3rem] border-4 border-slate-200 dark:border-slate-800 overflow-hidden relative shadow-lg dark:shadow-2xl flex items-center justify-center transition-colors duration-700">
+    <div className="col-span-2 lg:col-span-2 order-1 lg:order-2 w-full h-[45vh] lg:h-auto bg-blue-50/50 dark:bg-[#1e293b] rounded-[2rem] lg:rounded-[3rem] border-4 border-slate-200 dark:border-slate-800 overflow-hidden relative shadow-lg dark:shadow-2xl flex items-center justify-center transition-colors duration-700">
       {(gameState === "setupCapitals" ||
         gameState === "setupMap" ||
         gameState === "setupChallenges") && (

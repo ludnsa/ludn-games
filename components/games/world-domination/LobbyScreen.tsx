@@ -43,7 +43,7 @@ export default function LobbyScreen({
       {audienceUrl && (
         <div className="flex flex-col items-center justify-center gap-3 lg:gap-4 mb-6 lg:mb-8">
           <p className="text-slate-500 dark:text-slate-400 font-bold text-xs lg:text-sm">
-            امسح الباركود لدخول شاشة الجمهور أو أدخل الكود:
+            امسح الباركود من جوالك أو افتحه على الشاشة الكبيرة، أو أدخل الكود:
           </p>
           <div className="bg-slate-100 dark:bg-slate-800 px-6 py-2 rounded-xl border-2 border-blue-500 mb-2">
             <p className="text-2xl lg:text-4xl font-mono font-black text-blue-600 dark:text-blue-400 tracking-widest">

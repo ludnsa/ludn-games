@@ -17,6 +17,7 @@ import QuickProtectModal from "@/components/games/world-domination/QuickProtectM
 import StolenCapitalAlertModal from "@/components/games/world-domination/StolenCapitalAlertModal";
 import AudienceModal from "@/components/games/world-domination/AudienceModal";
 import GameDialog from "@/components/games/world-domination/GameDialog";
+import WDCardReveal, { useWDCardReveal } from "@/components/games/world-domination/WDCardReveal";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -43,6 +44,13 @@ export default function WorldDominationGame() {
     useCaptureCard, useAirStrike, useProtectCard, handleNukeAction, isAccessChecking
   } = useWorldDomination();
 
+  // كشف البطاقة: يقرأ أعداد البطاقات بس، وما يطلع إلا وقت اللعب
+  const cardReveal = useWDCardReveal({
+    enabled: !isAccessChecking && !isLoading && gameState === "playing",
+    cards1,
+    cards2,
+  });
+
   if (isAccessChecking) {
     return <AccessLoadingScreen />;
   }
@@ -53,7 +61,7 @@ export default function WorldDominationGame() {
 
   return (
     <main
-      className={`min-h-dvh overflow-x-hidden overflow-y-auto p-2 md:p-4 lg:p-6 ${cairo.className} bg-slate-50 dark:bg-slate-950 flex flex-col relative z-10 transition-colors duration-500`}
+      className={`min-h-dvh overflow-x-hidden overflow-y-auto p-2 md:p-4 lg:p-6 ${cairo.className} flex flex-col relative z-10 transition-colors duration-500`}
       dir="rtl"
     >
       {/* نوافذ التنبيهات المنبثقة */}
@@ -242,6 +250,8 @@ export default function WorldDominationGame() {
 
       {/* نافذة التنبيهات العصرية 3D */}
       <GameDialog dialog={dialog} closeDialog={closeDialog} />
+
+      <WDCardReveal reveal={cardReveal} team1Name={team1Name} team2Name={team2Name} />
     </main>
   );
 }

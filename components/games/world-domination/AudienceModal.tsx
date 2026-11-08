@@ -34,7 +34,7 @@ export default function AudienceModal({
           دعوة للرادار (شاشة الجمهور)
         </h3>
         <p className="text-slate-500 mb-6 text-sm font-bold">
-          امسح الباركود، أو انسخ الرابط، أو أدخل الكود في صفحة الجمهور.
+          تنفتح على الشاشة الكبيرة أو من جوال كل متسابق: امسح الباركود، أو انسخ الرابط، أو أدخل الكود في صفحة الجمهور.
         </p>
 
         <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl mb-6">

@@ -6,13 +6,10 @@ import {
   PlusCircle,
   MinusCircle,
   Shield,
-  Rocket,
-  Crown,
-  Crosshair,
   ArrowLeftRight,
   Swords,
-  Radiation,
 } from "lucide-react";
+import { WDCardTray, WDCardGlyph } from "./WDCardIcons";
 import {
   ComposableMap,
   Geographies,
@@ -23,36 +20,6 @@ import {
 import { geoCentroid } from "d3-geo";
 
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
-
-// نقلنا أيقونة الدبابة هنا عشان يكون الملف مستقل وما يعتمد على الصفحة الرئيسية
-const TankIcon = ({
-  className,
-  size = 24,
-}: {
-  className?: string;
-  size?: number;
-}) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M8 11V9a2 2 0 0 1 2-2h4" />
-    <path d="M14 7h6" />
-    <rect x="2" y="13" width="20" height="6" rx="3" />
-    <path d="M5 13v-1.5a1.5 1.5 0 0 1 1.5-1.5h11a1.5 1.5 0 0 1 1.5 1.5V13" />
-    <circle cx="6" cy="16" r="1" />
-    <circle cx="12" cy="16" r="1" />
-    <circle cx="18" cy="16" r="1" />
-  </svg>
-);
 
 interface PlayingScreenProps {
   turn: 1 | 2;
@@ -153,53 +120,32 @@ export default function PlayingScreen({
             </button>
           </div>
 
-          <div className="flex justify-center gap-1 lg:gap-2 mt-2 lg:mt-3 text-[9px] lg:text-[10px] font-bold flex-wrap">
-            <span className="bg-slate-100 dark:bg-slate-700 dark:text-white px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <TankIcon size={10} className="lg:w-[12px] lg:h-[12px]" /> استحلال:{" "}
-              {cards1.capture}
-            </span>
-            <span className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <Shield size={10} className="lg:w-[12px] lg:h-[12px]" /> حماية:{" "}
-              {cards1.protect}
-            </span>
-            <span className="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <Rocket size={10} className="lg:w-[12px] lg:h-[12px]" /> قصف:{" "}
-              {cards1.airStrike}
-            </span>
-            <span className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <Crown size={10} className="lg:w-[12px] lg:h-[12px]" /> غزو:{" "}
-              {cards1.capitalCapture}
-            </span>
-            <span className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <Crosshair size={10} className="lg:w-[12px] lg:h-[12px]" /> تجسس:{" "}
-              {cards1.spy}
-            </span>
-          </div>
+          <WDCardTray cards={cards1} className="grid-cols-3 lg:grid-cols-6 mt-2 lg:mt-3" />
           <div className="flex gap-2 mt-2 lg:mt-3">
             <button
               onClick={() => setQuickProtectTeam(1)}
               disabled={cards1.protect === 0}
-              className="flex-1 py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-300 dark:border-emerald-700"
+              className="flex-1 py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-300 dark:border-emerald-700"
             >
-              <Shield size={12} className="lg:w-[14px] lg:h-[14px]" /> حماية
+              <WDCardGlyph card="protect" className="w-4 h-4 lg:w-5 lg:h-5" /> حماية
             </button>
             <button
               onClick={() => handleSpyAction(1)}
               disabled={cards1.spy === 0}
-              className="flex-1 py-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-300 dark:border-indigo-700"
+              className="flex-1 py-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-300 dark:border-indigo-700"
             >
-              <Crosshair size={12} className="lg:w-[14px] lg:h-[14px]" /> تجسس
+              <WDCardGlyph card="spy" className="w-4 h-4 lg:w-5 lg:h-5" /> تجسس
             </button>
             <button
               onClick={() => handleNukeAction(1)}
               disabled={(cards1.nuke ?? 1) === 0}
-              className={`flex-1 py-1.5 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 border ${
+              className={`flex-1 py-1.5 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1 border ${
                 (cards1.nuke ?? 1) === 0
                   ? "bg-slate-200 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700 cursor-not-allowed"
                   : "bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/50 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700"
               }`}
             >
-              <Radiation size={12} className="lg:w-[14px] lg:h-[14px]" /> نووي
+              <WDCardGlyph card="nuke" className="w-4 h-4 lg:w-5 lg:h-5" /> نووي
             </button>
           </div>
         </div>
@@ -240,53 +186,32 @@ export default function PlayingScreen({
             </button>
           </div>
 
-          <div className="flex justify-center gap-1 lg:gap-2 mt-2 lg:mt-3 text-[9px] lg:text-[10px] font-bold flex-wrap">
-            <span className="bg-slate-100 dark:bg-slate-700 dark:text-white px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <TankIcon size={10} className="lg:w-[12px] lg:h-[12px]" /> استحلال:{" "}
-              {cards2.capture}
-            </span>
-            <span className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <Shield size={10} className="lg:w-[12px] lg:h-[12px]" /> حماية:{" "}
-              {cards2.protect}
-            </span>
-            <span className="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <Rocket size={10} className="lg:w-[12px] lg:h-[12px]" /> قصف:{" "}
-              {cards2.airStrike}
-            </span>
-            <span className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <Crown size={10} className="lg:w-[12px] lg:h-[12px]" /> غزو:{" "}
-              {cards2.capitalCapture}
-            </span>
-            <span className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-1.5 lg:px-2 py-1 lg:py-1.5 rounded flex items-center gap-1">
-              <Crosshair size={10} className="lg:w-[12px] lg:h-[12px]" /> تجسس:{" "}
-              {cards2.spy}
-            </span>
-          </div>
+          <WDCardTray cards={cards2} className="grid-cols-3 lg:grid-cols-6 mt-2 lg:mt-3" />
           <div className="flex gap-2 mt-2 lg:mt-3">
             <button
               onClick={() => setQuickProtectTeam(2)}
               disabled={cards2.protect === 0}
-              className="flex-1 py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-300 dark:border-emerald-700"
+              className="flex-1 py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-300 dark:border-emerald-700"
             >
-              <Shield size={12} className="lg:w-[14px] lg:h-[14px]" /> حماية
+              <WDCardGlyph card="protect" className="w-4 h-4 lg:w-5 lg:h-5" /> حماية
             </button>
             <button
               onClick={() => handleSpyAction(2)}
               disabled={cards2.spy === 0}
-              className="flex-1 py-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-300 dark:border-indigo-700"
+              className="flex-1 py-1.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-700 dark:text-indigo-400 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-300 dark:border-indigo-700"
             >
-              <Crosshair size={12} className="lg:w-[14px] lg:h-[14px]" /> تجسس
+              <WDCardGlyph card="spy" className="w-4 h-4 lg:w-5 lg:h-5" /> تجسس
             </button>
             <button
               onClick={() => handleNukeAction(2)}
               disabled={(cards2.nuke ?? 1) === 0}
-              className={`flex-1 py-1.5 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex items-center justify-center gap-1 border ${
+              className={`flex-1 py-1.5 font-black text-[10px] lg:text-xs rounded-lg transition-colors flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1 border ${
                 (cards2.nuke ?? 1) === 0
                   ? "bg-slate-200 text-slate-400 border-slate-300 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700 cursor-not-allowed"
                   : "bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/50 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700"
               }`}
             >
-              <Radiation size={12} className="lg:w-[14px] lg:h-[14px]" /> نووي
+              <WDCardGlyph card="nuke" className="w-4 h-4 lg:w-5 lg:h-5" /> نووي
             </button>
           </div>
         </div>

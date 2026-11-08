@@ -157,7 +157,7 @@ export function useWDMapActions(ctx: any) {
     const isOwnCapital =
       country.id === (ctx.turn === 1 ? ctx.capitals.team1 : ctx.capitals.team2);
     if (isOwnCapital) {
-      ctx.showAlert("لقد تم غزو هذه العاصمة واستحلالها مسبقاً! لا يمكنكم الهجوم عليها أو استردادها 👑\n");
+      ctx.showAlert("لقد تم غزو هذه العاصمة واحتلالها مسبقاً! لا يمكنكم الهجوم عليها أو استردادها 👑\n");
       return;
     }
 

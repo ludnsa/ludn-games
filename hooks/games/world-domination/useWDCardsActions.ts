@@ -84,7 +84,7 @@ export function useWDCardsActions(ctx: any) {
 
     if (isOpponentCapital) {
       if (ctx.selectedCountry.isStolen) {
-        ctx.showAlert("لقد تم غزو هذه العاصمة واستحلالها مسبقاً! لا يمكنكم الهجوم عليها أو استردادها.");
+        ctx.showAlert("لقد تم غزو هذه العاصمة واحتلالها مسبقاً! لا يمكنكم الهجوم عليها أو استردادها.");
         return;
       }
       if (currentCards.capitalCapture <= 0) {
@@ -99,13 +99,13 @@ export function useWDCardsActions(ctx: any) {
       }
     } else {
       if (currentCards.capture <= 0) {
-        ctx.showAlert("لقد استنفذ الفريق جميع بطاقات الاستحلال (الدبابة)!");
+        ctx.showAlert("لقد استنفذ الفريق جميع بطاقات الاحتلال (الدبابة)!");
         return;
       }
     }
 
     ctx.showConfirm(
-      `سيتم خصم بطاقة ${isOpponentCapital ? "غزو العاصمة" : "استحلال"} وبدء الهجوم الأبدي، هل أنت متأكد؟`,
+      `سيتم خصم بطاقة ${isOpponentCapital ? "غزو العاصمة" : "احتلال"} وبدء الهجوم الأبدي، هل أنت متأكد؟`,
       () => {
         if (ctx.turn === 1) {
           if (isOpponentCapital)

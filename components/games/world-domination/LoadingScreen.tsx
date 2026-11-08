@@ -34,7 +34,7 @@ const TankIcon = ({
 
 export default function LoadingScreen() {
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-black text-2xl" dir="rtl">
+    <div className="min-h-dvh flex flex-col items-center justify-center text-slate-900 dark:text-white font-black text-2xl" dir="rtl">
       <div className="relative flex items-center justify-center mb-8">
         <Globe className="w-28 h-28 text-slate-200 dark:text-slate-800 animate-spin-slow" />
         <TankIcon size={48} className="text-emerald-500 absolute animate-pulse drop-shadow-lg" />

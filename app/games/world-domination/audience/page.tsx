@@ -1,27 +1,17 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Cairo } from "next/font/google";
-import { Globe, Coins, Shield, Rocket, HelpCircle, Moon, Sun, Crosshair, Crown, Radiation } from "lucide-react";
+import { Globe, Coins, Shield, HelpCircle } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 
 import AudienceCapitalAlert from "@/components/games/world-domination/audience/AudienceCapitalAlert";
 import AudienceGameOver from "@/components/games/world-domination/audience/AudienceGameOver";
 import AudienceQuestionModal from "@/components/games/world-domination/audience/AudienceQuestionModal";
 import AudienceMap from "@/components/games/world-domination/audience/AudienceMap";
+import AudienceCards from "@/components/games/world-domination/audience/AudienceCards";
+import WDCardReveal, { useWDCardReveal } from "@/components/games/world-domination/WDCardReveal";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
-
-const TankIcon = ({ className, size = 24 }: { className?: string; size?: number; }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M8 11V9a2 2 0 0 1 2-2h4" />
-    <path d="M14 7h6" />
-    <rect x="2" y="13" width="20" height="6" rx="3" />
-    <path d="M5 13v-1.5a1.5 1.5 0 0 1 1.5-1.5h11a1.5 1.5 0 0 1 1.5 1.5V13" />
-    <circle cx="6" cy="16" r="1" />
-    <circle cx="12" cy="16" r="1" />
-    <circle cx="18" cy="16" r="1" />
-  </svg>
-);
 
 const modernScrollbar = "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]";
 
@@ -31,15 +21,49 @@ export default function WorldDominationAudience() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [inputCode, setInputCode] = useState<string>("");
   const [liveData, setLiveData] = useState<any>(null);
-  const [isDark, setIsDark] = useState<boolean>(true);
 
+  // كشف البطاقة: يقرأ أعداد البطاقات بس، وما يطلع إلا وقت اللعب
+  const cardReveal = useWDCardReveal({
+    enabled: liveData?.gameState === "playing",
+    cards1: liveData?.cards1,
+    cards2: liveData?.cards2,
+  });
+
+  // الشاشة تبقى شغالة وهم يتابعون من الجوال. لو المتصفح ما يدعمها تطفي عادي
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isDark]);
+    if (!roomCode) return;
+    let lock: WakeLockSentinel | null = null;
+    let pending = false;
+    let stopped = false;
+    const keepAwake = async () => {
+      if (stopped || lock || pending || document.visibilityState !== "visible" || !("wakeLock" in navigator)) return;
+      pending = true;
+      try {
+        const sentinel = await navigator.wakeLock.request("screen");
+        if (stopped) {
+          sentinel.release().catch(() => {});
+          return;
+        }
+        lock = sentinel;
+        sentinel.addEventListener("release", () => {
+          if (lock === sentinel) lock = null;
+        });
+      } catch {
+        // المتصفح رفض (مثلاً وضع توفير البطارية) — نحاول مرة ثانية مع أول لمسة
+      } finally {
+        pending = false;
+      }
+    };
+    keepAwake();
+    document.addEventListener("visibilitychange", keepAwake);
+    window.addEventListener("pointerdown", keepAwake);
+    return () => {
+      stopped = true;
+      document.removeEventListener("visibilitychange", keepAwake);
+      window.removeEventListener("pointerdown", keepAwake);
+      lock?.release().catch(() => {});
+    };
+  }, [roomCode]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -136,7 +160,7 @@ export default function WorldDominationAudience() {
 
   if (!roomCode) {
     return (
-      <div className={`relative z-[999] pointer-events-auto min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 ${cairo.className}`} dir="rtl">
+      <div className={`relative z-[999] pointer-events-auto min-h-screen flex items-center justify-center p-4 ${cairo.className}`} dir="rtl">
         <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 max-w-sm w-full text-center shadow-xl border border-slate-200 dark:border-slate-800 relative z-[1000]">
           <Globe className="w-16 h-16 text-blue-500 mx-auto mb-6 animate-pulse" />
           <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">الدخول للرادار</h2>
@@ -168,7 +192,7 @@ export default function WorldDominationAudience() {
 
   if (!liveData)
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-500 dark:bg-slate-950 dark:text-slate-300 flex flex-col items-center justify-center font-black tracking-widest animate-pulse transition-colors duration-500" dir="rtl">
+      <div className="min-h-screen text-slate-500 dark:text-slate-300 flex flex-col items-center justify-center font-black tracking-widest animate-pulse transition-colors duration-500" dir="rtl">
         <div className="text-2xl lg:text-3xl mb-4">جاري تهيئة ساحة المعركة...</div>
         <div className="text-sm text-blue-500 font-mono">غرفة: {roomCode}</div>
       </div>
@@ -211,15 +235,36 @@ export default function WorldDominationAudience() {
 
   return (
     <main
-      className={`relative w-full min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white p-3 lg:p-6 flex flex-col gap-4 lg:gap-6 transition-colors duration-700 ${cairo.className}`}
+      className={`relative w-full min-h-[100dvh] overflow-x-hidden overflow-y-auto text-slate-900 dark:text-white p-3 lg:p-6 max-lg:pt-[calc(5.25rem+env(safe-area-inset-top))] flex flex-col gap-4 lg:gap-6 transition-colors duration-700 ${cairo.className}`}
       dir="rtl"
     >
-      <button
-        onClick={() => setIsDark(!isDark)}
-        className="absolute top-4 left-4 lg:top-6 lg:left-6 z-110 p-2 lg:p-3 rounded-xl lg:rounded-2xl bg-white dark:bg-slate-800 text-amber-500 dark:text-blue-400 shadow-xl border border-slate-200 dark:border-slate-700 transition-all hover:scale-110"
-      >
-        {isDark ? <Sun size={20} className="lg:w-6 lg:h-6" /> : <Moon size={20} className="lg:w-6 lg:h-6" />}
-      </button>
+      {/* الجوال: شريط النقاط ثابت فوق، يبقى ظاهر وهم ينزلون. الشاشة الكبيرة ما يطلع فيها */}
+      <div className="lg:hidden fixed top-0 inset-x-0 z-70 px-3 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 bg-slate-950/85 backdrop-blur-md border-b border-white/10 shadow-lg">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 max-w-2xl mx-auto">
+          <div className={`min-w-0 rounded-xl px-2.5 py-1.5 border transition-colors ${turn === 1 && gameState === "playing" ? "border-cyan-400/70 bg-cyan-500/15" : "border-white/10 bg-white/5"}`}>
+            <p className="text-xs font-black text-cyan-300 truncate">{team1Name}</p>
+            <p className="text-lg font-black text-white leading-tight flex items-center gap-1 tabular-nums">
+              {score1} <Coins className="w-4 h-4 text-yellow-400 shrink-0" />
+            </p>
+          </div>
+          <div className="text-center min-w-[3.5rem] max-w-[6rem]">
+            {gameState === "playing" ? (
+              <>
+                <p className="text-[11px] font-bold text-slate-400">الدور</p>
+                <p className={`text-xs font-black truncate ${turn === 1 ? "text-cyan-300" : "text-rose-300"}`}>{turn === 1 ? team1Name : team2Name}</p>
+              </>
+            ) : (
+              <Globe className="w-6 h-6 text-blue-400 mx-auto" />
+            )}
+          </div>
+          <div className={`min-w-0 rounded-xl px-2.5 py-1.5 border text-left transition-colors ${turn === 2 && gameState === "playing" ? "border-rose-400/70 bg-rose-500/15" : "border-white/10 bg-white/5"}`}>
+            <p className="text-xs font-black text-rose-300 truncate">{team2Name}</p>
+            <p className="text-lg font-black text-white leading-tight flex items-center justify-end gap-1 tabular-nums">
+              {score2} <Coins className="w-4 h-4 text-yellow-400 shrink-0" />
+            </p>
+          </div>
+        </div>
+      </div>
 
       <AudienceCapitalAlert stolenCapitalAlert={stolenCapitalAlert} team1Name={team1Name} team2Name={team2Name} />
       
@@ -229,11 +274,11 @@ export default function WorldDominationAudience() {
 
       <div className={`grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 flex-1 min-h-0 transition-all duration-700 ${isQuestionActive ? "blur-sm opacity-40 scale-95 pointer-events-none" : ""}`}>
         
-        <AudienceMap gameState={gameState} mapPosition={mapPosition} countries={countries} spiedCountryId={spiedCountryId} isDark={isDark} protectedCountries={protectedCountries} capitals={capitals} />
+        <AudienceMap gameState={gameState} mapPosition={mapPosition} countries={countries} spiedCountryId={spiedCountryId} isDark protectedCountries={protectedCountries} capitals={capitals} />
 
         {/* صندوق الفريق الأول */}
         <div
-          className={`col-span-2 lg:col-span-1 order-1 lg:order-1 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md rounded-3xl lg:rounded-[2.5rem] border-2 flex flex-col p-4 lg:p-6 shadow-xl dark:shadow-2xl transition-colors ${turn === 1 ? "border-cyan-400 dark:border-cyan-500/50 ring-4 ring-cyan-400/20 dark:ring-cyan-500/10" : "border-slate-200 dark:border-slate-800"}`}
+          className={`col-span-2 lg:col-span-1 order-2 lg:order-1 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md rounded-3xl lg:rounded-[2.5rem] border-2 flex flex-col p-4 lg:p-6 shadow-xl dark:shadow-2xl transition-colors ${turn === 1 ? "border-cyan-400 dark:border-cyan-500/50 ring-4 ring-cyan-400/20 dark:ring-cyan-500/10" : "border-slate-200 dark:border-slate-800"}`}
         >
           <div className="flex flex-col items-center mb-4 lg:mb-6 pb-4 lg:pb-6 border-b border-slate-200 dark:border-slate-700/50">
             <h2 className="text-xl lg:text-4xl font-black text-cyan-600 dark:text-cyan-400 mb-2 lg:mb-3 drop-shadow-sm text-center leading-snug truncate w-full">
@@ -244,54 +289,11 @@ export default function WorldDominationAudience() {
               <Coins className="w-6 h-6 lg:w-10 lg:h-10 text-yellow-500 dark:text-yellow-400 shrink-0" />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-4 w-full">
-              <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <TankIcon size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">احتلال</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards1.capture}</span>
-              </div>
-              <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Shield size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">حماية</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards1.protect}</span>
-              </div>
-              <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 px-3 py-2 rounded-xl border border-orange-300 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Rocket size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">قصف</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards1.airStrike}</span>
-              </div>
-              <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Crown size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-[10px] lg:text-sm">غزو العاصمة</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards1.capitalCapture}</span>
-              </div>
-              <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 rounded-xl border border-indigo-300 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Crosshair size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">تجسس</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards1.spy}</span>
-              </div>
-              <div className="flex items-center justify-between bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-xl border border-red-300 dark:border-red-800/50 text-red-700 dark:text-red-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Radiation size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">نووي</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards1.nuke}</span>
-              </div>
-            </div>
+            <AudienceCards cards={cards1} />
           </div>
 
           <h3 className="text-xs lg:text-sm font-black text-slate-500 dark:text-slate-400 mb-2 px-1 flex items-center justify-between">
-            الدول المستحلة
+            الدول المحتلة
             <span className="bg-cyan-100 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-400 px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-md text-[10px] lg:text-xs">
               {team1Countries.length}
             </span>
@@ -299,7 +301,7 @@ export default function WorldDominationAudience() {
           <div className={`flex-1 overflow-y-auto ${modernScrollbar} min-h-[100px]`}>
             {team1Countries.length === 0 ? (
               <p className="text-slate-400 dark:text-slate-600 text-[10px] lg:text-sm font-bold text-center mt-4 lg:mt-10">
-                لم يتم استحلال أي دولة
+                لم يتم احتلال أي دولة
               </p>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 pr-1 lg:pr-2">
@@ -340,54 +342,11 @@ export default function WorldDominationAudience() {
               <Coins className="w-6 h-6 lg:w-10 lg:h-10 text-yellow-500 dark:text-yellow-400 shrink-0" />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-4 w-full">
-              <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <TankIcon size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">احتلال</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards2.capture}</span>
-              </div>
-              <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Shield size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">حماية</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards2.protect}</span>
-              </div>
-              <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 px-3 py-2 rounded-xl border border-orange-300 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Rocket size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">قصف</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards2.airStrike}</span>
-              </div>
-              <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Crown size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-[10px] lg:text-sm">غزو العاصمة</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards2.capitalCapture}</span>
-              </div>
-              <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 rounded-xl border border-indigo-300 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Crosshair size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">تجسس</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards2.spy}</span>
-              </div>
-              <div className="flex items-center justify-between bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-xl border border-red-300 dark:border-red-800/50 text-red-700 dark:text-red-400 transition-colors">
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                  <Radiation size={16} className="lg:w-[18px] lg:h-[18px]" />
-                  <span className="font-bold text-xs lg:text-sm">نووي</span>
-                </div>
-                <span className="font-black text-sm lg:text-base">{cards2.nuke}</span>
-              </div>
-            </div>
+            <AudienceCards cards={cards2} />
           </div>
 
           <h3 className="text-xs lg:text-sm font-black text-slate-500 dark:text-slate-400 mb-2 px-1 flex items-center justify-between">
-            الدول المستحلة
+            الدول المحتلة
             <span className="bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-md text-[10px] lg:text-xs">
               {team2Countries.length}
             </span>
@@ -395,7 +354,7 @@ export default function WorldDominationAudience() {
           <div className={`flex-1 overflow-y-auto ${modernScrollbar} min-h-[100px]`}>
             {team2Countries.length === 0 ? (
               <p className="text-slate-400 dark:text-slate-600 text-[10px] lg:text-sm font-bold text-center mt-4 lg:mt-10">
-                لم يتم استحلال أي دولة
+                لم يتم احتلال أي دولة
               </p>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 pr-1 lg:pr-2">
@@ -450,6 +409,8 @@ export default function WorldDominationAudience() {
           </div>
         </div>
       </div>
+
+      <WDCardReveal reveal={cardReveal} team1Name={team1Name} team2Name={team2Name} />
     </main>
   );
 }

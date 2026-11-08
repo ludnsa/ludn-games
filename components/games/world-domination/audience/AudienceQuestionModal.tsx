@@ -118,7 +118,7 @@ export default function AudienceQuestionModal({
                               إجابة صحيحة! 🎉
                             </h3>
                             <p className="text-sm lg:text-xl font-bold text-slate-700 dark:text-slate-200 mb-3">
-                              تم استحلال الدولة لـ <span className="text-slate-900 dark:text-white font-black">{winner === 1 ? team1Name : team2Name}</span>
+                              تم احتلال الدولة لـ <span className="text-slate-900 dark:text-white font-black">{winner === 1 ? team1Name : team2Name}</span>
                             </p>
                             {selectedCountry.id === capitals.team1 || selectedCountry.id === capitals.team2 ? (
                               <div className="inline-flex flex-col items-center gap-1 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-500/30">
@@ -143,7 +143,7 @@ export default function AudienceQuestionModal({
                               إجابة خاطئة! ❌
                             </h3>
                             <p className="text-sm lg:text-xl font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/50 px-4 py-2 rounded-xl inline-block">
-                              لم يتمكن أحد من استحلال الدولة
+                              لم يتمكن أحد من احتلال الدولة
                             </p>
                           </>
                         );
