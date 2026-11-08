@@ -536,7 +536,20 @@ export function useAuctionReferee() {
     setGameState("result");
   };
 
+  // يمنع ضغطتين ورا بعض وقت ما التغيير ينحفظ (عشان ما ينكتب سؤالين مختلفين)
+  const changingQuestionRef = useRef(false);
+
   const handleChangeQuestion = async () => {
+    if (changingQuestionRef.current) return;
+    changingQuestionRef.current = true;
+    try {
+      await changeCurrentQuestion();
+    } finally {
+      changingQuestionRef.current = false;
+    }
+  };
+
+  const changeCurrentQuestion = async () => {
     let pool = allQuestions;
     if (pool.length === 0) {
       const { data } = await supabase.from("aw_questions").select("*");
@@ -562,6 +575,16 @@ export function useAuctionReferee() {
         const randomQ = filteredQs[Math.floor(Math.random() * filteredQs.length)];
         const newQs = [...questions];
         newQs[currentIndex] = randomQ;
+
+        // نحفظ الأسئلة في الغرفة أول: جوالات القادة تستقبلها مباشرة (نفس قناة التحديث المباشر)،
+        // واللي يحدّث الصفحة يقراها من القاعدة. ولو الحفظ فشل ما نغيّر عند الحكم بعد، عشان ما يختلف عن الجوالات
+        const { error } = await supabase.from("auction_rooms").update({ questions: newQs }).eq("room_code", roomCode);
+        if (error) {
+          console.error("handleChangeQuestion DB Error:", error);
+          triggerAlert("تعذر تغيير السؤال، حاول مرة ثانية.");
+          return;
+        }
+
         setQuestions(newQs);
         triggerAlert("تم تغيير فئة السؤال بنجاح!");
       } else {
