@@ -1,6 +1,8 @@
 "use client";
 import React from "react";
-import { CheckCircle2, Target, ShieldAlert, ArrowRight, Trophy } from "lucide-react";
+import { CheckCircle2, XCircle, Target, ArrowRight, Trophy } from "lucide-react";
+import { AuctionCardGlyph } from "../../AuctionCardIcons";
+import { useAnswerOutcome } from "../../useAnswerOutcome";
 
 export default function PostAnswerStates({ ctx }: { ctx: any }) {
   const {
@@ -9,11 +11,20 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
     t1Points, t2Points, t1Name, t2Name
   } = ctx;
 
+  // صح أو غلط للعرض بس، من تسلسل الحالات. لو الصفحة انفتحت والنتيجة طالعة: نقارن الخيار المختار بالإجابة
+  const question = ctx.questions?.[ctx.currentIndex];
+  const outcome = useAnswerOutcome({
+    state: gameState,
+    points1: t1Points,
+    points2: t2Points,
+    fallback: playMode !== "no_options" && ctx.selectedOption != null && question ? (ctx.selectedOption === question.answer ? "correct" : "wrong") : null,
+  });
+
   return (
     <>
       {/* اختيار المكافأة */}
       {gameState === "rewardChoice" && (
-        <div className="bg-white dark:bg-slate-900 p-6 md:p-12 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 border-emerald-500 text-center w-full max-w-4xl animate-in zoom-in">
+        <div className="bg-[#0e0a06]/85 backdrop-blur-sm p-6 md:p-12 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 border-emerald-500 text-center w-full max-w-4xl animate-in zoom-in">
            <CheckCircle2 className="w-16 h-16 md:w-20 md:h-20 text-emerald-500 mx-auto mb-4 md:mb-6" />
            <h2 className="text-2xl md:text-3xl font-black mb-2 text-slate-800 dark:text-white">إجابة صحيحة! 🎉</h2>
            <p className="text-sm md:text-lg font-bold text-slate-500 dark:text-slate-400 mb-6 md:mb-10">اختر المكافأة التي تناسب تكتيكك:</p>
@@ -32,10 +43,10 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
                 
                 if (ambushesLeft <= 0) {
                   return (
-                    <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-800 border-b-4 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 shadow-md opacity-70 cursor-not-allowed">
-                       <ShieldAlert className="w-10 h-10 md:w-14 md:h-14 text-slate-400" />
+                    <div className="p-6 md:p-8 bg-[#1f160c] border-b-4 border-[#d4af37]/25 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 shadow-md opacity-70 cursor-not-allowed">
+                       <AuctionCardGlyph card="ambush" off className="w-14 h-14 md:w-20 md:h-20" />
                        <span className="font-black text-xl md:text-2xl text-slate-500">كمين (نفدت البطاقات)</span>
-                       <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-slate-200 dark:bg-slate-700 p-2 rounded-xl text-slate-500">
+                       <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-[#2b1e11] p-2 rounded-xl text-slate-500">
                          لا يمكنك استخدام هذا الخيار<br/>لأنك استنفدت المحاولات الـ 3
                        </span>
                     </div>
@@ -44,10 +55,10 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
                 
                 if (ctx.isSuddenDeath) {
                   return (
-                    <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-800 border-b-4 border-slate-300 dark:border-slate-700 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 shadow-md opacity-70 cursor-not-allowed">
-                       <ShieldAlert className="w-10 h-10 md:w-14 md:h-14 text-slate-400" />
+                    <div className="p-6 md:p-8 bg-[#1f160c] border-b-4 border-[#d4af37]/25 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 shadow-md opacity-70 cursor-not-allowed">
+                       <AuctionCardGlyph card="ambush" off className="w-14 h-14 md:w-20 md:h-20" />
                        <span className="font-black text-xl md:text-2xl text-slate-500">الكمين معطل</span>
-                       <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-slate-200 dark:bg-slate-700 p-2 rounded-xl text-rose-500 font-black">
+                       <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-[#2b1e11] p-2 rounded-xl text-rose-500 font-black">
                          لا يمكنك تفعيل الكمين في الفرصة الأخيرة
                        </span>
                     </div>
@@ -56,7 +67,7 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
                 
                 return (
                   <button onClick={() => handleRewardChoice("ambush")} className="p-6 md:p-8 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-800/40 border-b-4 border-purple-400 dark:border-purple-700 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 transition-all active:border-b-0 active:translate-y-[4px] group shadow-md">
-                     <ShieldAlert className="w-10 h-10 md:w-14 md:h-14 text-purple-500 group-hover:scale-110 transition-transform" />
+                     <AuctionCardGlyph card="ambush" className="w-14 h-14 md:w-20 md:h-20 group-hover:scale-110 transition-transform" />
                      <span className="font-black text-xl md:text-2xl text-purple-700 dark:text-purple-400">كمين وتخريب ⚔️</span>
                      <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-purple-100 dark:bg-purple-950 p-2 rounded-xl text-purple-800 dark:text-purple-300">
                        استرد مبلغ مزايدتك ({getWinnerBid()})<br/>
@@ -72,9 +83,15 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
 
       {/* شاشة احتساب النتيجة الوسطية */}
       {gameState === "result" && (
-        <div className="bg-white dark:bg-slate-900 p-8 md:p-16 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 border-slate-200 dark:border-slate-800 text-center w-full max-w-2xl animate-in zoom-in flex flex-col items-center justify-center">
-           <CheckCircle2 className="w-16 h-16 md:w-20 md:h-20 text-emerald-500 mb-4 md:mb-6" />
-           <h2 className="text-2xl md:text-3xl font-black mb-3 md:mb-4 text-slate-800 dark:text-white">تم التحديث</h2>
+        <div className={`bg-[#0e0a06]/85 backdrop-blur-sm p-8 md:p-16 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 text-center w-full max-w-2xl animate-in zoom-in flex flex-col items-center justify-center ${outcome === "wrong" ? "border-rose-500" : outcome === "correct" ? "border-emerald-500" : "border-[#d4af37]/30"}`}>
+           {outcome === "wrong" ? (
+             <XCircle className="w-16 h-16 md:w-20 md:h-20 text-rose-500 mb-4 md:mb-6" />
+           ) : (
+             <CheckCircle2 className={`w-16 h-16 md:w-20 md:h-20 mb-4 md:mb-6 ${outcome === "correct" ? "text-emerald-500" : "text-slate-400"}`} />
+           )}
+           <h2 className={`text-2xl md:text-3xl font-black mb-3 md:mb-4 ${outcome === "wrong" ? "text-rose-500" : outcome === "correct" ? "text-emerald-500" : "text-slate-800 dark:text-white"}`}>
+             {outcome === "wrong" ? "إجابة خاطئة" : outcome === "correct" ? "إجابة صحيحة" : "تم التحديث"}
+           </h2>
            <p className="text-sm md:text-lg font-bold text-slate-500 dark:text-slate-400 mb-8 md:mb-10">جميع الحسابات (من مزايدة وخصومات ونقاط) تمت بنجاح.</p>
            <button onClick={nextQuestion} className="w-full py-4 md:py-5 bg-amber-500 hover:bg-amber-400 text-slate-900 font-black text-lg md:text-xl rounded-xl border-b-4 border-amber-700 active:border-b-0 active:translate-y-[4px] flex items-center justify-center gap-2 md:gap-3 transition-all shadow-lg">
               بدء الجولة التالية <ArrowRight size={20} className="md:w-6 md:h-6" />
@@ -84,9 +101,9 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
 
       {/* النهاية */}
       {gameState === "gameOver" && (
-        <div className="bg-white dark:bg-slate-900 p-10 md:p-20 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl border-4 border-amber-500 text-center w-full max-w-3xl animate-in zoom-in duration-700">
+        <div className="bg-[#0e0a06]/85 backdrop-blur-sm p-10 md:p-20 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl border-4 border-amber-500 text-center w-full max-w-3xl animate-in zoom-in duration-700">
            <Trophy className="w-24 h-24 md:w-32 md:h-32 text-amber-500 mx-auto mb-6 md:mb-8 animate-bounce" />
-           <h2 className="text-4xl md:text-5xl font-black mb-4 md:mb-6 text-slate-800 dark:text-white">انتهت الحرب!</h2>
+           <h2 className="text-4xl md:text-5xl font-black mb-4 md:mb-6 text-[#e8c766]">انتهى المزاد!</h2>
            <div className="text-xl md:text-3xl font-black text-slate-600 dark:text-slate-300">
              الـفـائـز الـنـهـائـي: {t1Points > t2Points ? <span className="text-cyan-600 dark:text-cyan-400">{t1Name}</span> : t1Points < t2Points ? <span className="text-rose-600 dark:text-rose-400">{t2Name}</span> : <span className="text-amber-500">تعادل عادل</span>}
            </div>

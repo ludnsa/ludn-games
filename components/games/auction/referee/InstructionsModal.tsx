@@ -13,11 +13,11 @@ export default function InstructionsModal({
   if (!showInstructionsModal) return null;
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in" dir="rtl">
-       <div className="bg-white dark:bg-slate-900 border-4 border-amber-500 p-6 md:p-8 rounded-3xl max-w-2xl w-full text-right shadow-[8px_8px_0px_#f59e0b] animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scroll">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in" dir="rtl">
+       <div className="bg-[#0e0a06]/85 backdrop-blur-sm border-4 border-amber-500 p-6 md:p-8 rounded-3xl max-w-2xl w-full text-right shadow-[8px_8px_0px_#f59e0b] animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scroll">
           <div className="flex items-center justify-center gap-3 mb-6">
             <Info className="w-8 h-8 text-amber-500" strokeWidth={3} />
-            <h2 className="text-3xl font-black text-slate-800 dark:text-white">كيف نلعب المزاد؟ ⚖️</h2>
+            <h2 className="text-3xl font-black text-[#e8c766]">كيف نلعب المزاد؟ ⚖️</h2>
           </div>
           
           <div className="space-y-4 text-slate-700 dark:text-slate-300 font-bold text-sm md:text-base leading-relaxed">
@@ -66,7 +66,7 @@ export default function InstructionsModal({
             </div>
           </div>
 
-          <button onClick={() => setShowInstructionsModal(false)} className="mt-6 w-full py-4 bg-amber-500 hover:bg-amber-400 text-white font-black text-xl rounded-2xl border-4 border-slate-900 dark:border-black border-b-8 active:border-b-4 active:translate-y-[4px] transition-all shadow-[4px_4px_0px_#0f172a]">
+          <button onClick={() => setShowInstructionsModal(false)} className="mt-6 w-full py-4 bg-amber-500 hover:bg-amber-400 text-white font-black text-xl rounded-2xl border-4 border-black border-b-8 active:border-b-4 active:translate-y-[4px] transition-all shadow-[4px_4px_0px_#0a0704]">
              فهمت اللعبة، افتح المزاد! 🔨
           </button>
        </div>

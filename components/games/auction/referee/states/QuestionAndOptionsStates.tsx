@@ -2,6 +2,7 @@
 import React from "react";
 import { ShieldAlert, Timer as TimerIcon, Eye, Play, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { AuctionCardGlyph } from "../../AuctionCardIcons";
 
 const supabase = getSupabaseBrowser();
 
@@ -16,7 +17,7 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
     <>
       {/* كشف السؤال والقرار */}
       {gameState === "questionReveal" && (
-        <div className="bg-white dark:bg-slate-900 p-6 md:p-12 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 border-slate-200 dark:border-slate-800 text-center w-full max-w-4xl flex flex-col min-h-[40vh] md:min-h-[50vh] animate-in fade-in transition-all">
+        <div className="bg-[#0e0a06]/85 backdrop-blur-sm p-6 md:p-12 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 border-[#d4af37]/30 text-center w-full max-w-4xl flex flex-col min-h-[40vh] md:min-h-[50vh] animate-in fade-in transition-all">
            <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <ShieldAlert className={`w-6 h-6 ${isDoubleRisk ? "text-yellow-500 animate-pulse" : "text-slate-400"}`} />
@@ -29,9 +30,9 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
               </div>
            </div>
            
-           <div className="flex-1 flex flex-col items-center justify-center py-4 md:py-8 border-y-2 border-slate-100 dark:border-slate-800/50 my-4 bg-slate-50 dark:bg-slate-950/30 rounded-3xl relative">
+           <div className="flex-1 flex flex-col items-center justify-center py-4 md:py-8 border-y-2 border-[#d4af37]/15 my-4 bg-[#0a0704]/60 rounded-3xl relative">
               {!isQuestionVisible ? (
-                <button onClick={() => setIsQuestionVisible(true)} className="px-6 py-4 md:px-10 md:py-6 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all text-xl md:text-3xl shadow-xl flex items-center gap-3">
+                <button onClick={() => setIsQuestionVisible(true)} className="px-6 py-4 md:px-10 md:py-6 bg-[#2b1e11] hover:bg-[#3a2916] text-white font-black rounded-2xl border-b-4 border-[#0a0704] active:border-b-0 active:translate-y-[4px] transition-all text-xl md:text-3xl shadow-xl flex items-center gap-3">
                    <Eye size={32} /> إظهار السؤال للفرق
                 </button>
               ) : (
@@ -54,19 +55,23 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
                    <span className="text-sm md:text-lg">إجابة بدون خيارات</span>
                    <span className="text-[10px] md:text-xs font-bold opacity-90 bg-cyan-800/40 px-2 py-1 rounded-lg">مكافأة: {ctx.isSuddenDeath ? 30 : 10} نقطة</span>
                 </button>
-                <button onClick={() => { setPlayMode("with_options"); setGameState("options"); }} className="p-3 md:p-4 bg-slate-700 hover:bg-slate-600 text-white font-black rounded-xl border-b-4 border-slate-900 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
+                <button onClick={() => { setPlayMode("with_options"); setGameState("options"); }} className="p-3 md:p-4 bg-[#3a2916] hover:bg-[#4a351c] text-white font-black rounded-xl border-b-4 border-[#0a0704] active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
                    <span className="text-sm md:text-lg">إجابة مع الخيارات</span>
-                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-slate-900/40 px-2 py-1 rounded-lg">مكافأة: {ctx.isSuddenDeath ? 20 : 5} نقاط</span>
+                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-black/30 px-2 py-1 rounded-lg">مكافأة: {ctx.isSuddenDeath ? 20 : 5} نقاط</span>
                 </button>
                 {!ctx.isSuddenDeath && (
                   !isDoubleRisk ? (
                     <button onClick={() => triggerConfirm("تأكيد إجبار الخصم على شراء السؤال بـ 5000؟ ستفقد بطاقة بيع واحدة.", () => ctx.handleBuyQuestion())} className="p-3 md:p-4 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl border-b-4 border-purple-800 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
-                       <span className="text-sm md:text-lg">إجبار الخصم عالشراء</span>
+                       <span className="flex items-center gap-2 text-sm md:text-lg">
+                         <AuctionCardGlyph card="sell" className="w-7 h-7 md:w-9 md:h-9" /> إجبار الخصم عالشراء
+                       </span>
                        <span className="text-[10px] md:text-xs font-bold opacity-90 bg-purple-800/40 px-2 py-1 rounded-lg">يخصم 5000 | بطاقات: {ctx.winner === 1 ? ctx.t1SellCards : ctx.t2SellCards}</span>
                     </button>
                   ) : (
-                    <div className="p-3 md:p-4 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-black rounded-xl border-b-4 border-slate-300 dark:border-slate-900 flex flex-col items-center justify-center gap-1 cursor-not-allowed">
-                       <span className="text-sm md:text-lg">بيع السؤال (مغلق)</span>
+                    <div className="p-3 md:p-4 bg-[#2b1e11] text-slate-400 dark:text-slate-500 font-black rounded-xl border-b-4 border-[#0a0704] flex flex-col items-center justify-center gap-1 cursor-not-allowed">
+                       <span className="flex items-center gap-2 text-sm md:text-lg">
+                         <AuctionCardGlyph card="sell" off className="w-7 h-7 md:w-9 md:h-9" /> بيع السؤال (مغلق)
+                       </span>
                        <span className="text-[10px] md:text-xs font-bold opacity-90">غير متاح مع الدبل</span>
                     </div>
                   )
@@ -75,10 +80,10 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
            )}
 
            {timer <= 0 && (
-             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in">
+             <div className="mt-4 pt-4 border-t border-[#d4af37]/15 animate-in fade-in">
                <button 
                  onClick={() => triggerConfirm("هل أنت متأكد من إلغاء السؤال لأن الوقت انتهى والانتقال للسؤال التالي؟", nextQuestion)} 
-                 className="w-full py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black rounded-xl border-b-4 border-slate-400 dark:border-slate-900 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex items-center justify-center gap-2"
+                 className="w-full py-3 bg-[#2b1e11] hover:bg-[#3a2916] text-slate-700 dark:text-slate-300 font-black rounded-xl border-b-4 border-[#0a0704] active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex items-center justify-center gap-2"
                >
                  <XCircle size={20} /> إلغاء السؤال لانقضاء الوقت
                </button>
@@ -89,7 +94,7 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
 
       {/* شاشة الخيارات والإجابة */}
       {gameState === "options" && (
-        <div className="bg-white dark:bg-slate-900 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 border-slate-200 dark:border-slate-800 w-full max-w-4xl flex flex-col animate-in fade-in">
+        <div className="bg-[#0e0a06]/85 backdrop-blur-sm p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] shadow-xl border-4 border-[#d4af37]/30 w-full max-w-4xl flex flex-col animate-in fade-in">
            <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl sm:text-2xl md:text-3xl font-black leading-relaxed text-slate-800 dark:text-white flex-1 text-right">
                 {questions[currentIndex].question}
@@ -106,12 +111,12 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
                    const isCorrect = opt === questions[currentIndex].answer;
                    const showResult = selectedOption !== null;
 
-                   let optClass = "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-amber-400 cursor-pointer";
+                   let optClass = "bg-[#120c07] border-[#d4af37]/30 text-slate-700 dark:text-slate-300 hover:border-amber-400 cursor-pointer";
 
                    if (showResult) {
                       if (isCorrect) optClass = "bg-emerald-100 border-emerald-500 text-emerald-800 dark:bg-emerald-900/40 dark:border-emerald-500 dark:text-emerald-400 scale-105";
                       else if (isSelected && !isCorrect) optClass = "bg-rose-100 border-rose-500 text-rose-800 dark:bg-rose-900/40 dark:border-rose-500 dark:text-rose-400 scale-105";
-                      else optClass = "opacity-40 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 cursor-not-allowed";
+                      else optClass = "opacity-40 bg-[#120c07] border-[#d4af37]/30 text-slate-500 cursor-not-allowed";
                    }
 
                    return (
@@ -164,10 +169,10 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
            )}
 
            {timer <= 0 && (
-             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in">
+             <div className="mt-4 pt-4 border-t border-[#d4af37]/15 animate-in fade-in">
                <button 
                  onClick={() => triggerConfirm("هل أنت متأكد من إلغاء السؤال لأن الوقت انتهى والانتقال للسؤال التالي؟", nextQuestion)} 
-                 className="w-full py-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black rounded-xl border-b-4 border-slate-400 dark:border-slate-900 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex items-center justify-center gap-2"
+                 className="w-full py-3 bg-[#2b1e11] hover:bg-[#3a2916] text-slate-700 dark:text-slate-300 font-black rounded-xl border-b-4 border-[#0a0704] active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex items-center justify-center gap-2"
                >
                  <XCircle size={20} /> إلغاء السؤال لانقضاء الوقت
                </button>

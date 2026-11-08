@@ -1,0 +1,210 @@
+/* شاشة كشف الكروت في المزاد: عرض بس فوق اللعبة، والضغط يمر من خلالها للي تحتها.
+   نفس حركة كشف السيطرة على العالم. z-index فوق نوافذ رسائل اللعبة (1000) وفوق كل شي ثاني. */
+
+.aur-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 2.6dvh, 30px);
+  padding: 16px;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--glow) 16%, transparent), transparent 62%), rgba(3, 6, 12, 0.84);
+  animation: aur-layer 3s linear both;
+}
+@keyframes aur-layer {
+  0% { opacity: 0; }
+  7%, 90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.aur-card {
+  position: relative;
+  width: min(66vw, 46dvh);
+  aspect-ratio: 512 / 686;
+  flex: none;
+  perspective: 1100px;
+}
+.aur-inner {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform-style: preserve-3d;
+  animation: aur-deal 1.3s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+.aur-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* نفس زوايا صور الكروت */
+  border-radius: 5% / 3.7%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 0 28px 50px -12px rgba(0, 0, 0, 0.85);
+}
+.aur-front {
+  transform: rotateY(180deg);
+  animation: aur-face-in 1.3s both;
+}
+.aur-front img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+.aur-back {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6%;
+  padding: 0 8%;
+  color: #e6dccb;
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--glow) 30%, transparent), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 12px),
+    #0b0f17;
+  border: 5px solid #c9b79c;
+  /* احتياط لو المتصفح ما دعم backface-visibility: الوجهين يتبدلون بالضبط لحظة 90 درجة (52%) */
+  animation: aur-face-out 1.3s both;
+}
+.aur-back::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border: 2px solid color-mix(in srgb, var(--glow) 85%, transparent);
+  border-radius: 4% / 3%;
+}
+.aur-back-badge {
+  width: 46%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 3px solid #c9b79c;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 6px rgba(0, 0, 0, 0.6), 0 0 40px color-mix(in srgb, var(--glow) 50%, transparent);
+}
+.aur-back-badge svg {
+  width: 56%;
+  height: 56%;
+}
+@keyframes aur-face-in {
+  0%, 51.9% { opacity: 0; }
+  52%, 100% { opacity: 1; }
+}
+@keyframes aur-face-out {
+  0%, 51.9% { opacity: 1; }
+  52%, 100% { opacity: 0; }
+}
+/*
+ * نفس ترتيب الدوال بكل خطوة — وإلا المتصفح ياخذ أقصر طريق وتخرب القلبة.
+ * ولا opacity هنا: أي حركة opacity على العنصر اللي فيه preserve-3d تسطّحه ويختفي وجه الكرت.
+ */
+@keyframes aur-deal {
+  0% { transform: translateY(16%) scale(0.6) rotateZ(-7deg) rotateY(0deg); }
+  22% { transform: translateY(0) scale(1) rotateZ(0deg) rotateY(0deg); }
+  34% { transform: translateY(0) scale(1.03) rotateZ(0deg) rotateY(-14deg); }
+  52% { transform: translateY(0) scale(1.08) rotateZ(0deg) rotateY(90deg); }
+  80% { transform: translateY(0) scale(1.08) rotateZ(0deg) rotateY(192deg); }
+  100% { transform: translateY(0) scale(1) rotateZ(0deg) rotateY(180deg); }
+}
+
+/* التوهج خلف الكرت */
+.aur-glow {
+  position: absolute;
+  inset: -14% -28%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) 80%, transparent), transparent 80%);
+  filter: blur(8px);
+  animation: aur-glow-in 0.7s ease-out 0.9s both;
+}
+@keyframes aur-glow-in {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0.75; transform: scale(1); }
+}
+
+/* لمعة تمر على الكرت بعد القلبة */
+.aur-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.5) 47%, rgba(255, 255, 255, 0.15) 53%, transparent 68%);
+  animation: aur-shine 0.9s ease-in-out 1.25s both;
+}
+@keyframes aur-shine {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(130%); }
+}
+
+/* شرارات حول الكرت */
+.aur-ember {
+  position: absolute;
+  z-index: 2;
+  bottom: 10%;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--glow);
+  box-shadow: 0 0 10px 3px var(--glow);
+  opacity: 0;
+  animation: aur-ember ease-out infinite;
+}
+@keyframes aur-ember {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  15% { opacity: 0.95; }
+  100% { transform: translate(var(--dx), -190px) scale(0.3); opacity: 0; }
+}
+
+/* النص يطلع بعد القلبة */
+.aur-copy {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(2px, 0.8dvh, 10px);
+  animation: aur-after 0.45s ease-out 1.1s both;
+}
+.aur-text {
+  margin: 0;
+  max-width: min(92vw, 900px);
+  text-align: center;
+  text-wrap: balance;
+  line-height: 1.2;
+  font-size: clamp(32px, min(8.5vw, 6.4dvh), 72px);
+  color: #fff;
+  text-shadow: 0 3px 0 #000, 0 0 26px color-mix(in srgb, var(--glow) 70%, transparent);
+}
+.aur-team {
+  margin: 0;
+  max-width: min(92vw, 760px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-weight: 900;
+  font-size: clamp(16px, min(5vw, 3.6dvh), 36px);
+  text-shadow: 0 2px 0 #000, 0 0 12px #000;
+}
+.aur-team-1 { color: #22d3ee; }
+.aur-team-2 { color: #fb7185; }
+.aur-team-both { color: #fde68a; }
+@keyframes aur-after {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aur-inner, .aur-front, .aur-glow, .aur-shine, .aur-ember { animation: none; }
+  .aur-inner { transform: rotateY(180deg); }
+  .aur-back { display: none; }
+  .aur-ember { display: none; }
+  .aur-shine { transform: translateX(-130%); }
+  .aur-glow { opacity: 0.75; }
+  .aur-copy { animation-delay: 0s; }
+}
