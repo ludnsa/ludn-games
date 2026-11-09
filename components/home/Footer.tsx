@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { Globe, LayoutGrid, Calculator, Hexagon } from "lucide-react";
+import { Globe, Calculator, Hexagon } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { MAFIA_GAME, mafiaIconSrc } from "@/constants/mafia";
 import { MADAQESH_GAME } from "@/constants/madaqesh";
@@ -79,8 +79,12 @@ export const Footer = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
                   <img src="/games/auction/cards/double_icon.webp" alt="" className="w-5 h-5 shrink-0" /> المزاد
                 </Link>
               </li>
+              <li>
+                <Link href={QUIZ_GAME.path} className={`${LINK} flex items-center gap-2`}>
+                  <img src="/games/quiz-grid/cards/double_icon.webp" alt="" className="w-5 h-5 shrink-0" /> {QUIZ_GAME.title}
+                </Link>
+              </li>
               {/* eslint-enable @next/next/no-img-element */}
-              <li><Link href={QUIZ_GAME.path} className={`${LINK} flex items-center gap-2`}><LayoutGrid className={GAME_ICON} /> {QUIZ_GAME.title}</Link></li>
               <li>
                 <Link href={MAFIA_GAME.path} className={`${LINK} flex items-center gap-2`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}

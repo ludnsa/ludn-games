@@ -53,7 +53,7 @@ const GAMES: HomeGame[] = [
     line: "لوحة فئات، وفريقين يتنافسون عليها.",
     category: "أسئلة",
     meta: ["فريقين", "أسئلة بـ 200 و400 و600"],
-    cover: { art: "quiz" },
+    cover: { img: "/games/quiz-grid/quiz-cover.webp", full: true },
   },
   {
     id: LETTERS_HIVE_GAME.id,
