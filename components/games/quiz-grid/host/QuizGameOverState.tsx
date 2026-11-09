@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import { Trophy, Handshake, RotateCcw, Home } from "lucide-react";
 import type { useQuizHost } from "@/hooks/games/quiz-grid/useQuizHost";
+import { QZ_BTN_GLASS, QZ_BTN_PRIMARY, QZ_GLASS, QZ_TEAM } from "@/components/games/quiz-grid/shared/quizUi";
 
 type Ctx = ReturnType<typeof useQuizHost>;
 
@@ -18,17 +19,21 @@ export default function QuizGameOverState({ ctx }: { ctx: Ctx }) {
     <section className="w-full max-w-3xl mx-auto flex flex-col items-center gap-6 animate-in zoom-in-95 duration-500">
       <div
         className={`w-24 h-24 md:w-32 md:h-32 rounded-3xl flex items-center justify-center text-white shadow-2xl ${
-          isDraw ? "bg-slate-500" : winnerTeam === 1 ? "bg-sky-500" : "bg-rose-500"
+          isDraw
+            ? "bg-slate-500 shadow-[0_0_44px_-6px_rgba(148,163,184,0.8)]"
+            : winnerTeam === 1
+              ? `bg-sky-500 ${QZ_TEAM[1].glow}`
+              : `bg-rose-500 ${QZ_TEAM[2].glow}`
         }`}
       >
         {isDraw ? <Handshake size={56} /> : <Trophy size={56} />}
       </div>
 
       <div className="text-center">
-        <p className="text-lg md:text-xl font-black text-slate-500 dark:text-slate-400 mb-2">
+        <p className="text-lg md:text-xl font-black text-slate-300 mb-2">
           انتهت المباراة
         </p>
-        <h2 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white">
+        <h2 className="text-3xl md:text-5xl font-black text-white [text-shadow:0_0_24px_rgba(236,72,153,0.6),0_2px_6px_#000]">
           {isDraw ? "تعادل الفريقان!" : `فاز ${winnerName}!`}
         </h2>
       </div>
@@ -37,8 +42,8 @@ export default function QuizGameOverState({ ctx }: { ctx: Ctx }) {
         <div
           className={`flex-1 rounded-2xl border-b-8 p-6 text-center ${
             !isDraw && winnerTeam === 1
-              ? "bg-sky-500 border-sky-700 text-white"
-              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white"
+              ? `bg-sky-500 border-sky-700 text-white ${QZ_TEAM[1].glow}`
+              : `${QZ_GLASS} border-sky-400/40 text-white`
           }`}
         >
           <p className="text-lg md:text-2xl font-black truncate mb-2">{room.t1_name}</p>
@@ -47,8 +52,8 @@ export default function QuizGameOverState({ ctx }: { ctx: Ctx }) {
         <div
           className={`flex-1 rounded-2xl border-b-8 p-6 text-center ${
             !isDraw && winnerTeam === 2
-              ? "bg-rose-500 border-rose-700 text-white"
-              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white"
+              ? `bg-rose-500 border-rose-700 text-white ${QZ_TEAM[2].glow}`
+              : `${QZ_GLASS} border-rose-400/40 text-white`
           }`}
         >
           <p className="text-lg md:text-2xl font-black truncate mb-2">{room.t2_name}</p>
@@ -59,12 +64,12 @@ export default function QuizGameOverState({ ctx }: { ctx: Ctx }) {
       <div className="w-full flex flex-col sm:flex-row gap-3">
         <button
           onClick={newSession}
-          className="flex-1 flex items-center justify-center gap-2 bg-violet-500 hover:bg-violet-400 text-white font-black text-lg py-4 px-6 rounded-2xl border-b-4 border-violet-700 active:border-b-0 active:translate-y-[4px] transition-all"
+          className={`flex-1 flex items-center justify-center gap-2 font-black text-lg py-4 px-6 rounded-2xl ${QZ_BTN_PRIMARY}`}
         >
           <RotateCcw size={22} /> جلسة جديدة
         </button>
         <Link href="/my-games" className="flex-1">
-          <button className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black text-lg py-4 px-6 rounded-2xl border-b-4 border-slate-300 dark:border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all">
+          <button className={`w-full flex items-center justify-center gap-2 font-black text-lg py-4 px-6 rounded-2xl ${QZ_BTN_GLASS}`}>
             <Home size={22} /> ألعابي
           </button>
         </Link>

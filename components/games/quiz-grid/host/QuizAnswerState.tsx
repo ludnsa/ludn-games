@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { CheckCircle2, XCircle, ImageOff } from "lucide-react";
 import { QUIZ_LIFELINE_LIST } from "@/constants/quiz-grid";
-import { QUIZ_LIFELINE_ICONS } from "@/components/games/quiz-grid/shared/quizLifelineIcons";
+import { QuizCardIcon } from "@/components/games/quiz-grid/shared/QuizCardIcon";
+import { QZ_TIER } from "@/components/games/quiz-grid/shared/quizUi";
 import type { QuizLifelineKey, QuizRoom, QuizTeam } from "@/types";
 import type { useQuizHost } from "@/hooks/games/quiz-grid/useQuizHost";
 
@@ -40,23 +41,23 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
   return (
     <section className="w-full max-w-5xl mx-auto flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <span className="px-4 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-black text-base md:text-xl">
+        <span className="px-4 py-2 rounded-xl bg-[#0b0d26]/80 backdrop-blur-md border border-cyan-300/30 text-white font-black text-base md:text-xl">
           {activeQuestion.category_name_ar}
         </span>
-        <span className="px-4 py-2 rounded-xl bg-slate-800 dark:bg-white text-white dark:text-slate-900 font-black text-base md:text-xl">
+        <span className={`px-4 py-2 rounded-xl backdrop-blur-md font-black text-base md:text-xl ${QZ_TIER[activeQuestion.points]?.chip ?? ""}`}>
           {activeQuestion.points} نقطة
         </span>
       </div>
 
-      <p className="text-center text-lg md:text-2xl font-bold text-slate-500 dark:text-slate-400 leading-snug">
+      <p className="text-center text-lg md:text-2xl font-bold text-slate-200 leading-snug [text-shadow:0_2px_6px_#000]">
         {activeQuestion.question_text}
       </p>
 
-      <div className="flex flex-col items-center gap-5 bg-emerald-50 dark:bg-emerald-950/30 border-4 border-emerald-500 rounded-3xl p-6 md:p-10 shadow-lg">
-        <span className="text-sm md:text-base font-black text-emerald-600 dark:text-emerald-400 tracking-widest">
+      <div className="flex flex-col items-center gap-5 bg-[#04140f]/80 backdrop-blur-md border-4 border-emerald-400 rounded-3xl p-6 md:p-10 shadow-[0_0_44px_-8px_rgba(52,211,153,0.85)]">
+        <span className="text-sm md:text-base font-black text-emerald-300 tracking-widest">
           الإجابة الصحيحة
         </span>
-        <p className="text-3xl md:text-5xl lg:text-6xl font-black text-center text-emerald-800 dark:text-emerald-300 leading-snug">
+        <p className="text-3xl md:text-5xl lg:text-6xl font-black text-center text-emerald-200 leading-snug [text-shadow:0_0_18px_rgba(52,211,153,0.7)]">
           {answerContent.answer_text}
         </p>
 
@@ -70,7 +71,7 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
         )}
 
         {answerContent.answer_image_url && imageFailed && (
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-400 bg-white dark:bg-slate-800 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-300 bg-white/10 rounded-xl px-4 py-3">
             <ImageOff size={18} /> تعذّر تحميل صورة الإجابة.
           </div>
         )}
@@ -82,13 +83,12 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
             const field = armedTeamField(def.key);
             const team = field ? (room[field] as QuizTeam | null) : null;
             if (!team) return null;
-            const Icon = QUIZ_LIFELINE_ICONS[def.key];
             return (
               <div
                 key={def.key}
-                className="flex items-center justify-center gap-3 bg-orange-500 text-white font-black text-base md:text-xl rounded-2xl py-3 px-6 text-center"
+                className="flex items-center justify-center gap-3 bg-orange-500/90 backdrop-blur-md border border-orange-300 text-white font-black text-base md:text-xl rounded-2xl py-2.5 px-4 md:px-6 text-center shadow-[0_0_26px_-6px_rgba(251,146,60,0.9)]"
               >
-                <Icon size={24} className="shrink-0" />
+                <QuizCardIcon kind={def.key} className="w-9 h-9 md:w-11 md:h-11 ring-2 ring-white/50" />
                 {describeArmedBet(def.key, teamName(team), activeQuestion.points)}
               </div>
             );
@@ -100,7 +100,7 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
         <button
           onClick={() => award(1)}
           disabled={isBusy}
-          className="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-400 disabled:opacity-40 text-white font-black text-lg md:text-xl py-5 px-4 rounded-2xl border-b-8 border-sky-700 active:border-b-0 active:translate-y-[8px] transition-all shadow-md"
+          className="flex-1 flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-400 disabled:opacity-40 text-white font-black text-lg md:text-xl py-5 px-4 rounded-2xl border-b-8 border-sky-700 active:border-b-0 active:translate-y-[8px] transition-all shadow-[0_0_28px_-6px_rgba(56,189,248,0.85)]"
         >
           <CheckCircle2 size={26} /> {room.t1_name} أجاب صح
         </button>
@@ -108,7 +108,7 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
         <button
           onClick={() => award(null)}
           disabled={isBusy}
-          className="flex-1 flex items-center justify-center gap-2 bg-slate-500 hover:bg-slate-400 disabled:opacity-40 text-white font-black text-lg md:text-xl py-5 px-4 rounded-2xl border-b-8 border-slate-700 active:border-b-0 active:translate-y-[8px] transition-all shadow-md"
+          className="flex-1 flex items-center justify-center gap-2 bg-slate-600/80 backdrop-blur-md hover:bg-slate-500/80 disabled:opacity-40 text-white font-black text-lg md:text-xl py-5 px-4 rounded-2xl border-b-8 border-slate-800 active:border-b-0 active:translate-y-[8px] transition-all"
         >
           <XCircle size={26} /> لا أحد أجاب
         </button>
@@ -116,7 +116,7 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
         <button
           onClick={() => award(2)}
           disabled={isBusy}
-          className="flex-1 flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-400 disabled:opacity-40 text-white font-black text-lg md:text-xl py-5 px-4 rounded-2xl border-b-8 border-rose-700 active:border-b-0 active:translate-y-[8px] transition-all shadow-md"
+          className="flex-1 flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-400 disabled:opacity-40 text-white font-black text-lg md:text-xl py-5 px-4 rounded-2xl border-b-8 border-rose-700 active:border-b-0 active:translate-y-[8px] transition-all shadow-[0_0_28px_-6px_rgba(251,113,133,0.85)]"
         >
           <CheckCircle2 size={26} /> {room.t2_name} أجاب صح
         </button>

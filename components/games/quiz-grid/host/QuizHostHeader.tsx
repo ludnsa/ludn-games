@@ -2,6 +2,7 @@
 import React from "react";
 import { QrCode, Link2, RotateCcw, Flag } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
+import { QZ_BTN_GLASS, QZ_BTN_PRIMARY, QZ_PANEL } from "@/components/games/quiz-grid/shared/quizUi";
 
 export default function QuizHostHeader({
   roomCode,
@@ -21,20 +22,20 @@ export default function QuizHostHeader({
   const isPlaying = gameState && gameState !== "setup" && gameState !== "gameOver";
 
   return (
-    <header className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl p-3 md:p-4 shadow-sm">
+    <header className={`flex flex-col md:flex-row items-center justify-between gap-3 rounded-2xl p-3 md:p-4 ${QZ_PANEL}`}>
       <div className="flex items-center gap-3">
-        <div className="px-4 py-2 bg-violet-100 dark:bg-violet-500/20 rounded-xl">
-          <span className="text-xs font-bold text-violet-600 dark:text-violet-400 block leading-tight">
+        <div className="px-4 py-2 bg-cyan-400/10 border border-cyan-300/30 rounded-xl">
+          <span className="text-xs font-bold text-cyan-200/80 block leading-tight">
             رمز الغرفة
           </span>
           <span
-            className="text-2xl md:text-3xl font-black text-violet-700 dark:text-violet-300 tracking-[0.2em]"
+            className="text-2xl md:text-3xl font-black text-cyan-200 tracking-[0.2em] [text-shadow:0_0_14px_rgba(34,211,238,0.8)]"
             dir="ltr"
           >
             {roomCode || "..."}
           </span>
         </div>
-        <h1 className="hidden lg:block text-xl font-black text-slate-800 dark:text-white">
+        <h1 className="hidden lg:block text-xl font-black text-white">
           {QUIZ_GAME.title}
         </h1>
       </div>
@@ -42,13 +43,13 @@ export default function QuizHostHeader({
       <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           onClick={onShowQR}
-          className="flex items-center gap-2 bg-violet-500 hover:bg-violet-400 text-white font-black py-2.5 px-4 rounded-xl border-b-4 border-violet-700 active:border-b-0 active:translate-y-[4px] transition-all text-sm"
+          className={`flex items-center gap-2 font-black py-2.5 px-4 rounded-xl text-sm ${QZ_BTN_PRIMARY}`}
         >
           <QrCode size={18} /> باركود الانضمام
         </button>
         <button
           onClick={onCopyLink}
-          className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-2.5 px-4 rounded-xl border-b-4 border-slate-300 dark:border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all text-sm"
+          className={`flex items-center gap-2 font-bold py-2.5 px-4 rounded-xl text-sm ${QZ_BTN_GLASS}`}
         >
           <Link2 size={18} /> نسخ الرابط
         </button>
@@ -56,7 +57,7 @@ export default function QuizHostHeader({
         {isPlaying && (
           <button
             onClick={onFinish}
-            className="flex items-center gap-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 font-bold py-2.5 px-4 rounded-xl border-b-4 border-amber-200 dark:border-amber-950 active:border-b-0 active:translate-y-[4px] transition-all text-sm"
+            className="flex items-center gap-2 bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 border border-amber-400/40 font-bold py-2.5 px-4 rounded-xl border-b-4 border-b-amber-950/70 active:border-b active:translate-y-[3px] transition-all text-sm"
           >
             <Flag size={18} /> إنهاء الجلسة
           </button>
@@ -64,7 +65,7 @@ export default function QuizHostHeader({
 
         <button
           onClick={onNewSession}
-          className="flex items-center gap-2 bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-400 font-bold py-2.5 px-4 rounded-xl border-b-4 border-rose-200 dark:border-rose-950 active:border-b-0 active:translate-y-[4px] transition-all text-sm"
+          className="flex items-center gap-2 bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 border border-rose-400/40 font-bold py-2.5 px-4 rounded-xl border-b-4 border-b-rose-950/70 active:border-b active:translate-y-[3px] transition-all text-sm"
         >
           <RotateCcw size={18} /> جلسة جديدة
         </button>

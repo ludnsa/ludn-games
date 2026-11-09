@@ -2,28 +2,15 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { QUIZ_LIFELINE_LABELS } from "@/constants/quiz-grid";
-import { QUIZ_LIFELINE_ICONS } from "@/components/games/quiz-grid/shared/quizLifelineIcons";
+import { QuizCardIcon } from "@/components/games/quiz-grid/shared/QuizCardIcon";
+import { QZ_GLASS, QZ_TEAM } from "@/components/games/quiz-grid/shared/quizUi";
 import type { QuizLifelineKey, QuizRoom, QuizTeam } from "@/types";
 
 /**
  * لوحة النتائج الثابتة أعلى شاشة الحكم.
  * مصممة لتُقرأ من آخر الغرفة: خط ضخم، تباين عالٍ، ومؤشر دور لا يمكن تفويته.
+ * الفريق صاحب الدور: لوحة بلونه وحد نيون وتوهج. وكل وسيلة: أيقونة كرتها واسمها تحتها (يبين على الجوال بعد).
  */
-
-const TEAM_STYLES = {
-  1: {
-    active: "bg-sky-500 border-sky-700 text-white",
-    idle: "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white",
-    accent: "text-sky-600 dark:text-sky-400",
-    pip: "bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300",
-  },
-  2: {
-    active: "bg-rose-500 border-rose-700 text-white",
-    idle: "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white",
-    accent: "text-rose-600 dark:text-rose-400",
-    pip: "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300",
-  },
-} as const;
 
 function TeamPanel({
   team,
@@ -42,43 +29,50 @@ function TeamPanel({
   used: QuizLifelineKey[];
   showTurn: boolean;
 }) {
-  const styles = TEAM_STYLES[team];
+  const styles = QZ_TEAM[team];
   const Arrow = team === 1 ? ChevronLeft : ChevronRight;
 
   return (
     <div
-      className={`flex-1 flex flex-col gap-3 rounded-2xl border-b-8 p-4 md:p-5 transition-all duration-300 ${
-        isActive ? `${styles.active} scale-[1.02] shadow-xl` : `${styles.idle} shadow-sm`
+      className={`flex-1 min-w-0 flex flex-col gap-3 rounded-2xl p-3 md:p-5 transition-all duration-300 ${
+        isActive ? `border-2 backdrop-blur-md ${styles.active} ${styles.glow} scale-[1.02]` : `${QZ_GLASS} border-2 border-cyan-300/25`
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-lg md:text-2xl font-black truncate">{name}</span>
+      {/* اسم الفريق ياخذ السطر كامل، وشارة الدور تنزل تحته لو ما كفى المكان (الجوال) */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <span className={`min-w-0 max-w-full text-lg md:text-2xl font-black truncate ${isActive ? "text-white" : styles.text}`}>{name}</span>
         {showTurn && isActive && (
-          <span className="flex items-center gap-1 shrink-0 text-xs md:text-sm font-black bg-white/25 px-2.5 py-1 rounded-lg animate-pulse">
+          <span className={`flex items-center gap-1 shrink-0 text-xs md:text-sm font-black px-2.5 py-1 rounded-lg animate-pulse ${styles.chip}`}>
             <Arrow size={16} /> الدور الآن
           </span>
         )}
       </div>
 
-      <div className="text-4xl md:text-6xl font-black tabular-nums leading-none">{score}</div>
+      {/* بالشاشة الكبيرة الوسائل جنب النقاط عشان اللوحة ما تطول، ولو ما كفى المكان تنزل تحتها */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+      <div className="text-4xl md:text-6xl font-black tabular-nums leading-none text-white">{score}</div>
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="grid grid-cols-3 gap-1.5 md:gap-2 w-full md:w-52 lg:w-64">
         {owned.map((kind) => {
-          const Icon = QUIZ_LIFELINE_ICONS[kind];
           const isUsed = used.includes(kind);
           return (
             <span
               key={kind}
               title={QUIZ_LIFELINE_LABELS[kind]}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] md:text-xs font-black transition-opacity ${
-                isActive ? "bg-white/25" : styles.pip
-              } ${isUsed ? "opacity-30 line-through" : ""}`}
+              className="flex flex-col items-center gap-1 min-w-0 text-center"
             >
-              <Icon size={14} />
-              <span className="hidden sm:inline">{QUIZ_LIFELINE_LABELS[kind]}</span>
+              <QuizCardIcon kind={kind} off={isUsed} className="w-9 h-9 md:w-11 md:h-11 ring-1 ring-white/20" />
+              <span
+                className={`max-w-full text-[9px] md:text-[11px] font-black leading-tight ${
+                  isUsed ? "line-through text-slate-500" : "text-slate-200"
+                }`}
+              >
+                {QUIZ_LIFELINE_LABELS[kind]}
+              </span>
             </span>
           );
         })}
+      </div>
       </div>
     </div>
   );
@@ -119,7 +113,7 @@ export default function QuizScoreboard({
       </div>
 
       {showTurn && (
-        <p className="text-center text-sm font-bold text-slate-500 dark:text-slate-400">
+        <p className="text-center text-sm font-bold text-slate-300 [text-shadow:0_1px_3px_#000]">
           متبقٍ {remainingCells} سؤال من أصل {totalCells}
         </p>
       )}

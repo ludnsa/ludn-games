@@ -2,6 +2,7 @@
 "use client";
 import React from "react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
+import { QZ_BACKDROP, QZ_BTN_GLASS, QZ_MODAL } from "@/components/games/quiz-grid/shared/quizUi";
 
 export default function QuizQRModal({
   roomCode,
@@ -20,9 +21,9 @@ export default function QuizQRModal({
       : "";
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 border-4 border-violet-500 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
-        <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-6">
+    <div className={`fixed inset-0 z-[2000] flex items-center justify-center p-4 animate-in fade-in ${QZ_BACKDROP}`}>
+      <div className={`${QZ_MODAL} p-8 rounded-3xl max-w-sm w-full text-center animate-in zoom-in-95`}>
+        <h2 className="text-2xl font-black text-white mb-6">
           امسح الباركود للانضمام
         </h2>
 
@@ -37,18 +38,18 @@ export default function QuizQRModal({
         </div>
 
         <p
-          className="text-3xl font-black tracking-[0.3em] text-violet-600 dark:text-violet-400 mb-2"
+          className="text-3xl font-black tracking-[0.3em] text-cyan-200 mb-2 [text-shadow:0_0_14px_rgba(34,211,238,0.8)]"
           dir="ltr"
         >
           {roomCode}
         </p>
-        <p className="text-xs font-bold text-slate-400 mb-8">
+        <p className="text-xs font-bold text-slate-300 mb-8">
           أو ادخلوا الرمز يدوياً من صفحة الانضمام
         </p>
 
         <button
           onClick={onClose}
-          className="w-full py-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-black rounded-xl border-b-4 border-slate-300 dark:border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all"
+          className={`w-full py-3 font-black rounded-xl ${QZ_BTN_GLASS}`}
         >
           إغلاق
         </button>

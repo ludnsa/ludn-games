@@ -6,7 +6,8 @@ import {
   ChevronLeft, Loader2, Play, Users, AlertTriangle, LayoutGrid, Timer, Info, Check,
 } from "lucide-react";
 import { QUIZ_CONFIG, QUIZ_GAME, QUIZ_LIFELINE_LIST, QUIZ_LIFELINES_PER_TEAM } from "@/constants/quiz-grid";
-import { QUIZ_LIFELINE_ICONS } from "@/components/games/quiz-grid/shared/quizLifelineIcons";
+import { QUIZ_CARDS } from "@/components/games/quiz-grid/shared/quizCards";
+import { QZ_BTN_GLASS, QZ_BTN_PRIMARY, QZ_GLASS, QZ_INPUT, QZ_PANEL, QZ_TEAM } from "@/components/games/quiz-grid/shared/quizUi";
 import type { QuizLifelineKey, QuizTeam } from "@/types";
 import type { useQuizHost } from "@/hooks/games/quiz-grid/useQuizHost";
 
@@ -35,7 +36,7 @@ function StepDots({ step }: { step: 1 | 2 }) {
         <span
           key={n}
           className={`h-2 rounded-full transition-all ${
-            n === step ? "w-8 bg-violet-500" : "w-2 bg-slate-300 dark:bg-slate-700"
+            n === step ? "w-8 bg-linear-to-l from-fuchsia-500 to-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.7)]" : "w-2 bg-white/25"
           }`}
         />
       ))}
@@ -51,21 +52,21 @@ function StepOneCategories({ ctx }: { ctx: Ctx }) {
 
   if (categories.length === 0 || playableCategories.length === 0) {
     return (
-      <section className="w-full max-w-2xl mx-auto bg-white dark:bg-slate-900 border-2 border-amber-200 dark:border-amber-900/50 rounded-3xl p-8 text-center shadow-sm">
-        <div className="w-16 h-16 mx-auto mb-5 bg-amber-100 dark:bg-amber-900/40 text-amber-600 rounded-2xl flex items-center justify-center">
+      <section className={`w-full max-w-2xl mx-auto ${QZ_GLASS} border-2 border-amber-400/40 rounded-3xl p-8 text-center`}>
+        <div className="w-16 h-16 mx-auto mb-5 bg-amber-400/15 text-amber-300 rounded-2xl flex items-center justify-center">
           <AlertTriangle size={32} />
         </div>
-        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-3">
+        <h2 className="text-2xl font-black text-white mb-3">
           مكتبة الفئات غير جاهزة
         </h2>
-        <p className="font-bold text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+        <p className="font-bold text-slate-300 mb-6 leading-relaxed">
           {categories.length === 0
             ? "لا توجد فئات مضافة بعد."
             : `لا توجد فئات مكتملة. كل فئة تحتاج ${QUIZ_CONFIG.PER_TIER} أسئلة على الأقل من كل قيمة (200، 400، 600).`}
         </p>
         <Link
           href={QUIZ_GAME.adminPath}
-          className="inline-flex items-center gap-2 bg-violet-500 hover:bg-violet-400 text-white font-black py-3.5 px-6 rounded-xl border-b-4 border-violet-700 active:border-b-0 active:translate-y-[4px] transition-all"
+          className={`inline-flex items-center gap-2 font-black py-3.5 px-6 rounded-xl ${QZ_BTN_PRIMARY}`}
         >
           <LayoutGrid size={20} /> الذهاب للوحة التحكم
         </Link>
@@ -76,14 +77,14 @@ function StepOneCategories({ ctx }: { ctx: Ctx }) {
   return (
     <section className="w-full max-w-4xl mx-auto flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-slate-800 dark:text-white">
+        <h2 className="text-xl font-black text-white [text-shadow:0_2px_6px_#000]">
           اختر الفئات ({QUIZ_CONFIG.MIN_CATEGORIES}-{QUIZ_CONFIG.MAX_CATEGORIES})
         </h2>
         <span
           className={`text-sm font-black px-3 py-1.5 rounded-lg ${
             canProceed
-              ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400"
-              : "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-400"
+              ? "bg-emerald-400/15 border border-emerald-400/50 text-emerald-200"
+              : "bg-cyan-400/10 border border-cyan-300/40 text-cyan-100"
           }`}
         >
           {selectedCategories.length} مختارة
@@ -91,7 +92,7 @@ function StepOneCategories({ ctx }: { ctx: Ctx }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-7 md:gap-y-8 px-1.5 md:px-0">
         {categories.map((category) => {
           const index = selectedCategories.indexOf(category.id);
           const isSelected = index !== -1;
@@ -106,55 +107,46 @@ function StepOneCategories({ ctx }: { ctx: Ctx }) {
               disabled={isDisabled}
               onClick={() => toggleCategory(category.id)}
               title={category.isPlayable ? countsText : "غير مكتملة — " + countsText}
-              className={`relative flex flex-col overflow-hidden rounded-2xl border-2 text-right transition-all ${
+              className={`relative block rounded-2xl border-2 p-1 text-right transition-all ${
                 isSelected
-                  ? "border-violet-600 shadow-lg scale-[1.02] ring-2 ring-violet-500/40"
+                  ? "border-cyan-300 bg-cyan-400/10 scale-[1.02] ring-2 ring-fuchsia-400/50 shadow-[0_0_30px_-4px_rgba(34,211,238,0.75)]"
                   : isDisabled
-                    ? "border-slate-200 dark:border-slate-800 opacity-50 cursor-not-allowed"
-                    : "border-slate-200 dark:border-slate-800 hover:border-violet-400"
+                    ? "border-transparent opacity-50 cursor-not-allowed"
+                    : "border-transparent hover:border-cyan-300/60"
               }`}
             >
-              <div className="relative w-full aspect-[4/3] bg-slate-100 dark:bg-slate-900">
-                {category.image_url ? (
-                  <img
-                    src={category.image_url}
-                    alt={category.image_alt || category.name_ar}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className={`w-full h-full bg-gradient-to-br ${gradientForCategory(category.id)} flex items-center justify-center`}
-                  >
-                    <LayoutGrid size={32} className="text-white/40" />
-                  </div>
-                )}
+              {/* اسم الفئة صار مكتوب داخل صورة الكرت، فما نكرره تحتها. الفئة اللي ما لها صورة يطلع اسمها داخل المربع */}
+              {category.image_url ? (
+                <img
+                  src={category.image_url}
+                  alt={category.image_alt || category.name_ar}
+                  className="block w-full h-auto rounded-xl"
+                />
+              ) : (
+                <div
+                  className={`w-full aspect-[3/4] rounded-xl bg-gradient-to-br ${gradientForCategory(category.id)} flex flex-col items-center justify-center gap-2 p-2`}
+                >
+                  <LayoutGrid size={32} className="text-white/40" />
+                  <span className="font-black text-white text-base md:text-lg text-center leading-tight">{category.name_ar}</span>
+                </div>
+              )}
 
-                {isSelected && (
-                  <span className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white text-violet-600 flex items-center justify-center text-sm font-black shadow">
-                    {index + 1}
-                  </span>
-                )}
-                {!category.isPlayable && (
-                  <span className="absolute top-2 left-2 w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow">
-                    <AlertTriangle size={14} />
-                  </span>
-                )}
-                {category.isPlayable && (
-                  <span className="absolute bottom-2 left-2 w-6 h-6 rounded-full bg-black/40 text-white flex items-center justify-center">
-                    <Info size={13} />
-                  </span>
-                )}
-              </div>
-
-              <div
-                className={`w-full py-2.5 px-2 text-center font-black text-sm md:text-base leading-tight ${
-                  isSelected
-                    ? "bg-violet-600 text-white"
-                    : "bg-white dark:bg-slate-950 text-slate-800 dark:text-white"
-                }`}
-              >
-                {category.name_ar}
-              </div>
+              {/* الشارات على زوايا الكرت من برا، عشان ما تغطي العنوان فوق ولا الاسم تحت: الترتيب فوق، والتنبيه والمعلومات تحت */}
+              {isSelected && (
+                <span className="absolute -top-3 -right-3 md:-top-3.5 md:-right-3.5 z-10 w-7 h-7 md:w-8 md:h-8 rounded-full bg-cyan-300 text-slate-950 ring-2 ring-[#090b1f] flex items-center justify-center text-sm font-black shadow-[0_0_12px_rgba(34,211,238,0.9)]">
+                  {index + 1}
+                </span>
+              )}
+              {!category.isPlayable && (
+                <span className="absolute -bottom-3 -left-3 md:-bottom-3.5 md:-left-3.5 z-10 w-6 h-6 md:w-7 md:h-7 rounded-full bg-rose-500 text-white ring-2 ring-[#090b1f] flex items-center justify-center shadow">
+                  <AlertTriangle size={13} />
+                </span>
+              )}
+              {category.isPlayable && (
+                <span className="absolute -bottom-3 -left-3 z-10 w-6 h-6 rounded-full bg-[#090b1f]/90 ring-1 ring-white/30 text-white flex items-center justify-center">
+                  <Info size={13} />
+                </span>
+              )}
             </button>
           );
         })}
@@ -163,7 +155,7 @@ function StepOneCategories({ ctx }: { ctx: Ctx }) {
       <button
         onClick={goToStep2}
         disabled={!canProceed}
-        className="w-full py-5 bg-violet-500 hover:bg-violet-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xl md:text-2xl rounded-2xl border-b-8 border-violet-700 active:border-b-0 active:translate-y-[8px] transition-all shadow-lg flex items-center justify-center gap-3"
+        className={`w-full py-5 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:translate-y-0 font-black text-xl md:text-2xl rounded-2xl flex items-center justify-center gap-3 ${QZ_BTN_PRIMARY}`}
       >
         {canProceed ? "التالي: الفرق والوقت" : `اختر ${remainingToMin} فئات أخرى`}
         <ChevronLeft size={26} />
@@ -172,16 +164,16 @@ function StepOneCategories({ ctx }: { ctx: Ctx }) {
   );
 }
 
-const TEAM_ACCENT: Record<QuizTeam, { text: string; border: string; chip: string }> = {
+const TEAM_ACCENT: Record<QuizTeam, { text: string; chip: string; badge: string }> = {
   1: {
-    text: "text-sky-600 dark:text-sky-400",
-    border: "border-sky-200 dark:border-sky-900/60 focus:border-sky-500",
-    chip: "bg-sky-500 border-sky-700 text-white ring-2 ring-sky-500/30",
+    text: QZ_TEAM[1].text,
+    chip: "bg-sky-500/20 border-sky-300 ring-2 ring-sky-400/40 shadow-[0_0_20px_-4px_rgba(56,189,248,0.8)]",
+    badge: "bg-sky-400 text-slate-950",
   },
   2: {
-    text: "text-rose-600 dark:text-rose-400",
-    border: "border-rose-200 dark:border-rose-900/60 focus:border-rose-500",
-    chip: "bg-rose-500 border-rose-700 text-white ring-2 ring-rose-500/30",
+    text: QZ_TEAM[2].text,
+    chip: "bg-rose-500/20 border-rose-300 ring-2 ring-rose-400/40 shadow-[0_0_20px_-4px_rgba(251,113,133,0.8)]",
+    badge: "bg-rose-400 text-slate-950",
   },
 };
 
@@ -201,13 +193,12 @@ function TeamLifelinePicker({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className={`font-bold text-sm ${accent.text}`}>وسائل المساعدة (اختر {QUIZ_LIFELINES_PER_TEAM})</span>
-        <span className="text-xs font-black text-slate-400">
+        <span className="text-xs font-black text-slate-300">
           {selected.length}/{QUIZ_LIFELINES_PER_TEAM}
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
         {QUIZ_LIFELINE_LIST.map((def) => {
-          const Icon = QUIZ_LIFELINE_ICONS[def.key];
           const isSelected = selected.includes(def.key);
           const isDisabled = !isSelected && remaining <= 0;
 
@@ -218,16 +209,30 @@ function TeamLifelinePicker({
               disabled={isDisabled}
               onClick={() => onToggle(def.key)}
               title={def.hint}
-              className={`flex flex-col items-center gap-1 py-3 px-1 rounded-xl border-2 transition-all text-center ${
+              className={`flex flex-col items-center gap-1.5 p-1.5 md:p-2 rounded-xl border-2 transition-all text-center ${
                 isSelected
                   ? accent.chip
                   : isDisabled
-                    ? "bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-700 cursor-not-allowed"
-                    : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400"
+                    ? "bg-black/25 border-white/5 cursor-not-allowed"
+                    : "bg-black/25 border-white/10 hover:border-white/35"
               }`}
             >
-              {isSelected ? <Check size={18} /> : <Icon size={18} />}
-              <span className="text-[10px] font-black leading-tight">{def.label}</span>
+              <span className="relative block w-full max-w-28">
+                <img
+                  src={QUIZ_CARDS[def.key].card}
+                  alt={def.label}
+                  draggable={false}
+                  className={`block w-full aspect-[512/686] rounded-lg ${isDisabled ? "grayscale opacity-40" : ""}`}
+                />
+                {isSelected && (
+                  <span className={`absolute -top-1.5 -left-1.5 w-7 h-7 rounded-full grid place-items-center shadow-lg ${accent.badge}`}>
+                    <Check size={16} strokeWidth={3} />
+                  </span>
+                )}
+              </span>
+              <span className={`text-[10px] md:text-[11px] font-bold leading-snug ${isDisabled ? "text-slate-500" : "text-slate-200"}`}>
+                {QUIZ_CARDS[def.key].short}
+              </span>
             </button>
           );
         })}
@@ -256,9 +261,9 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
   return (
     <section className="w-full max-w-4xl mx-auto flex flex-col gap-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-slate-900 border-2 border-sky-200 dark:border-sky-900/60 rounded-3xl p-5 shadow-sm flex flex-col gap-4">
+        <div className={`${QZ_GLASS} border-2 border-sky-400/50 rounded-3xl p-4 md:p-5 flex flex-col gap-4`}>
           <div className="flex flex-col gap-2">
-            <label htmlFor="t1" className="font-bold text-sm text-sky-600 dark:text-sky-400">
+            <label htmlFor="t1" className="font-bold text-sm text-sky-300">
               الفريق الأول
             </label>
             <input
@@ -267,15 +272,15 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
               value={t1Name}
               maxLength={30}
               onChange={(e) => setT1Name(e.target.value)}
-              className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-sky-200 dark:border-sky-900/60 rounded-xl font-black text-lg focus:border-sky-500 outline-none transition-colors"
+              className={`w-full p-4 rounded-xl font-black text-lg focus:border-sky-400 ${QZ_INPUT}`}
             />
           </div>
           <TeamLifelinePicker team={1} selected={t1Lifelines} onToggle={(k) => toggleTeamLifeline(1, k)} />
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border-2 border-rose-200 dark:border-rose-900/60 rounded-3xl p-5 shadow-sm flex flex-col gap-4">
+        <div className={`${QZ_GLASS} border-2 border-rose-400/50 rounded-3xl p-4 md:p-5 flex flex-col gap-4`}>
           <div className="flex flex-col gap-2">
-            <label htmlFor="t2" className="font-bold text-sm text-rose-600 dark:text-rose-400">
+            <label htmlFor="t2" className="font-bold text-sm text-rose-300">
               الفريق الثاني
             </label>
             <input
@@ -284,15 +289,15 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
               value={t2Name}
               maxLength={30}
               onChange={(e) => setT2Name(e.target.value)}
-              className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-rose-200 dark:border-rose-900/60 rounded-xl font-black text-lg focus:border-rose-500 outline-none transition-colors"
+              className={`w-full p-4 rounded-xl font-black text-lg focus:border-rose-400 ${QZ_INPUT}`}
             />
           </div>
           <TeamLifelinePicker team={2} selected={t2Lifelines} onToggle={(k) => toggleTeamLifeline(2, k)} />
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
-        <Users size={18} className="text-violet-500" />
+      <div className={`flex items-center gap-2 text-sm font-bold text-slate-200 rounded-2xl px-4 py-3 ${QZ_PANEL}`}>
+        <Users size={18} className="shrink-0 text-cyan-300" />
         {players.length === 0 ? (
           <span>لم ينضم أي لاعب بعد — اعرض الباركود على الشاشة.</span>
         ) : (
@@ -302,9 +307,9 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
-        <h2 className="text-xl font-black text-slate-800 dark:text-white mb-5 flex items-center gap-2">
-          <Timer size={22} className="text-violet-500" /> مدة كل سؤال
+      <div className={`rounded-3xl p-5 md:p-6 ${QZ_PANEL}`}>
+        <h2 className="text-xl font-black text-white mb-5 flex items-center gap-2">
+          <Timer size={22} className="text-cyan-300" /> مدة كل سؤال
         </h2>
 
         <div className="flex flex-wrap gap-3 mb-4">
@@ -318,8 +323,8 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
               }}
               className={`flex-1 min-w-[72px] py-4 rounded-xl font-black text-lg border-2 transition-all ${
                 !customTimer && timerSeconds === preset
-                  ? "bg-violet-500 border-violet-700 text-white ring-2 ring-violet-500/30"
-                  : "bg-slate-50 border-slate-200 text-slate-600 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 hover:border-violet-300"
+                  ? "bg-linear-to-l from-fuchsia-600 to-cyan-600 border-cyan-200/70 text-white shadow-[0_0_20px_-4px_rgba(217,70,239,0.8)]"
+                  : "bg-black/25 border-white/10 text-slate-300 hover:border-cyan-300/50"
               }`}
             >
               {preset}
@@ -331,8 +336,8 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
             onClick={() => setCustomTimer(true)}
             className={`flex-1 min-w-[100px] py-4 rounded-xl font-black text-sm border-2 transition-all ${
               customTimer || !isPreset
-                ? "bg-violet-500 border-violet-700 text-white ring-2 ring-violet-500/30"
-                : "bg-slate-50 border-slate-200 text-slate-600 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 hover:border-violet-300"
+                ? "bg-linear-to-l from-fuchsia-600 to-cyan-600 border-cyan-200/70 text-white shadow-[0_0_20px_-4px_rgba(217,70,239,0.8)]"
+                : "bg-black/25 border-white/10 text-slate-300 hover:border-cyan-300/50"
             }`}
           >
             مدة مخصصة
@@ -347,9 +352,9 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
               max={QUIZ_CONFIG.TIMER_MAX}
               value={timerSeconds}
               onChange={(e) => handleCustomChange(e.target.value)}
-              className="w-32 p-3 bg-slate-50 dark:bg-slate-950 border-2 border-violet-300 dark:border-violet-800 rounded-xl font-black text-lg text-center focus:border-violet-500 outline-none transition-colors"
+              className={`w-32 p-3 rounded-xl font-black text-lg text-center focus:border-cyan-300 ${QZ_INPUT}`}
             />
-            <span className="font-bold text-sm text-slate-500">
+            <span className="font-bold text-sm text-slate-300">
               ثانية (بين {QUIZ_CONFIG.TIMER_MIN} و{QUIZ_CONFIG.TIMER_MAX})
             </span>
           </div>
@@ -359,7 +364,7 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
       <div className="flex gap-3">
         <button
           onClick={goBackToStep1}
-          className="px-6 py-5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black rounded-2xl border-b-4 border-slate-300 dark:border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all"
+          className={`px-6 py-5 font-black rounded-2xl ${QZ_BTN_GLASS}`}
         >
           رجوع
         </button>
@@ -367,7 +372,7 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
           onClick={startGame}
           disabled={isBusy || isPreparing || !canStartGame}
           title={!canStartGame ? `كل فريق يحتاج اختيار ${QUIZ_LIFELINES_PER_TEAM} وسائل مساعدة` : undefined}
-          className="flex-1 py-5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xl md:text-2xl rounded-2xl border-b-8 border-emerald-700 active:border-b-0 active:translate-y-[8px] transition-all shadow-lg flex items-center justify-center gap-3"
+          className="flex-1 py-5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xl md:text-2xl rounded-2xl border-b-8 border-emerald-700 active:border-b-0 active:translate-y-[8px] transition-all shadow-[0_0_28px_-6px_rgba(52,211,153,0.8)] flex items-center justify-center gap-3"
         >
           {isBusy || isPreparing ? (
             <Loader2 className="animate-spin" size={28} />
