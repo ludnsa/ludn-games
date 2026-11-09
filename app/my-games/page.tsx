@@ -97,7 +97,7 @@ export default function MyGamesPage() {
     // بطاقة المافيا فيها اسمها تحت: القص الافتراضي (تكبير على الوجه) يناسبها
     { id: MAFIA_GAME.id, title: MAFIA_GAME.title, img: mafiaCardSrc('mafia') },
     { id: MADAQESH_GAME.id, title: MADAQESH_GAME.title, art: 'madaqesh' },
-    { id: LETTERS_HIVE_GAME.id, title: LETTERS_HIVE_GAME.title, art: 'hive' },
+    { id: LETTERS_HIVE_GAME.id, title: LETTERS_HIVE_GAME.title, img: '/games/letters-hive/hive-cover.webp', full: true },
   ];
   const active = isSubscriptionActive(endsAt);
 

@@ -60,10 +60,10 @@ const GAMES: HomeGame[] = [
     title: LETTERS_HIVE_GAME.title,
     path: LETTERS_HIVE_GAME.path,
     description: LETTERS_HIVE_GAME.description,
-    line: "سؤال لكل حرف، وأول فريق يوصّل خطه يفوز.",
+    line: "لوّن الحروف، وأول فريق يوصّل خطه يفوز.",
     category: "أسئلة",
     meta: ["مقدم وفريقين", "شاشة عرض"],
-    cover: { art: "hive" },
+    cover: { img: "/games/letters-hive/hive-cover.webp", full: true },
   },
   {
     id: "auction",

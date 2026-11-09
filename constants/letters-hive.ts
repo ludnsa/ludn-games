@@ -7,7 +7,7 @@ export const LETTERS_HIVE_GAME = {
   id: "letters-hive",
   slug: "letters-hive",
   title: "خلية الحروف",
-  description: "لوحة خلية الحروف للمقدم: سؤال لكل حرف، والفريق اللي يوصّل خطه أول يفوز — مع شاشة عرض للشاشة الكبيرة.",
+  description: "المقدم يسأل من عنده ويلوّن الحرف للفريق اللي جاوب صح، وأول فريق يوصّل خطه يفوز — مع شاشة عرض للشاشة الكبيرة.",
   path: "/games/letters-hive",
   /** شاشة العرض — /display معفى من تسجيل الدخول في middleware.ts */
   displayPath: "/games/letters-hive/display",
