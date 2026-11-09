@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HIVE_ROOM_CODE_RE, LETTERS_HIVE_CONFIG } from "@/constants/letters-hive";
 
 export const ContactMessageSchema = z.object({
   name: z.string().min(2, "الاسم يجب أن يكون أكثر من حرفين"),
@@ -162,3 +163,40 @@ export const MadaqeshDecisionSchema = z.object({
   shares: z.record(z.string(), z.number().int().min(0)),
   fixed: z.array(z.string()).max(20),
 });
+
+// ---------------------------------------------------------------------
+// خلية الحروف (الغرفة الأونلاين)
+// الحالة نفسها اللي كانت تنحفظ بذاكرة المتصفح (HiveState في lib/game/letters-hive-engine.ts).
+// السيرفر يتأكد من شكلها وحجمها قبل ما يحفظها في hive_rooms.
+// ---------------------------------------------------------------------
+
+export const HiveRoomCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(HIVE_ROOM_CODE_RE, "كود الغرفة غير صحيح");
+
+const HIVE_CELLS = LETTERS_HIVE_CONFIG.ROWS * LETTERS_HIVE_CONFIG.COLS;
+const HiveTeamSchema = z.enum(["green", "red"]);
+const HiveCellSchema = z.number().int().min(0).max(HIVE_CELLS - 1);
+const HiveWinsSchema = z.number().int().min(0).max(100_000);
+
+export const HiveStateSchema = z.object({
+  v: z.literal(1),
+  status: z.enum(["setup", "playing"]),
+  teams: z.object({
+    green: z.string().max(LETTERS_HIVE_CONFIG.TEAM_NAME_MAX),
+    red: z.string().max(LETTERS_HIVE_CONFIG.TEAM_NAME_MAX),
+  }),
+  hardLetters: z.boolean(),
+  letters: z.array(z.string().min(1).max(4)).length(HIVE_CELLS),
+  owners: z.array(HiveTeamSchema.nullable()).length(HIVE_CELLS),
+  active: HiveCellSchema.nullable(),
+  history: z.array(z.object({ index: HiveCellSchema, prev: HiveTeamSchema.nullable() })).max(1000),
+  wins: z.object({ green: HiveWinsSchema, red: HiveWinsSchema }),
+  round: z.number().int().min(0).max(100_000),
+  updatedAt: z.number().int().positive(),
+});
+
+/** رقم النسخة: يزيد مع كل حفظ (وقت الجهاز بالملي ثانية)، والأقدم ينرفض */
+export const HiveRevSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);

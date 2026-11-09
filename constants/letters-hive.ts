@@ -1,7 +1,8 @@
 /**
  * المصدر الوحيد لهوية لعبة "خلية الحروف".
  * لوحة للمقدم بس: يسأل من عنده، ويلوّن الخلية للفريق اللي جاوب صح.
- * وشاشة العرض تنفتح بنافذة ثانية من نفس الجهاز (اللابتوب) وتنعرض على الشاشة الكبيرة.
+ * شاشة العرض تنفتح من أي جهاز بكود الغرفة أو الباركود وتتحدث لحظياً (جدول hive_rooms)،
+ * أو بنافذة ثانية من نفس الجهاز كاحتياط.
  */
 export const LETTERS_HIVE_GAME = {
   id: "letters-hive",
@@ -28,7 +29,17 @@ export const LETTERS_HIVE_CONFIG = {
   ] as readonly string[],
   /** الحروف الصعبة — لو المنشئ فعّلها، تنخلط مع الباقي والنظام يختار منها 25 */
   HARD_LETTERS: ["ث", "ذ", "ظ"] as readonly string[],
+
+  /** كود الغرفة: H + 4 من حروف وأرقام ما تتلخبط (بدون I و O و 0 و 1)، مثل HK7QM */
+  ROOM_CODE_PREFIX: "H",
+  ROOM_CODE_LENGTH: 5,
+  ROOM_CODE_ALPHABET: "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
+  /** الغرفة تظل بنفس الكود ما دام تحدثت خلال هالمدة (نفس قاعدة القراءة في 0014) */
+  ROOM_FRESH_HOURS: 24,
 } as const;
+
+/** نفس الشرط اللي في الجدول (hive_rooms_code_chk) */
+export const HIVE_ROOM_CODE_RE = /^H[A-HJ-NP-Z2-9]{4}$/;
 
 export const LETTERS_HIVE_TEAMS = {
   green: {

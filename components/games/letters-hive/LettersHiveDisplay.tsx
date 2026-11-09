@@ -2,13 +2,13 @@
 
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { Cairo } from "next/font/google";
-import { Maximize } from "lucide-react";
+import { Loader2, Maximize } from "lucide-react";
 import { LETTERS_HIVE_GAME, LETTERS_HIVE_TEAMS } from "@/constants/letters-hive";
 import { hiveScores, hiveWinner, type HiveState, type HiveTeam } from "@/lib/game/letters-hive-engine";
-import { useLettersHiveDisplay } from "@/hooks/games/letters-hive/useLettersHive";
+import { isHiveRoomCode, useLettersHiveDisplay } from "@/hooks/games/letters-hive/useLettersHive";
 import HiveBoard from "./HiveBoard";
 import HiveWinReveal, { useHiveWinReveal } from "./HiveWinReveal";
-import { HIVE_ICON, HIVE_WIN_ART, HV_ACTIVE_LETTER, HV_BTN_GLASS, HV_MUTED, HV_PANEL, HV_TEAM } from "./hiveUi";
+import { HIVE_ICON, HIVE_WIN_ART, HV_ACTIVE_LETTER, HV_BTN_GLASS, HV_BTN_PRIMARY, HV_INPUT, HV_MUTED, HV_PANEL, HV_TEAM } from "./hiveUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 const noopSubscribe = () => () => {};
@@ -16,6 +16,50 @@ const noopSubscribe = () => () => {};
 /** ملء الشاشة مدعوم؟ الآيفون ما يدعمه لغير الفيديو، فالزر ما يطلع هناك */
 function canFullscreen() {
   return document.fullscreenEnabled === true && typeof document.documentElement.requestFullscreen === "function";
+}
+
+/** كود الغرفة من الرابط (?code=HK7QM) — بدونه: نافذة من نفس جهاز المقدم */
+function readCode(): string | null {
+  const raw = new URLSearchParams(window.location.search).get("code");
+  return raw ? raw.trim().toUpperCase() : null;
+}
+
+/** الشاشة تبقى شغالة والجوال فاتح العرض (لو المتصفح يدعمها). نفس طريقة جمهور الهيمنة */
+function useWakeLock(on: boolean) {
+  useEffect(() => {
+    if (!on) return;
+    let lock: WakeLockSentinel | null = null;
+    let pending = false;
+    let stopped = false;
+    const keepAwake = async () => {
+      if (stopped || lock || pending || document.visibilityState !== "visible" || !("wakeLock" in navigator)) return;
+      pending = true;
+      try {
+        const sentinel = await navigator.wakeLock.request("screen");
+        if (stopped) {
+          sentinel.release().catch(() => {});
+          return;
+        }
+        lock = sentinel;
+        sentinel.addEventListener("release", () => {
+          if (lock === sentinel) lock = null;
+        });
+      } catch {
+        // المتصفح رفض (وضع توفير البطارية مثلاً) — نحاول مرة ثانية مع أول لمسة
+      } finally {
+        pending = false;
+      }
+    };
+    void keepAwake();
+    document.addEventListener("visibilitychange", keepAwake);
+    window.addEventListener("pointerdown", keepAwake);
+    return () => {
+      stopped = true;
+      document.removeEventListener("visibilitychange", keepAwake);
+      window.removeEventListener("pointerdown", keepAwake);
+      lock?.release().catch(() => {});
+    };
+  }, [on]);
 }
 
 /** شاشة العرض للشاشة الكبيرة — عرض بس، والتحكم كله من شاشة المقدم */
@@ -29,12 +73,14 @@ export default function LettersHiveDisplay() {
 }
 
 function DisplayBody() {
-  const state = useLettersHiveDisplay();
+  const [code] = useState(readCode);
+  const { state, found } = useLettersHiveDisplay(code);
   const [fullscreen, setFullscreen] = useState(false);
   const [fullscreenOk] = useState(canFullscreen);
   // شاشة كشف الفوز (عرض بس): من نفس اللوحة اللي تنعرض
   const playing = state?.status === "playing";
   const reveal = useHiveWinReveal(playing && state ? (hiveWinner(state.owners)?.team ?? null) : null, playing);
+  useWakeLock(Boolean(code) || playing);
 
   useEffect(() => {
     const onChange = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -60,8 +106,13 @@ function DisplayBody() {
   );
 
   if (!state || state.status !== "playing") {
+    // بكود: نتأكد منه أول، ولو ما فيه غرفة نطلب كود ثاني. بدون كود: نفس جهاز المقدم، أو يكتب الكود
+    const checking = Boolean(code) && found === "checking" && !state;
+    const missing = Boolean(code) && found === "no";
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6" onDoubleClick={toggleFullscreen}>
+      <div className="flex-1 overflow-y-auto flex flex-col items-center text-center p-6" onDoubleClick={toggleFullscreen}>
+        {/* my-auto: بالنص، ولو الشاشة قصيرة (جوال بالعرض) تنزل وتنسحب بدل ما ينقص فوق */}
+        <div className="my-auto flex flex-col items-center w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={HIVE_ICON}
@@ -70,8 +121,34 @@ function DisplayBody() {
           className="w-36 h-36 lg:w-48 lg:h-48 mb-5 rounded-full drop-shadow-[0_0_34px_rgba(251,191,36,0.55)] animate-in zoom-in-50 duration-700"
         />
         <h1 className="font-display text-5xl lg:text-7xl mb-3 drop-shadow-[0_3px_0_rgba(0,0,0,0.6)]">{LETTERS_HIVE_GAME.title}</h1>
-        <p className="text-xl lg:text-2xl font-bold text-amber-50/75 animate-pulse">بانتظار المقدم يبدأ الجلسة…</p>
+        {checking ? (
+          <p className="text-xl lg:text-2xl font-bold text-amber-50/75 flex items-center gap-2">
+            <Loader2 size={24} className="animate-spin" /> جاري الاتصال بالغرفة…
+          </p>
+        ) : missing ? null : (
+          <p className="text-xl lg:text-2xl font-bold text-amber-50/75 animate-pulse">بانتظار المقدم يبدأ الجلسة…</p>
+        )}
+        {code && !missing && (
+          <p className={`mt-3 text-sm lg:text-base font-bold ${HV_MUTED}`}>
+            الغرفة{" "}
+            <span dir="ltr" className="font-black tracking-widest text-amber-200">
+              {code}
+            </span>
+          </p>
+        )}
+        {(!code || missing) && (
+          <CodeEntry
+            error={
+              missing
+                ? isHiveRoomCode(code)
+                  ? `ما لقينا جلسة بالكود ${code}. تأكد منه، أو اطلب من المقدم الباركود.`
+                  : "الكود غير صحيح. اطلب من المقدم الباركود أو الكود."
+                : ""
+            }
+          />
+        )}
         {showFullscreen && fullscreenButton("flex mt-10")}
+        </div>
       </div>
     );
   }
@@ -181,5 +258,46 @@ function TeamScore({ team, name, score, winner }: { team: HiveTeam; name: string
       </span>
       <span className={`text-4xl lg:text-6xl font-black tabular-nums ${HV_TEAM[team].score}`}>{score}</span>
     </div>
+  );
+}
+
+/** خانة كود الغرفة: لو الشاشة انفتحت بدون الباركود (تلفزيون مثلاً) أو الكود غلط */
+function CodeEntry({ error }: { error: string }) {
+  const [value, setValue] = useState("");
+  const [typoError, setTypoError] = useState("");
+  const shown = typoError || error;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const next = value.trim().toUpperCase();
+    if (!isHiveRoomCode(next)) return setTypoError("الكود يبدأ بحرف H وبعده 4 حروف أو أرقام، مثل HK7QM");
+    window.location.assign(`${LETTERS_HIVE_GAME.displayPath}?code=${next}`);
+  };
+  return (
+    <form onSubmit={submit} onDoubleClick={(e) => e.stopPropagation()} className={`${HV_PANEL} w-full max-w-sm rounded-[2rem] p-4 mt-8 flex flex-col gap-3`}>
+      <label htmlFor="hive-room-code" className="font-black text-lg">
+        عندك كود من المقدم؟
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="hive-room-code"
+          dir="ltr"
+          value={value}
+          onChange={(e) => {
+            setTypoError("");
+            setValue(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+          }}
+          autoCapitalize="characters"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="HK7QM"
+          className={`flex-1 min-w-0 p-3 ${HV_INPUT} rounded-2xl font-black text-2xl text-center tracking-[0.25em]`}
+        />
+        <button type="submit" className={`px-5 ${HV_BTN_PRIMARY} rounded-2xl font-black text-lg shrink-0`}>
+          اعرض
+        </button>
+      </div>
+      {shown && <p className="text-sm font-bold text-red-300 leading-relaxed">{shown}</p>}
+    </form>
   );
 }

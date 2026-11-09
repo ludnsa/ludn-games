@@ -3,8 +3,8 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Cairo } from "next/font/google";
-import { Monitor, Settings2, Square, Undo2, Shuffle, Home, X, Play, Eraser, Crown, Loader2 } from "lucide-react";
-import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameAccess";
+import { Monitor, Settings2, Square, Undo2, Shuffle, Home, X, Play, Eraser, Crown, Loader2, RotateCcw } from "lucide-react";
+import { checkAccessAction } from "@/app/actions/gameAccess";
 import { LETTERS_HIVE_CONFIG, LETTERS_HIVE_GAME, LETTERS_HIVE_TEAMS } from "@/constants/letters-hive";
 import {
   HIVE_TEAMS,
@@ -14,15 +14,20 @@ import {
   nextHiveRound,
   selectHiveCell,
   setHiveCell,
-  startHiveSession,
   undoHive,
   updateHiveSettings,
   type HiveState,
   type HiveTeam,
 } from "@/lib/game/letters-hive-engine";
-import { useLettersHiveHost } from "@/hooks/games/letters-hive/useLettersHive";
+import {
+  useLettersHiveHost,
+  type HiveBoot,
+  type HiveSaving,
+  type HiveStartResult,
+} from "@/hooks/games/letters-hive/useLettersHive";
 import HiveBoard from "./HiveBoard";
 import HiveWinReveal, { useHiveWinReveal } from "./HiveWinReveal";
+import HiveRoomModal from "./HiveRoomModal";
 import {
   HIVE_ICON,
   HIVE_WIN_ART,
@@ -73,30 +78,111 @@ export default function LettersHiveHost() {
   );
 }
 
-/** نافذة شاشة العرض — نفس الاسم، فلو مفتوحة يرجع لها بدل ما يفتح نافذة ثانية */
-function openDisplay(): boolean {
-  const w = window.open(LETTERS_HIVE_GAME.displayPath, "letters-hive-display", "popup=yes,width=1280,height=760");
+/**
+ * نافذة شاشة العرض على نفس الجهاز — نفس الاسم، فلو مفتوحة يرجع لها بدل ما يفتح نافذة ثانية.
+ * مع كود الغرفة تتحدث من السيرفر كمان (لو انسحبت لشاشة ثانية أو انقطع البث).
+ */
+function openDisplay(code: string | null): boolean {
+  const url = code ? `${LETTERS_HIVE_GAME.displayPath}?code=${code}` : LETTERS_HIVE_GAME.displayPath;
+  const w = window.open(url, "letters-hive-display", "popup=yes,width=1280,height=760");
   w?.focus();
   return Boolean(w);
 }
 
 function HostBody() {
-  const { state, update } = useLettersHiveHost();
+  const hive = useLettersHiveHost();
+  const { state, update } = hive;
   const [notice, setNotice] = useState("");
-  const showDisplay = () =>
-    setNotice(openDisplay() ? "" : "المتصفح منع النافذة — اسمح بالنوافذ المنبثقة لهالموقع وجرّب مرة ثانية.");
+  const [roomOpen, setRoomOpen] = useState(false);
+  const showDisplay = () => setRoomOpen(true);
+  const openHere = (code: string | null) =>
+    setNotice(openDisplay(code) ? "" : "المتصفح منع النافذة — اسمح بالنوافذ المنبثقة لهالموقع وجرّب مرة ثانية.");
+
+  if (hive.boot !== "ready") return <BootScreen boot={hive.boot} onRetry={hive.reload} />;
+
+  const message = notice || hive.notice;
+  const modal = roomOpen && (
+    <HiveRoomModal code={hive.roomCode} ensure={hive.ensureRoom} onOpenHere={openHere} onClose={() => setRoomOpen(false)} />
+  );
 
   if (state.status === "setup") {
     return (
-      <Setup
-        state={state}
-        notice={notice}
-        onDisplay={showDisplay}
-        onStart={(teams, hard) => update((s) => startHiveSession(s, teams, hard))}
-      />
+      <>
+        <Setup state={state} notice={message} onDisplay={showDisplay} onStart={hive.start} />
+        {modal}
+      </>
     );
   }
-  return <Playing state={state} update={update} notice={notice} onDisplay={showDisplay} />;
+  return (
+    <>
+      <Playing
+        state={state}
+        update={update}
+        notice={message}
+        onDisplay={showDisplay}
+        link={<LinkBadge code={hive.roomCode} saving={hive.saving} />}
+      />
+      {modal}
+    </>
+  );
+}
+
+/** قبل ما تجهز الجلسة: نسأل السيرفر عن غرفة الحساب (نكمل منها لو فيه جلسة شغالة) */
+function BootScreen({ boot, onRetry }: { boot: HiveBoot; onRetry: () => void }) {
+  return (
+    <div className="w-full max-w-md mx-auto my-6 flex flex-col gap-4">
+      <div className="text-center flex flex-col items-center">
+        <HiveLogo className="w-24 h-24 mb-2" />
+        <h1 className="font-display text-5xl leading-tight">{LETTERS_HIVE_GAME.title}</h1>
+      </div>
+      {boot === "loading" ? (
+        <p className={`font-bold ${HV_MUTED} flex items-center justify-center gap-2`}>
+          <Loader2 size={20} className="animate-spin" /> جاري التحميل…
+        </p>
+      ) : (
+        <section className={`${HV_PANEL} rounded-[2rem] p-5 grid gap-3 text-center`}>
+          <p className="font-black leading-relaxed">
+            {boot === "login" ? "انتهى تسجيل دخولك — سجّل دخولك من جديد." : "ما قدرنا نوصل للسيرفر. تأكد من الاتصال وحاول مرة ثانية."}
+          </p>
+          {boot === "login" ? (
+            <a href="/player" className={btn.primary}>
+              تسجيل الدخول
+            </a>
+          ) : (
+            <button type="button" onClick={onRetry} className={btn.primary}>
+              <RotateCcw size={20} /> حاول مرة ثانية
+            </button>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+/** تحت اسم اللعبة: الشاشات من أي جهاز شغالة، أو النت ضعيف، أو نفس الجهاز بس */
+function LinkBadge({ code, saving }: { code: string | null; saving: HiveSaving }) {
+  if (!code) {
+    return (
+      <p className="text-xs font-bold text-amber-50/55 flex items-center gap-1.5">
+        <span className="w-2 h-2 shrink-0 rounded-full bg-amber-50/40" /> شاشة العرض على هالجهاز بس
+      </p>
+    );
+  }
+  if (saving === "retrying") {
+    return (
+      <p className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+        <span className="w-2 h-2 shrink-0 rounded-full bg-amber-400 animate-pulse" /> النت ضعيف — اللعب مكمّل والشاشات تتحدث لما يرجع
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs font-bold text-green-300 flex items-center gap-1.5">
+      <span className="w-2 h-2 shrink-0 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.9)]" /> العرض أونلاين ·{" "}
+      <span dir="ltr" className="tracking-widest text-amber-100">
+        {code}
+      </span>
+    </p>
+  );
 }
 
 // ---------------------------------------------------------------------
@@ -112,7 +198,7 @@ function Setup({
   state: HiveState;
   notice: string;
   onDisplay: () => void;
-  onStart: (teams: Record<HiveTeam, string>, hard: boolean) => void;
+  onStart: (teams: Record<HiveTeam, string>, hard: boolean) => Promise<HiveStartResult>;
 }) {
   const [teams, setTeams] = useState(state.teams);
   const [hard, setHard] = useState(state.hardLetters);
@@ -127,19 +213,15 @@ function Setup({
     });
   }, []);
 
-  // كل بدء جلسة ينحسب لعبة (جولة جديدة داخل الجلسة ما تنحسب): نفحص أول، وننحسب بعد ما تبدأ
+  // كل بدء جلسة ينحسب لعبة مرة وحدة، بالسيرفر (جولة جديدة وتحديث الصفحة ما تنحسب)
   const start = async () => {
     setBusy(true);
     setAccessError("");
-    const access = await checkAccessAction(LETTERS_HIVE_GAME.id).catch(() => null);
-    if (!access?.allowed) {
-      setBusy(false);
-      if (access?.reason === "no_tokens") setNoAccess(true);
-      else setAccessError("ما قدرنا نتأكد من اشتراكك، تأكد من الاتصال وحاول مرة ثانية.");
-      return;
-    }
-    onStart(teams, hard);
-    consumeGameSessionAction(LETTERS_HIVE_GAME.id, "").catch(() => {});
+    const result = await onStart(teams, hard);
+    if (result === "ok") return; // تنتقل لشاشة اللعب
+    setBusy(false);
+    if (result === "no_access") setNoAccess(true);
+    else setAccessError("ما قدرنا نتأكد من اشتراكك، تأكد من الاتصال وحاول مرة ثانية.");
   };
 
   if (noAccess) {
@@ -186,7 +268,7 @@ function Setup({
       </button>
       <Notice text={notice} />
       <p className="text-center text-xs font-bold text-amber-50/55 leading-relaxed">
-        شاشة العرض تنفتح بنافذة جديدة: اسحبها للشاشة الكبيرة واضغط &quot;ملء الشاشة&quot;، وتحكّم أنت من هالشاشة.
+        شاشة العرض تنفتح من أي جوال أو تلفزيون بالباركود أو كود الغرفة، أو بنافذة على هالجهاز تسحبها للشاشة الكبيرة. وتحكّم أنت من هالشاشة.
       </p>
       <Link href="/" className={`mx-auto text-sm font-bold ${HV_MUTED} hover:text-white flex items-center gap-1.5`}>
         <Home size={16} /> الرئيسية
@@ -252,11 +334,14 @@ function Playing({
   update,
   notice,
   onDisplay,
+  link,
 }: {
   state: HiveState;
   update: Update;
   notice: string;
   onDisplay: () => void;
+  /** حالة الشاشات (أونلاين بالكود، أو نفس الجهاز بس) */
+  link: React.ReactNode;
 }) {
   const win = useMemo(() => hiveWinner(state.owners), [state.owners]);
   const scores = hiveScores(state);
@@ -290,6 +375,7 @@ function Playing({
           <div>
             <h1 className="font-display text-2xl leading-tight">{LETTERS_HIVE_GAME.title}</h1>
             <p className={`text-sm font-bold ${HV_MUTED}`}>الجولة {state.round}</p>
+            {link}
           </div>
         </div>
         <button type="button" onClick={onDisplay} className={btn.bar}>
