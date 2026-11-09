@@ -1,0 +1,55 @@
+/* حركات لوحة خلية الحروف — شكل بس. */
+
+/* قلبة الخلية لما تتلون (أو ينمسح لونها): الوجه القديم ينطوي، والجديد ينفتح ويكبر شوي ويرجع */
+.hv-face {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.hv-flip-out {
+  animation: hv-flip-out 0.22s ease-in both;
+}
+.hv-flip-in {
+  animation: hv-flip-in 0.42s cubic-bezier(0.2, 0.8, 0.3, 1.2) 0.2s both;
+}
+@keyframes hv-flip-out {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+@keyframes hv-flip-in {
+  0% { transform: scaleX(0) scaleY(1); }
+  60% { transform: scaleX(1.12) scaleY(1.12); }
+  100% { transform: scaleX(1) scaleY(1); }
+}
+
+/* الحرف المختار على اللوحة: إطار أبيض ينبض */
+.hv-active-ring {
+  animation: hv-active 1.1s ease-in-out infinite;
+}
+@keyframes hv-active {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* خط الفوز: إطار ذهبي فاتح يتوهج وينبض (يبقى بعد شاشة الكشف) */
+.hv-path-ring {
+  animation: hv-path 1.4s ease-in-out infinite;
+}
+@keyframes hv-path {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* مربع الحرف المختار (برا اللوحة) */
+.hv-letter-glow {
+  animation: hv-letter-glow 1.6s ease-in-out infinite;
+}
+@keyframes hv-letter-glow {
+  0%, 100% { box-shadow: 0 0 18px 2px rgba(255, 247, 214, 0.75), 0 0 0 0 rgba(255, 255, 255, 0); }
+  50% { box-shadow: 0 0 34px 8px rgba(255, 247, 214, 0.95), 0 0 0 4px rgba(255, 255, 255, 0.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hv-flip-out, .hv-flip-in, .hv-active-ring, .hv-path-ring, .hv-letter-glow { animation: none; }
+  /* بدون حركة: الوجه القديم ما يطلع أبداً */
+  .hv-flip-out { display: none; }
+}

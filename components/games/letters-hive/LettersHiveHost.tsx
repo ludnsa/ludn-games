@@ -22,6 +22,21 @@ import {
 } from "@/lib/game/letters-hive-engine";
 import { useLettersHiveHost } from "@/hooks/games/letters-hive/useLettersHive";
 import HiveBoard from "./HiveBoard";
+import HiveWinReveal, { useHiveWinReveal } from "./HiveWinReveal";
+import {
+  HIVE_ICON,
+  HIVE_WIN_ART,
+  HV_ACTIVE_LETTER,
+  HV_BACKDROP,
+  HV_BTN_GLASS,
+  HV_BTN_PRIMARY,
+  HV_GLASS,
+  HV_INPUT,
+  HV_MODAL,
+  HV_MUTED,
+  HV_PANEL,
+  HV_TEAM,
+} from "./hiveUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 const noopSubscribe = () => () => {};
@@ -29,29 +44,30 @@ const noopSubscribe = () => () => {};
 type Update = (fn: (s: HiveState) => HiveState) => void;
 
 const btn = {
-  primary:
-    "w-full py-4 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-black text-lg rounded-2xl border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-2",
-  ghost:
-    "w-full py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 font-black rounded-2xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-2",
-  bar: "h-11 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border-b-4 border-slate-950 font-black text-sm flex items-center gap-1.5 shrink-0",
+  primary: `w-full py-4 ${HV_BTN_PRIMARY} disabled:opacity-40 font-black text-lg rounded-2xl flex items-center justify-center gap-2`,
+  ghost: `w-full py-3 ${HV_BTN_GLASS} disabled:opacity-40 font-black rounded-2xl flex items-center justify-center gap-2`,
+  bar: `h-11 px-3 rounded-2xl ${HV_BTN_GLASS} font-black text-sm flex items-center gap-1.5 shrink-0`,
   /** نفس شكل bar/ghost بلون التأكيد (ضغطة ثانية) */
   armedBar: "h-11 px-3 rounded-2xl bg-red-600 border-b-4 border-red-800 font-black text-sm flex items-center gap-1.5 shrink-0 animate-pulse",
   armedGhost:
-    "w-full py-3 bg-amber-600 font-black rounded-2xl border-b-4 border-amber-800 flex items-center justify-center gap-2 animate-pulse",
-  nextRound:
-    "w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-2",
+    "w-full py-3 bg-orange-600 font-black rounded-2xl border-b-4 border-orange-800 flex items-center justify-center gap-2 animate-pulse",
+  nextRound: `w-full py-3 ${HV_BTN_PRIMARY} font-black rounded-2xl flex items-center justify-center gap-2`,
 } as const;
 
-const TEAM_BG: Record<HiveTeam, string> = { green: "bg-green-600 border-green-800", red: "bg-red-600 border-red-800" };
+/** لوحة "اختر حرف": نفس الزجاج بحد متقطع */
+const HV_GLASS_DASHED = "bg-[#0e0a04]/60 backdrop-blur-md border-2 border-dashed border-amber-200/30";
+
+/** الشعار: أيقونة الخلية بدل الإيموجي */
+function HiveLogo({ className }: { className: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={HIVE_ICON} alt="" draggable={false} className={`shrink-0 rounded-full drop-shadow-[0_0_18px_rgba(251,191,36,0.45)] ${className}`} />;
+}
 
 /** شاشة المقدم — تحتاج تسجيل دخول (middleware.ts) */
 export default function LettersHiveHost() {
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
   return (
-    <main
-      className={`min-h-[100dvh] text-white p-4 md:p-6 relative z-10 bg-gradient-to-b from-emerald-950 via-slate-950 to-slate-950 ${cairo.className}`}
-      dir="rtl"
-    >
+    <main className={`min-h-[100dvh] text-white p-4 md:p-6 relative z-10 ${cairo.className}`} dir="rtl">
       {mounted && <HostBody />}
     </main>
   );
@@ -129,19 +145,19 @@ function Setup({
   if (noAccess) {
     return (
       <div className="w-full max-w-md mx-auto my-6 flex flex-col gap-4">
-        <div className="text-center">
-          <p className="text-6xl mb-2">🐝</p>
-          <h1 className="text-4xl font-black">{LETTERS_HIVE_GAME.title}</h1>
+        <div className="text-center flex flex-col items-center">
+          <HiveLogo className="w-24 h-24 mb-2" />
+          <h1 className="font-display text-5xl leading-tight">{LETTERS_HIVE_GAME.title}</h1>
         </div>
-        <section className="bg-slate-900/80 border-2 border-slate-800 rounded-[2rem] p-6 grid gap-3 justify-items-center text-center">
-          <Crown size={40} className="text-emerald-400" />
+        <section className={`${HV_PANEL} rounded-[2rem] p-6 grid gap-3 justify-items-center text-center`}>
+          <Crown size={40} className="text-amber-300" />
           <h2 className="text-2xl font-black">{LETTERS_HIVE_GAME.title} من ضمن الاشتراك</h2>
-          <p className="font-bold text-slate-400 text-sm leading-relaxed">{LETTERS_HIVE_CONFIG.NO_ACCESS_MESSAGE}</p>
+          <p className={`font-bold ${HV_MUTED} text-sm leading-relaxed`}>{LETTERS_HIVE_CONFIG.NO_ACCESS_MESSAGE}</p>
           <a href="/packages" className={`${btn.primary} mt-2`}>
             شوف الباقات
           </a>
         </section>
-        <Link href="/" className="mx-auto text-sm font-bold text-slate-400 hover:text-white flex items-center gap-1.5">
+        <Link href="/" className={`mx-auto text-sm font-bold ${HV_MUTED} hover:text-white flex items-center gap-1.5`}>
           <Home size={16} /> الرئيسية
         </Link>
       </div>
@@ -150,13 +166,13 @@ function Setup({
 
   return (
     <div className="w-full max-w-md mx-auto my-6 flex flex-col gap-4">
-      <div className="text-center">
-        <p className="text-6xl mb-2">🐝</p>
-        <h1 className="text-4xl font-black">{LETTERS_HIVE_GAME.title}</h1>
-        <p className="font-bold text-slate-400 mt-2">أنت المقدم: تسأل من عندك، وتلوّن الخلية للفريق اللي جاوب صح</p>
+      <div className="text-center flex flex-col items-center">
+        <HiveLogo className="w-24 h-24 mb-2" />
+        <h1 className="font-display text-5xl leading-tight">{LETTERS_HIVE_GAME.title}</h1>
+        <p className={`font-bold ${HV_MUTED} mt-2`}>أنت المقدم: تسأل من عندك، وتلوّن الخلية للفريق اللي جاوب صح</p>
       </div>
 
-      <section className="bg-slate-900/80 border-2 border-slate-800 rounded-[2rem] p-5 flex flex-col gap-4">
+      <section className={`${HV_PANEL} rounded-[2rem] p-5 flex flex-col gap-4`}>
         <TeamFields teams={teams} onChange={setTeams} />
         <HardLettersToggle value={hard} onChange={setHard} />
         <button type="button" onClick={start} disabled={busy} className={btn.primary}>
@@ -169,10 +185,10 @@ function Setup({
         <Monitor size={20} /> افتح شاشة العرض
       </button>
       <Notice text={notice} />
-      <p className="text-center text-xs font-bold text-slate-500 leading-relaxed">
+      <p className="text-center text-xs font-bold text-amber-50/55 leading-relaxed">
         شاشة العرض تنفتح بنافذة جديدة: اسحبها للشاشة الكبيرة واضغط &quot;ملء الشاشة&quot;، وتحكّم أنت من هالشاشة.
       </p>
-      <Link href="/" className="mx-auto text-sm font-bold text-slate-400 hover:text-white flex items-center gap-1.5">
+      <Link href="/" className={`mx-auto text-sm font-bold ${HV_MUTED} hover:text-white flex items-center gap-1.5`}>
         <Home size={16} /> الرئيسية
       </Link>
     </div>
@@ -184,7 +200,7 @@ function TeamFields({ teams, onChange }: { teams: Record<HiveTeam, string>; onCh
     <div className="flex flex-col gap-3">
       {HIVE_TEAMS.map((team) => (
         <label key={team} className="flex flex-col gap-1.5">
-          <span className="font-bold text-sm text-slate-400">
+          <span className={`font-bold text-sm ${HV_MUTED}`}>
             {LETTERS_HIVE_TEAMS[team].emoji} اسم {LETTERS_HIVE_TEAMS[team].defaultName} — يوصّل {LETTERS_HIVE_TEAMS[team].goal}
           </span>
           <input
@@ -192,7 +208,7 @@ function TeamFields({ teams, onChange }: { teams: Record<HiveTeam, string>; onCh
             maxLength={LETTERS_HIVE_CONFIG.TEAM_NAME_MAX}
             onChange={(e) => onChange({ ...teams, [team]: e.target.value })}
             placeholder={LETTERS_HIVE_TEAMS[team].defaultName}
-            className="w-full p-3.5 bg-slate-950 border-2 border-slate-800 rounded-2xl font-black text-lg focus:border-emerald-500 outline-none transition-colors"
+            className={`w-full p-3.5 ${HV_INPUT} rounded-2xl font-black text-lg`}
           />
         </label>
       ))}
@@ -208,15 +224,15 @@ function HardLettersToggle({ value, onChange }: { value: boolean; onChange: (v: 
       aria-checked={value}
       onClick={() => onChange(!value)}
       className={`w-full p-3.5 rounded-2xl border-2 text-start flex items-center gap-3 transition-colors ${
-        value ? "bg-emerald-950/60 border-emerald-600" : "bg-slate-950 border-slate-800"
+        value ? "bg-amber-400/15 border-amber-400/80" : "bg-black/40 border-white/10"
       }`}
     >
-      <span className={`w-11 h-6 shrink-0 rounded-full p-0.5 transition-colors ${value ? "bg-emerald-500" : "bg-slate-700"}`}>
+      <span className={`w-11 h-6 shrink-0 rounded-full p-0.5 transition-colors ${value ? "bg-amber-400" : "bg-white/20"}`}>
         <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${value ? "-translate-x-5" : ""}`} />
       </span>
       <span>
         <span className="block font-black">الحروف الصعبة ({LETTERS_HIVE_CONFIG.HARD_LETTERS.join(" ")})</span>
-        <span className="block text-xs font-bold text-slate-400">تنخلط مع باقي الحروف، والنظام يختار منها 25 حرف كل جولة</span>
+        <span className={`block text-xs font-bold ${HV_MUTED}`}>تنخلط مع باقي الحروف، والنظام يختار منها 25 حرف كل جولة</span>
       </span>
     </button>
   );
@@ -224,7 +240,7 @@ function HardLettersToggle({ value, onChange }: { value: boolean; onChange: (v: 
 
 function Notice({ text }: { text: string }) {
   if (!text) return null;
-  return <p className="text-center text-sm font-bold text-amber-200 bg-amber-950/60 border border-amber-800 rounded-xl p-3">{text}</p>;
+  return <p className="text-center text-sm font-bold text-amber-200 bg-amber-950/70 backdrop-blur-sm border border-amber-700 rounded-xl p-3">{text}</p>;
 }
 
 // ---------------------------------------------------------------------
@@ -245,6 +261,8 @@ function Playing({
   const win = useMemo(() => hiveWinner(state.owners), [state.owners]);
   const scores = hiveScores(state);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // شاشة كشف الفوز (عرض بس)
+  const reveal = useHiveWinReveal(win?.team ?? null, true);
 
   // اختصارات اللابتوب: 1 أخضر، 2 أحمر، 0 مسح، Esc إلغاء التحديد، Ctrl+Z تراجع
   useEffect(() => {
@@ -267,9 +285,12 @@ function Playing({
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-4">
       <header className="flex flex-wrap items-center gap-2">
-        <div className="flex-1 min-w-40">
-          <h1 className="text-2xl font-black leading-tight">🐝 {LETTERS_HIVE_GAME.title}</h1>
-          <p className="text-sm font-bold text-slate-400">الجولة {state.round}</p>
+        <div className="flex-1 min-w-40 flex items-center gap-2.5">
+          <HiveLogo className="w-11 h-11" />
+          <div>
+            <h1 className="font-display text-2xl leading-tight">{LETTERS_HIVE_GAME.title}</h1>
+            <p className={`text-sm font-bold ${HV_MUTED}`}>الجولة {state.round}</p>
+          </div>
         </div>
         <button type="button" onClick={onDisplay} className={btn.bar}>
           <Monitor size={18} /> شاشة العرض
@@ -281,39 +302,41 @@ function Playing({
       </header>
       <Notice text={notice} />
 
-      <div className="grid grid-cols-2 gap-3">
-        {HIVE_TEAMS.map((team) => (
-          <div
-            key={team}
-            className={`rounded-2xl border-b-4 px-4 py-3 flex items-center gap-3 ${TEAM_BG[team]} ${
-              win?.team === team ? "ring-4 ring-yellow-300" : ""
-            }`}
-          >
-            <span className="flex-1 min-w-0">
-              <span className="block font-black text-lg leading-tight break-words">{state.teams[team]}</span>
-              <span className="block text-xs font-bold opacity-80">يوصّل {LETTERS_HIVE_TEAMS[team].goal}</span>
-            </span>
-            <span className="text-4xl font-black tabular-nums">{scores[team]}</span>
-          </div>
-        ))}
-      </div>
-
+      {/* الجوال: النتيجة ثم اللوحة ثم التحكم. الكمبيوتر: اللوحة بعمود لحالها (طولها على قد الشاشة) والنتيجة والتحكم جنبها */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
+        <div className="grid grid-cols-2 gap-3 lg:col-start-2 lg:row-start-1">
+          {HIVE_TEAMS.map((team) => (
+            <div
+              key={team}
+              className={`rounded-2xl px-4 py-3 lg:px-3 flex items-center gap-3 lg:gap-2 ${HV_TEAM[team].card} ${
+                win?.team === team ? "ring-4 ring-amber-300" : ""
+              }`}
+            >
+              <span className="flex-1 min-w-0">
+                <span className="block font-black text-lg lg:text-base leading-tight break-words">{state.teams[team]}</span>
+                <span className={`block text-xs lg:text-[11px] font-bold ${HV_TEAM[team].goal}`}>يوصّل {LETTERS_HIVE_TEAMS[team].goal}</span>
+              </span>
+              <span className={`text-4xl lg:text-3xl font-black tabular-nums ${HV_TEAM[team].score}`}>{scores[team]}</span>
+            </div>
+          ))}
+        </div>
+
         <HiveBoard
           letters={state.letters}
           owners={state.owners}
           active={state.active}
           path={win?.path}
           onCellClick={(i) => update((s) => selectHiveCell(s, i))}
-          className="w-full h-auto rounded-3xl shadow-2xl"
+          className="w-full h-auto lg:max-h-[calc(100dvh-7rem)] lg:col-start-1 lg:row-start-1 lg:row-span-2"
         />
 
-        <aside className="flex flex-col gap-3">
+        <aside className="flex flex-col gap-3 lg:col-start-2 lg:row-start-2">
           {win && (
-            <div className={`rounded-3xl border-b-4 p-5 text-center animate-in zoom-in-95 ${TEAM_BG[win.team]}`}>
-              <p className="text-5xl mb-1">🏆</p>
-              <p className="text-2xl font-black">فاز {state.teams[win.team]}!</p>
-              <p className="text-sm font-bold opacity-90 mt-1">وصّلوا {LETTERS_HIVE_TEAMS[win.team].goal}</p>
+            <div className={`rounded-3xl p-5 text-center animate-in zoom-in-95 ${HV_TEAM[win.team].card}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={HIVE_WIN_ART[win.team].icon} alt="" draggable={false} className="w-20 h-20 mx-auto mb-1 rounded-full drop-shadow-[0_0_16px_rgba(255,255,255,0.45)]" />
+              <p className={`font-display text-3xl leading-tight ${HV_TEAM[win.team].score}`}>فاز {state.teams[win.team]}!</p>
+              <p className={`text-sm font-bold mt-1 ${HV_TEAM[win.team].goal}`}>وصّلوا {LETTERS_HIVE_TEAMS[win.team].goal}</p>
             </div>
           )}
           {(!win || state.active !== null) && <ActivePanel state={state} update={update} />}
@@ -323,7 +346,7 @@ function Playing({
             </button>
             <NewRoundButton finished={Boolean(win)} onNext={() => update(nextHiveRound)} />
           </div>
-          <p className="text-xs font-bold text-slate-500 leading-relaxed">
+          <p className="text-xs font-bold text-amber-50/55 leading-relaxed">
             ⌨️ اختصارات: <b>1</b> = {state.teams.green} · <b>2</b> = {state.teams.red} · <b>0</b> = مسح · <b>Esc</b> = إلغاء
             التحديد · <b>Ctrl+Z</b> = تراجع
           </p>
@@ -340,6 +363,7 @@ function Playing({
           }}
         />
       )}
+      <HiveWinReveal reveal={reveal} teams={state.teams} />
     </div>
   );
 }
@@ -349,22 +373,22 @@ function ActivePanel({ state, update }: { state: HiveState; update: Update }) {
   const i = state.active;
   if (i === null) {
     return (
-      <div className="rounded-3xl bg-slate-900/80 border-2 border-dashed border-slate-700 p-5 text-center">
+      <div className={`rounded-3xl ${HV_GLASS_DASHED} p-5 text-center`}>
         <p className="text-4xl mb-2">👆</p>
         <p className="font-black">اختر حرف من اللوحة</p>
-        <p className="text-xs font-bold text-slate-400 mt-1">يتوهج على شاشة العرض عشان الكل يعرف وش الحرف</p>
+        <p className={`text-xs font-bold ${HV_MUTED} mt-1`}>يتوهج على شاشة العرض عشان الكل يعرف وش الحرف</p>
       </div>
     );
   }
   const owner = state.owners[i];
   const paint = (team: HiveTeam | null) => update((s) => setHiveCell(s, i, team));
   return (
-    <div className="rounded-3xl bg-slate-900/80 border-2 border-amber-500 p-4 flex flex-col gap-2 animate-in fade-in">
+    <div className={`rounded-3xl ${HV_GLASS} border-2 border-amber-200/70 p-4 flex flex-col gap-2 animate-in fade-in`}>
       <div className="flex items-center gap-3 mb-1">
-        <span className="w-16 h-16 shrink-0 rounded-2xl bg-yellow-300 text-[#1e1b8f] text-4xl font-black flex items-center justify-center">
+        <span className={`w-16 h-16 shrink-0 rounded-2xl ${HV_ACTIVE_LETTER} text-4xl font-black flex items-center justify-center`}>
           {state.letters[i]}
         </span>
-        <span className="font-bold text-slate-300 text-sm leading-relaxed">
+        <span className="font-bold text-amber-50/80 text-sm leading-relaxed">
           {owner ? `الخلية للحين مع ${state.teams[owner]} — تقدر تغيّرها` : "اسأل سؤال جوابه يبدأ بهالحرف، ومين جاوب صح؟"}
         </span>
       </div>
@@ -374,7 +398,7 @@ function ActivePanel({ state, update }: { state: HiveState; update: Update }) {
           type="button"
           onClick={() => paint(team)}
           disabled={owner === team}
-          className={`w-full py-3.5 rounded-2xl border-b-4 font-black text-lg text-white active:border-b-0 active:translate-y-1 transition-all disabled:opacity-40 ${TEAM_BG[team]}`}
+          className={`w-full py-3.5 rounded-2xl border-b-4 font-black text-lg text-white active:border-b-0 active:translate-y-1 transition-all disabled:opacity-40 ${HV_TEAM[team].button}`}
         >
           {LETTERS_HIVE_TEAMS[team].emoji} {state.teams[team]}
         </button>
@@ -427,7 +451,7 @@ function EndSessionButton({ onEnd }: { onEnd: () => void }) {
     <button
       type="button"
       onClick={() => (armed ? onEnd() : setArmed(true))}
-      className={armed ? btn.armedBar : `${btn.bar} text-red-300`}
+      className={armed ? btn.armedBar : `${btn.bar} text-red-300!`}
     >
       <Square size={18} /> {armed ? "متأكد؟ تنتهي الجلسة والنتيجة" : "إنهاء الجلسة"}
     </button>
@@ -447,18 +471,18 @@ function SettingsModal({
   const [hard, setHard] = useState(state.hardLetters);
   const empty = state.owners.every((o) => o === null);
   return (
-    <div className="fixed inset-0 z-[2500] flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 animate-in fade-in" onClick={onClose}>
+    <div className={`fixed inset-0 z-[2500] flex items-end sm:items-center justify-center ${HV_BACKDROP} p-3 animate-in fade-in`} onClick={onClose}>
       <div
         role="dialog"
         aria-label="الإعدادات"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-slate-900 border-2 border-emerald-700 rounded-[2rem] p-5 flex flex-col gap-4 animate-in slide-in-from-bottom-8"
+        className={`w-full max-w-md ${HV_MODAL} rounded-[2rem] p-5 flex flex-col gap-4 animate-in slide-in-from-bottom-8`}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-black flex items-center gap-2">
-            <Settings2 size={22} className="text-emerald-400" /> الإعدادات
+            <Settings2 size={22} className="text-amber-300" /> الإعدادات
           </h2>
-          <button type="button" onClick={onClose} aria-label="إغلاق" className="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-slate-800">
+          <button type="button" onClick={onClose} aria-label="إغلاق" className="w-11 h-11 rounded-2xl flex items-center justify-center text-amber-50/60 hover:bg-white/10">
             <X size={24} />
           </button>
         </div>
