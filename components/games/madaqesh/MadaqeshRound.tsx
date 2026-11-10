@@ -22,6 +22,20 @@ import {
 import type { MadaqeshGameCtx } from "@/hooks/games/madaqesh/useMadaqeshGame";
 import type { MadaqeshDecision, MadaqeshDecisionMode, MadaqeshResponse, MadaqeshRound } from "@/types/madaqesh";
 import { btn, Delta, Money, MoneyInput, Panel } from "./MadaqeshParts";
+import {
+  MQ_DANGER_TILE,
+  MQ_GOLD,
+  MQ_GOLD_GLOW,
+  MQ_INPUT,
+  MQ_MUTED,
+  MQ_PANEL_FIGHT,
+  MQ_PANEL_HOT,
+  MQ_SELECTED,
+  MQ_SMALL_BTN,
+  MQ_TILE,
+  MQ_UNSELECTED,
+  MQ_WELL,
+} from "./madaqeshUi";
 
 const MODE_LABEL: Record<MadaqeshDecisionMode, string> = {
   distribute: "توزيع",
@@ -66,8 +80,8 @@ export function MadaqeshBidding({ ctx }: { ctx: MadaqeshGameCtx }) {
   return (
     <div className="flex flex-col gap-4">
       <Panel className="text-center">
-        <p className="font-bold text-slate-400 text-sm">أعلى سومة</p>
-        <p className="text-5xl font-black text-amber-400 my-1">
+        <p className={`font-bold ${MQ_MUTED} text-sm`}>أعلى سومة</p>
+        <p className={`text-5xl font-black ${MQ_GOLD_GLOW} my-1`}>
           <Money value={high} />
         </p>
         <p className="font-bold text-slate-300 min-h-6">{leader ? `👑 ${nameOf(leader)}` : "محد سام للحين"}</p>
@@ -81,7 +95,7 @@ export function MadaqeshBidding({ ctx }: { ctx: MadaqeshGameCtx }) {
               <li
                 key={id}
                 className={`px-2.5 py-1.5 rounded-xl text-sm font-black ${
-                  now ? "bg-amber-500 text-slate-950 animate-pulse" : b ? "bg-slate-800" : "bg-slate-900 text-slate-500"
+                  now ? `${MQ_SELECTED} animate-pulse` : b ? MQ_TILE : "bg-black/30 text-slate-400"
                 }`}
               >
                 <span className="opacity-60">{i + 1}.</span> {nameOf(id)}
@@ -97,9 +111,9 @@ export function MadaqeshBidding({ ctx }: { ctx: MadaqeshGameCtx }) {
       </Panel>
 
       {myTurn ? (
-        <Panel className="border-amber-600">
+        <Panel className={MQ_PANEL_HOT}>
           <h2 className="text-2xl font-black text-center mb-1">🎯 دورك تسوم</h2>
-          <p className="text-center text-sm font-bold text-slate-400 mb-4">
+          <p className={`text-center text-sm font-bold ${MQ_MUTED} mb-4`}>
             رصيدك <Money value={me.balance} /> —{" "}
             {canRaise ? (
               <>
@@ -118,7 +132,7 @@ export function MadaqeshBidding({ ctx }: { ctx: MadaqeshGameCtx }) {
                 placeholder={formatMoney(min)}
                 disabled={busy}
               />
-              {amount > 0 && !check.ok && <p className="mt-2 text-center text-sm font-bold text-red-400">{check.error}</p>}
+              {amount > 0 && !check.ok && <p className="mt-2 text-center text-sm font-bold text-red-300">{check.error}</p>}
             </>
           )}
 
@@ -175,10 +189,10 @@ export function MadaqeshDeciding({ ctx }: { ctx: MadaqeshGameCtx }) {
     <Panel className="text-center">
       <p className="text-6xl mb-2">👑</p>
       <h2 className="text-2xl font-black">{nameOf(round.deciderId)} فاز بالسوم</h2>
-      <p className="text-4xl font-black text-amber-400 my-2">
+      <p className={`text-4xl font-black ${MQ_GOLD_GLOW} my-2`}>
         <Money value={total} />
       </p>
-      <p className="font-bold text-slate-400">يقرر الحين: يوزع، يثبّت، فرصة انسحاب، أو الجميع ثابت…</p>
+      <p className={`font-bold ${MQ_MUTED}`}>يقرر الحين: يوزع، يثبّت، فرصة انسحاب، أو الجميع ثابت…</p>
       {isHost && (
         <button type="button" onClick={() => setActForDecider(true)} className={`${btn.ghost} mt-4`}>
           قرر بداله (لو غايب)
@@ -234,10 +248,10 @@ function DecisionForm({
   };
 
   return (
-    <Panel className="border-amber-600">
+    <Panel className={MQ_PANEL_HOT}>
       <h2 className="text-2xl font-black text-center mb-1">👑 {onBehalf ? `تقرر بدال ${nameOf(deciderId)}` : "فزت بالسوم!"}</h2>
-      <p className="text-center font-bold text-slate-400 mb-4">
-        السومة <Money value={total} className="text-amber-400 font-black" /> — وش تسوي؟
+      <p className={`text-center font-bold ${MQ_MUTED} mb-4`}>
+        السومة <Money value={total} className={`${MQ_GOLD} font-black`} /> — وش تسوي؟
       </p>
 
       <div className="grid grid-cols-3 gap-1.5 mb-4" role="radiogroup" aria-label="القرار">
@@ -249,7 +263,7 @@ function DecisionForm({
             aria-checked={mode === m}
             onClick={() => setMode(m)}
             className={`min-h-12 px-1 py-2 rounded-2xl font-black text-sm border-b-4 transition-all ${
-              mode === m ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950"
+              mode === m ? MQ_SELECTED : MQ_UNSELECTED
             }`}
           >
             {MODE_LABEL[m]}
@@ -266,7 +280,7 @@ function DecisionForm({
                 setEqual(true);
                 setShares(split(receivers));
               }}
-              className="flex-1 py-2.5 rounded-xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm flex items-center justify-center gap-1.5"
+              className={`flex-1 py-2.5 rounded-xl ${MQ_SMALL_BTN} font-black text-sm flex items-center justify-center gap-1.5`}
             >
               <Equal size={16} /> بالتساوي
             </button>
@@ -276,7 +290,7 @@ function DecisionForm({
                 setEqual(false);
                 setShares({});
               }}
-              className="flex-1 py-2.5 rounded-xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm flex items-center justify-center gap-1.5"
+              className={`flex-1 py-2.5 rounded-xl ${MQ_SMALL_BTN} font-black text-sm flex items-center justify-center gap-1.5`}
             >
               <Eraser size={16} /> تصفير
             </button>
@@ -286,11 +300,11 @@ function DecisionForm({
             {others.map((id) => {
               const isFixed = fixed.includes(id);
               return (
-                <li key={id} className={`p-3 rounded-2xl ${isFixed ? "bg-red-950/60 border-2 border-red-800" : "bg-slate-800"}`}>
+                <li key={id} className={`p-3 rounded-2xl ${isFixed ? "bg-[#b3202a]/25 border-2 border-[#b3202a]/80 shadow-[0_0_18px_-6px_rgba(179,32,42,0.8)]" : MQ_TILE}`}>
                   <div className="flex items-center gap-2">
                     <span className="flex-1 min-w-0 font-black break-words leading-tight">
                       {nameOf(id)}
-                      <span className="block text-xs font-bold text-slate-400">
+                      <span className={`block text-xs font-bold ${MQ_MUTED}`}>
                         {round.bids[id]?.kind === "allin" ? (
                           <span className="text-red-300">💰 دخل بكل فلوسه <Money value={stakeOf(round, id)} /></span>
                         ) : staked.has(id) ? (
@@ -306,7 +320,7 @@ function DecisionForm({
                         onClick={() => toggleFixed(id)}
                         aria-pressed={isFixed}
                         className={`shrink-0 px-3 py-2 rounded-xl font-black text-sm flex items-center gap-1 ${
-                          isFixed ? "bg-red-600" : "bg-slate-900 text-slate-300"
+                          isFixed ? "bg-[#b3202a] shadow-[0_0_14px_-4px_rgba(179,32,42,0.9)]" : "bg-black/35 border border-white/10 text-slate-200"
                         }`}
                       >
                         <Lock size={14} /> {isFixed ? "ثابت" : "ثبّت"}
@@ -325,7 +339,7 @@ function DecisionForm({
                         setEqual(false);
                         setShares((s) => ({ ...s, [id]: n }));
                       }}
-                      className="mt-2 w-full p-2.5 bg-slate-950 border-2 border-slate-700 focus:border-amber-500 rounded-xl font-black text-xl text-center tabular-nums outline-none"
+                      className={`mt-2 w-full p-2.5 ${MQ_INPUT} rounded-xl font-black text-xl text-center tabular-nums`}
                     />
                   )}
                 </li>
@@ -334,29 +348,29 @@ function DecisionForm({
           </ul>
 
           {others.length === 0 && (
-            <p className="p-4 rounded-2xl bg-slate-950 text-center font-bold text-slate-300">محد سام غيرك — السومة كاملة لك</p>
+            <p className={`p-4 rounded-2xl ${MQ_WELL} text-center font-bold text-slate-200`}>محد سام غيرك — السومة كاملة لك</p>
           )}
           {passed.length > 0 && (
-            <p className="mt-3 text-center text-xs font-bold text-slate-500">
+            <p className="mt-3 text-center text-xs font-bold text-slate-400">
               🏳️ انسحبوا من السوم (ما لهم شي): {passed.map(nameOf).join("، ")}
             </p>
           )}
 
-          <div className={`mt-3 p-3 rounded-2xl text-center font-black ${left < 0 ? "bg-red-950 text-red-300" : "bg-slate-950"}`}>
-            وزّعت <Money value={given} /> — {left < 0 ? "أكثر من سومتك!" : <>لك <Money value={left} className="text-amber-400" /></>}
+          <div className={`mt-3 p-3 rounded-2xl text-center font-black ${left < 0 ? "bg-[#b3202a]/30 border border-[#b3202a]/70 text-red-200" : MQ_WELL}`}>
+            وزّعت <Money value={given} /> — {left < 0 ? "أكثر من سومتك!" : <>لك <Money value={left} className={MQ_GOLD} /></>}
           </div>
         </>
       )}
 
       {mode === "withdraw" && (
-        <p className="p-4 rounded-2xl bg-slate-950 font-bold text-slate-300 leading-relaxed">
+        <p className={`p-4 rounded-2xl ${MQ_WELL} font-bold text-slate-200 leading-relaxed`}>
           🏳️ كل اللي سامو يختارون: <b>ينسحب</b> (ما يكسب ولا يخسر) أو <b>يكمل ويداقشك</b> بسومته. إذا الكل انسحبوا، تاخذ
-          السومة كاملة <Money value={total} className="text-amber-400" />.
+          السومة كاملة <Money value={total} className={MQ_GOLD} />.
         </p>
       )}
 
       {mode === "all_fixed" && (
-        <p className="p-4 rounded-2xl bg-slate-950 font-bold text-slate-300 leading-relaxed">
+        <p className={`p-4 rounded-2xl ${MQ_WELL} font-bold text-slate-200 leading-relaxed`}>
           ⚔️ كل اللي سامو ({stakedOpponents(round).length}) يداقشونك، كل واحد بسومته. أقوى ورق يفوز.
         </p>
       )}
@@ -381,8 +395,8 @@ function DecisionSummary({ ctx, round }: { ctx: MadaqeshGameCtx; round: Madaqesh
   const kept = total - sumShares(d.shares);
   return (
     <Panel>
-      <p className="text-center font-bold text-slate-400 text-sm">
-        قرار {nameOf(round.deciderId)} على <Money value={total} className="text-amber-400 font-black" />
+      <p className={`text-center font-bold ${MQ_MUTED} text-sm`}>
+        قرار {nameOf(round.deciderId)} على <Money value={total} className={`${MQ_GOLD} font-black`} />
       </p>
       <h2 className="text-2xl font-black text-center mb-3">{MODE_LABEL[d.mode]}</h2>
       {d.mode === "distribute" && (
@@ -392,26 +406,26 @@ function DecisionSummary({ ctx, round }: { ctx: MadaqeshGameCtx; round: Madaqesh
             .map((id) => [id, d.shares[id] ?? 0] as const)
             .map(([id, amount]) =>
             round.responses[id] === "object" ? (
-              <li key={id} className="flex items-center gap-2 p-2.5 rounded-xl bg-red-950/60 font-black">
+              <li key={id} className={`flex items-center gap-2 p-2.5 rounded-xl ${MQ_DANGER_TILE} font-black`}>
                 <span className="flex-1 min-w-0 break-words">✋ {nameOf(id)}</span>
                 <span className="text-red-300 text-sm">اعترض — يداقش بـ <Money value={stakeOf(round, id)} /></span>
               </li>
             ) : (
-              <li key={id} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800 font-black">
+              <li key={id} className={`flex items-center gap-2 p-2.5 rounded-xl ${MQ_TILE} font-black`}>
                 <span className="flex-1 min-w-0 break-words">{nameOf(id)}</span>
-                <Money value={amount} className="text-emerald-400" />
+                <Money value={amount} className="text-emerald-300" />
               </li>
             )
           )}
           {d.fixed.map((id) => (
-            <li key={id} className="flex items-center gap-2 p-2.5 rounded-xl bg-red-950/60 font-black">
+            <li key={id} className={`flex items-center gap-2 p-2.5 rounded-xl ${MQ_DANGER_TILE} font-black`}>
               <span className="flex-1 min-w-0 break-words">🔒 {nameOf(id)}</span>
               <span className="text-red-300 text-sm">ثابت — يداقش بـ <Money value={stakeOf(round, id)} /></span>
             </li>
           ))}
-          <li className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-950/50 font-black">
+          <li className="flex items-center gap-2 p-2.5 rounded-xl bg-[#d6a531]/15 border border-[#d6a531]/50 font-black">
             <span className="flex-1">👑 {nameOf(round.deciderId)}</span>
-            <Money value={kept} className="text-amber-400" />
+            <Money value={kept} className={MQ_GOLD} />
           </li>
         </ul>
       )}
@@ -437,11 +451,11 @@ export function MadaqeshResponding({ ctx }: { ctx: MadaqeshGameCtx }) {
       <DecisionSummary ctx={ctx} round={round} />
 
       {mine && (
-        <Panel className="border-amber-600">
+        <Panel className={MQ_PANEL_HOT}>
           <h2 className="text-xl font-black text-center mb-1">
             {isWithdraw ? "تنسحب ولا تكمل؟" : "راضي بالتوزيعة؟"}
           </h2>
-          <p className="text-center text-sm font-bold text-slate-400 mb-4">
+          <p className={`text-center text-sm font-bold ${MQ_MUTED} mb-4`}>
             {isWithdraw ? (
               <>إذا كملت تداقش {nameOf(round.deciderId)} بسومتك <Money value={stakeOf(round, me.id)} /></>
             ) : (
@@ -458,9 +472,9 @@ export function MadaqeshResponding({ ctx }: { ctx: MadaqeshGameCtx }) {
                 className={`py-4 rounded-2xl font-black text-lg border-b-4 transition-all ${
                   myAnswer === opt
                     ? opt === "object" || opt === "stay"
-                      ? "bg-red-600 border-red-800"
-                      : "bg-emerald-600 border-emerald-800"
-                    : "bg-slate-800 border-slate-950"
+                      ? "bg-[#b3202a] border-[#6e1218] shadow-[0_0_18px_-4px_rgba(179,32,42,0.9)]"
+                      : "bg-emerald-600 border-emerald-800 shadow-[0_0_18px_-4px_rgba(16,185,129,0.8)]"
+                    : MQ_UNSELECTED
                 }`}
               >
                 {opt === "accept" && <><Hand className="inline -mt-1" size={20} /> راضي</>}
@@ -470,7 +484,7 @@ export function MadaqeshResponding({ ctx }: { ctx: MadaqeshGameCtx }) {
               </button>
             ))}
           </div>
-          {myAnswer && <p className="mt-3 text-center text-xs font-bold text-slate-400">تقدر تغيّر ردك لين يردون الباقين</p>}
+          {myAnswer && <p className={`mt-3 text-center text-xs font-bold ${MQ_MUTED}`}>تقدر تغيّر ردك لين يردون الباقين</p>}
         </Panel>
       )}
 
@@ -478,9 +492,9 @@ export function MadaqeshResponding({ ctx }: { ctx: MadaqeshGameCtx }) {
         <h3 className="font-black mb-2">الردود</h3>
         <ul className="flex flex-col gap-1.5">
           {responders.map((r) => (
-            <li key={r.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800 font-black">
+            <li key={r.id} className={`flex items-center gap-2 p-2.5 rounded-xl ${MQ_TILE} font-black`}>
               <span className="flex-1 min-w-0 break-words">{nameOf(r.id)}</span>
-              <span className={round.responses[r.id] ? "" : "text-slate-500 animate-pulse"}>
+              <span className={round.responses[r.id] ? "" : "text-slate-400 animate-pulse"}>
                 {round.responses[r.id] ? RESPONSE_LABEL[round.responses[r.id]] : "ينتظر…"}
               </span>
             </li>
@@ -525,9 +539,9 @@ export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
   return (
     <div className="flex flex-col gap-4">
       <DecisionSummary ctx={ctx} round={round} />
-      <Panel className="border-red-800">
+      <Panel className={MQ_PANEL_FIGHT}>
         <h2 className="text-2xl font-black text-center mb-1">⚔️ المداقشة</h2>
-        <p className="text-center font-bold text-slate-400 mb-4">
+        <p className={`text-center font-bold ${MQ_MUTED} mb-4`}>
           {!isHost
             ? "العبوا… المنشئ يسجّل النتيجة"
             : tie
@@ -545,7 +559,7 @@ export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
                   onClick={() => pick(id)}
                   aria-pressed={on}
                   className={`w-full flex items-center gap-3 p-3.5 rounded-2xl font-black border-b-4 transition-all text-start ${
-                    on ? "bg-amber-500 text-slate-950 border-amber-700" : "bg-slate-800 border-slate-950"
+                    on ? MQ_SELECTED : MQ_UNSELECTED
                   } disabled:opacity-90`}
                 >
                   <span className="text-2xl">{id === round.deciderId ? "👑" : "⚔️"}</span>
@@ -567,7 +581,7 @@ export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
             disabled={busy}
             aria-pressed={tie}
             className={`w-full mt-3 py-3 rounded-2xl font-black border-b-4 flex items-center justify-center gap-2 transition-all ${
-              tie ? "bg-sky-600 border-sky-800" : "bg-slate-800 border-slate-950 text-slate-300"
+              tie ? "bg-sky-600 border-sky-800 shadow-[0_0_18px_-4px_rgba(14,165,233,0.8)]" : `${MQ_UNSELECTED} !text-slate-200`
             }`}
           >
             🤝 {tie ? "تعادل — اختر المتعادلين (اضغط مرة ثانية للإلغاء)" : "تعادل"}
@@ -575,8 +589,8 @@ export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
         )}
 
         {isHost && preview && (
-          <div className="mt-4 p-3 rounded-2xl bg-slate-950 animate-in fade-in">
-            <p className="font-black text-sm text-slate-400 mb-2">{tie ? `لو تعادل ${names}:` : `لو فاز ${names}:`}</p>
+          <div className={`mt-4 p-3 rounded-2xl ${MQ_WELL} animate-in fade-in`}>
+            <p className={`font-black text-sm ${MQ_MUTED} mb-2`}>{tie ? `لو تعادل ${names}:` : `لو فاز ${names}:`}</p>
             <ul className="flex flex-col gap-1">
               {Object.entries(preview.deltas).map(([id, d]) => (
                 <li key={id} className="flex items-center gap-2 font-bold">
@@ -584,7 +598,7 @@ export function MadaqeshShowdown({ ctx }: { ctx: MadaqeshGameCtx }) {
                   <Delta value={d} />
                 </li>
               ))}
-              {Object.keys(preview.deltas).length === 0 && <li className="font-bold text-slate-400">محد يتغير رصيده</li>}
+              {Object.keys(preview.deltas).length === 0 && <li className={`font-bold ${MQ_MUTED}`}>محد يتغير رصيده</li>}
             </ul>
             <button type="button" onClick={() => ctx.setWinners(picked)} disabled={busy} className={`${btn.primary} mt-3`}>
               {busy ? <Loader2 className="animate-spin" size={22} /> : <Scale size={22} />}
@@ -638,22 +652,22 @@ export function MadaqeshResult({ ctx }: { ctx: MadaqeshGameCtx }) {
             ? `تعادل: ${winners.map(nameOf).join(" و ")}`
             : `${nameOf(winners[0])} فاز بالمداقشة!`}
       </h2>
-      {entries.length === 0 && fighters.length > 0 && <p className="mt-2 font-bold text-slate-400">محد تغيّر رصيده</p>}
+      {entries.length === 0 && fighters.length > 0 && <p className={`mt-2 font-bold ${MQ_MUTED}`}>محد تغيّر رصيده</p>}
       <ul className="flex flex-col gap-1.5 mt-4 text-start">
         {entries.map(([id, d]) => (
-          <li key={id} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800 font-black animate-in fade-in slide-in-from-bottom-2">
+          <li key={id} className={`flex items-center gap-2 p-2.5 rounded-xl ${MQ_TILE} font-black animate-in fade-in slide-in-from-bottom-2`}>
             <span className="flex-1 min-w-0 break-words">{nameOf(id)}</span>
             <Delta value={d} className="text-lg" />
           </li>
         ))}
       </ul>
       {result.revived.length > 0 && (
-        <p className="mt-3 p-3 rounded-2xl bg-red-950/60 font-black text-red-200">
+        <p className={`mt-3 p-3 rounded-2xl ${MQ_DANGER_TILE} font-black text-red-100`}>
           💸 أفلس: {result.revived.map(nameOf).join("، ")} — رجع رصيده {formatMoney(MADAQESH_CONFIG.REVIVE_BALANCE)}
         </p>
       )}
       {result.eliminated.length > 0 && (
-        <p className="mt-3 p-3 rounded-2xl bg-slate-950 font-black text-slate-300">
+        <p className={`mt-3 p-3 rounded-2xl ${MQ_WELL} font-black text-slate-200`}>
           ☠️ خلصت فرصه وطلع: {result.eliminated.map(nameOf).join("، ")}
         </p>
       )}
@@ -665,7 +679,7 @@ export function MadaqeshResult({ ctx }: { ctx: MadaqeshGameCtx }) {
 /** ما فيه مؤقت: المنشئ يبدأ الجولة الجاية لما يكونون جاهزين */
 function NextRound({ ctx }: { ctx: MadaqeshGameCtx }) {
   if (!ctx.isHost) {
-    return <p className="mt-4 text-sm font-bold text-slate-400 animate-pulse">بانتظار المنشئ يبدأ الجولة الجاية…</p>;
+    return <p className={`mt-4 text-sm font-bold ${MQ_MUTED} animate-pulse`}>بانتظار المنشئ يبدأ الجولة الجاية…</p>;
   }
   return (
     <button type="button" onClick={() => ctx.host.nextRound()} disabled={ctx.busy} className={`${btn.primary} mt-5`}>

@@ -44,6 +44,19 @@ import { writeMadaqeshSession } from "@/lib/game/madaqesh-session";
 import type { MadaqeshPhase } from "@/types/madaqesh";
 import { currentBidderId } from "@/lib/game/madaqesh-engine";
 import { BalanceBoard, btn, Delta, Money, MoneyInput, Panel } from "./MadaqeshParts";
+import {
+  MQ_BACKDROP,
+  MQ_GOLD,
+  MQ_GOLD_GLOW,
+  MQ_ICON,
+  MQ_ICON_BTN,
+  MQ_MODAL,
+  MQ_MUTED,
+  MQ_SELECTED,
+  MQ_SMALL_BTN,
+  MQ_TILE,
+  MQ_WELL,
+} from "./madaqeshUi";
 import MadaqeshSettingsForm from "./MadaqeshSettingsForm";
 import { MadaqeshBidding, MadaqeshDeciding, MadaqeshResponding, MadaqeshResult, MadaqeshShowdown, roundHeadline } from "./MadaqeshRound";
 
@@ -73,8 +86,8 @@ export default function MadaqeshScreen({ ctx, onLeave }: { ctx: MadaqeshGameCtx;
 
   if (!room || !me) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-24 text-slate-400">
-        <Loader2 size={40} className="animate-spin text-amber-500" />
+      <div className={`flex flex-col items-center justify-center gap-4 py-24 ${MQ_MUTED}`}>
+        <Loader2 size={40} className={`animate-spin ${MQ_GOLD}`} />
         <p className="font-black">جاري الدخول للغرفة...</p>
       </div>
     );
@@ -87,11 +100,12 @@ export default function MadaqeshScreen({ ctx, onLeave }: { ctx: MadaqeshGameCtx;
     <div className="w-full max-w-lg mx-auto flex flex-col gap-4">
       <header className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-slate-500 break-words">
-            🧮 {MADAQESH_GAME.title} · {me.display_name}
+          <p className={`text-xs font-bold ${MQ_MUTED} break-words flex items-center gap-1.5`}>
+            <img src={MQ_ICON} alt="" className="w-5 h-5 shrink-0 rounded-full" />
+            {MADAQESH_GAME.title} · {me.display_name}
             {ctx.isHost ? " 👑" : ""}
           </p>
-          <h1 className="text-xl font-black leading-tight break-words">{phaseLabel(phase, room.round_number)}</h1>
+          <h1 className="text-xl font-black leading-tight break-words [text-shadow:0_2px_10px_rgba(0,0,0,0.6)]">{phaseLabel(phase, room.round_number)}</h1>
         </div>
         {phase !== "closed" && <HandRanksButton />}
         {inGame && <HistoryButton ctx={ctx} />}
@@ -101,7 +115,7 @@ export default function MadaqeshScreen({ ctx, onLeave }: { ctx: MadaqeshGameCtx;
             type="button"
             onClick={onLeave}
             aria-label="خروج"
-            className="w-11 h-11 rounded-2xl bg-slate-800 border-b-4 border-slate-950 flex items-center justify-center text-slate-400"
+            className={`${MQ_ICON_BTN} !text-slate-300`}
           >
             <LogOut size={20} />
           </button>
@@ -109,7 +123,7 @@ export default function MadaqeshScreen({ ctx, onLeave }: { ctx: MadaqeshGameCtx;
       </header>
 
       {error && (
-        <div className="flex items-center gap-2 text-sm font-bold text-red-200 bg-red-950/70 border border-red-800 rounded-xl p-3 animate-in fade-in">
+        <div className="flex items-center gap-2 text-sm font-bold text-red-100 bg-[#b3202a]/30 backdrop-blur-sm border border-[#b3202a]/70 rounded-xl p-3 animate-in fade-in">
           <AlertCircle size={18} className="shrink-0" />
           <span className="flex-1">{error}</span>
           <button type="button" onClick={() => setError("")} aria-label="إغلاق" className="shrink-0 w-10 h-10 -my-2 -me-2 rounded-xl flex items-center justify-center">
@@ -119,7 +133,7 @@ export default function MadaqeshScreen({ ctx, onLeave }: { ctx: MadaqeshGameCtx;
       )}
 
       {me.is_out && inGame && phase !== "ended" && (
-        <p className="text-center p-3 rounded-2xl bg-slate-900 border-2 border-dashed border-slate-700 font-black">
+        <p className={`text-center p-3 rounded-2xl ${MQ_WELL} !border-2 !border-dashed !border-white/20 font-black`}>
           ☠️ طلعت من اللعبة — تقدر تتفرج
         </p>
       )}
@@ -167,16 +181,16 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
   return (
     <div className="flex flex-col gap-4">
       <Panel className="text-center">
-        <p className="font-bold text-slate-400 text-sm mb-1">رمز الغرفة</p>
-        <p className="text-5xl font-black tracking-[0.3em] text-amber-400 mb-4" dir="ltr">
+        <p className={`font-bold ${MQ_MUTED} text-sm mb-1`}>رمز الغرفة</p>
+        <p className={`text-5xl font-black tracking-[0.3em] ${MQ_GOLD_GLOW} mb-4`} dir="ltr">
           {room.room_code}
         </p>
         <div className="flex gap-2 justify-center">
-          <button type="button" onClick={copyLink} className="flex-1 max-w-44 py-3 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black flex items-center justify-center gap-2">
+          <button type="button" onClick={copyLink} className={`flex-1 max-w-44 py-3 rounded-2xl ${MQ_SMALL_BTN} font-black flex items-center justify-center gap-2`}>
             {copied ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} />}
             {copied ? "تم النسخ" : "نسخ الرابط"}
           </button>
-          <button type="button" onClick={() => setShowQR((v) => !v)} className="flex-1 max-w-44 py-3 rounded-2xl bg-slate-800 border-b-4 border-slate-950 font-black flex items-center justify-center gap-2">
+          <button type="button" onClick={() => setShowQR((v) => !v)} className={`flex-1 max-w-44 py-3 rounded-2xl ${MQ_SMALL_BTN} font-black flex items-center justify-center gap-2`}>
             <QrCode size={18} /> باركود
           </button>
         </div>
@@ -195,12 +209,12 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
         <div className="flex items-center justify-between gap-2 mb-1">
           <h2 className="text-xl font-black">👥 ترتيب اللعب</h2>
           {isHost && players.length > 1 && (
-            <button type="button" onClick={() => host.shuffle()} disabled={busy} className="px-3 py-2 rounded-xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm flex items-center gap-1.5">
+            <button type="button" onClick={() => host.shuffle()} disabled={busy} className={`px-3 py-2 rounded-xl ${MQ_SMALL_BTN} font-black text-sm flex items-center gap-1.5`}>
               <Shuffle size={16} /> سحب عشوائي
             </button>
           )}
         </div>
-        <p className="text-xs font-bold text-slate-400 mb-3">
+        <p className={`text-xs font-bold ${MQ_MUTED} mb-3`}>
           الجولة الأولى تبدأ من الأول، وكل جولة يبدأ اللي بعده
           {isHost && players.length > 1 && " — اضغط على الاسم عشان تحدد ترتيبه"}
         </p>
@@ -209,7 +223,7 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
             <li
               key={p.id}
               className={`relative flex items-center gap-2 py-2 px-3 rounded-2xl font-black animate-in zoom-in-95 ${
-                p.id === me?.id ? "bg-amber-900/40 border-2 border-amber-700" : "bg-slate-800"
+                p.id === me?.id ? "bg-[#d6a531]/15 border-2 border-[#d6a531]/70" : MQ_TILE
               } ${orderOpen === p.id ? "z-30" : ""}`}
             >
               {isHost && players.length > 1 ? (
@@ -222,14 +236,14 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
                   className="flex-1 min-w-0 flex items-center gap-2 text-start -my-1 py-1 rounded-xl"
                 >
                   <OrderBadge index={i} />
-                  {p.id === room.host_player_id && <Crown size={16} className="text-amber-400 shrink-0" />}
+                  {p.id === room.host_player_id && <Crown size={16} className={`${MQ_GOLD} shrink-0`} />}
                   <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}</span>
-                  <ChevronDown size={18} className={`shrink-0 text-slate-400 transition-transform ${orderOpen === p.id ? "rotate-180" : ""}`} />
+                  <ChevronDown size={18} className={`shrink-0 text-slate-300 transition-transform ${orderOpen === p.id ? "rotate-180" : ""}`} />
                 </button>
               ) : (
                 <>
                   <OrderBadge index={i} />
-                  {p.id === room.host_player_id && <Crown size={16} className="text-amber-400 shrink-0" />}
+                  {p.id === room.host_player_id && <Crown size={16} className={`${MQ_GOLD} shrink-0`} />}
                   <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}</span>
                 </>
               )}
@@ -258,7 +272,7 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
                       onBlur={() => setKickArmed((c) => (c === p.id ? null : c))}
                       aria-label={kickArmed === p.id ? `تأكيد طرد ${p.display_name}` : `طرد ${p.display_name}`}
                       className={`shrink-0 h-9 rounded-xl flex items-center justify-center ${
-                        kickArmed === p.id ? "px-2.5 bg-red-600 text-xs animate-pulse" : "w-9 bg-slate-900/60 text-slate-400"
+                        kickArmed === p.id ? "px-2.5 bg-[#b3202a] text-xs animate-pulse" : "w-9 bg-black/30 text-slate-300"
                       }`}
                     >
                       {kickArmed === p.id ? "طرد؟" : <X size={18} />}
@@ -275,7 +289,7 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-black">⚙️ الإعدادات</h2>
           {isHost && !editing && (
-            <button type="button" onClick={() => setEditing(true)} className="px-3 py-2 rounded-xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm flex items-center gap-1.5">
+            <button type="button" onClick={() => setEditing(true)} className={`px-3 py-2 rounded-xl ${MQ_SMALL_BTN} font-black text-sm flex items-center gap-1.5`}>
               <Settings2 size={16} /> تعديل
             </button>
           )}
@@ -292,16 +306,16 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
           />
         ) : (
           <ul className="grid grid-cols-3 gap-2 text-center">
-            <li className="p-3 rounded-2xl bg-slate-800">
-              <p className="text-xs font-bold text-slate-400">البداية</p>
+            <li className={`p-3 rounded-2xl ${MQ_TILE}`}>
+              <p className={`text-xs font-bold ${MQ_MUTED}`}>البداية</p>
               <Money value={s.startBalance} className="font-black" />
             </li>
-            <li className="p-3 rounded-2xl bg-slate-800">
-              <p className="text-xs font-bold text-slate-400">الفوز</p>
+            <li className={`p-3 rounded-2xl ${MQ_TILE}`}>
+              <p className={`text-xs font-bold ${MQ_MUTED}`}>الفوز</p>
               <Money value={s.targetAmount} className="font-black" />
             </li>
-            <li className="p-3 rounded-2xl bg-slate-800">
-              <p className="text-xs font-bold text-slate-400">الإفلاس</p>
+            <li className={`p-3 rounded-2xl ${MQ_TILE}`}>
+              <p className={`text-xs font-bold ${MQ_MUTED}`}>الإفلاس</p>
               <span className="font-black">{s.maxBankrupts} مرات</span>
             </li>
           </ul>
@@ -326,7 +340,7 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
           </button>
         </>
       ) : (
-        <p className="text-center font-bold text-slate-400 animate-pulse">بانتظار المنشئ يبدأ اللعب...</p>
+        <p className={`text-center font-bold ${MQ_MUTED} animate-pulse`}>بانتظار المنشئ يبدأ اللعب...</p>
       )}
     </div>
   );
@@ -338,7 +352,7 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
 
 function OrderBadge({ index }: { index: number }) {
   return (
-    <span className="w-8 h-8 shrink-0 rounded-xl bg-slate-900/70 text-amber-400 tabular-nums flex items-center justify-center">
+    <span className={`w-8 h-8 shrink-0 rounded-xl bg-black/40 ${MQ_GOLD} tabular-nums flex items-center justify-center`}>
       {index + 1}
     </span>
   );
@@ -365,9 +379,9 @@ function OrderMenu({
       <div
         role="listbox"
         aria-label={`ترتيب ${name}`}
-        className="absolute z-50 top-full inset-x-0 mt-2 p-2 rounded-2xl bg-slate-900 border-2 border-amber-600 shadow-2xl shadow-black/60 animate-in fade-in slide-in-from-top-2 duration-150"
+        className="absolute z-50 top-full inset-x-0 mt-2 p-2 rounded-2xl bg-[#0f1526] border-2 border-[#d6a531]/70 shadow-[0_0_30px_-6px_rgba(214,165,49,0.55),0_20px_40px_rgba(0,0,0,0.6)] animate-in fade-in slide-in-from-top-2 duration-150"
       >
-        <p className="px-2 pt-1 pb-2 text-xs font-bold text-slate-400 break-words">ترتيب {name} في اللعب</p>
+        <p className={`px-2 pt-1 pb-2 text-xs font-bold ${MQ_MUTED} break-words`}>ترتيب {name} في اللعب</p>
         <div className="grid grid-cols-3 gap-1.5">
           {Array.from({ length: count }, (_, i) => {
             const on = i === index;
@@ -379,7 +393,7 @@ function OrderMenu({
                 aria-selected={on}
                 onClick={() => onPick(i)}
                 className={`py-2.5 px-1 rounded-xl font-black text-sm flex flex-col items-center leading-tight transition-colors ${
-                  on ? "bg-amber-500 text-slate-950" : "bg-slate-800 hover:bg-slate-700"
+                  on ? MQ_SELECTED : "bg-[#1b2338] hover:bg-[#25304b]"
                 }`}
               >
                 <span className="text-xs tabular-nums opacity-60">{i + 1}</span>
@@ -403,22 +417,22 @@ function HandRanksButton() {
         onClick={() => setOpen(true)}
         aria-label="ترتيب القوى"
         title="ترتيب القوى"
-        className="w-11 h-11 rounded-2xl bg-slate-800 border-b-4 border-slate-950 flex items-center justify-center"
+        className={MQ_ICON_BTN}
       >
         <BookOpen size={20} />
       </button>
       {open && (
         <Sheet title="📖 ترتيب القوى" onClose={() => setOpen(false)}>
-          <p className="text-sm font-bold text-slate-400 mb-3">من الأقوى للأضعف:</p>
+          <p className={`text-sm font-bold ${MQ_MUTED} mb-3`}>من الأقوى للأضعف:</p>
           <ol className="flex flex-col gap-2">
             {MADAQESH_HAND_RANKS.map((r, i) => (
-              <li key={r.title} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-800">
-                <span className="w-9 h-9 shrink-0 rounded-xl bg-amber-500 text-slate-950 font-black text-lg flex items-center justify-center">
+              <li key={r.title} className={`flex items-center gap-3 p-3 rounded-2xl ${MQ_TILE}`}>
+                <span className={`w-9 h-9 shrink-0 rounded-xl ${MQ_SELECTED} font-black text-lg flex items-center justify-center`}>
                   {i + 1}
                 </span>
                 <span className="min-w-0">
                   <span className="block font-black">{r.title}</span>
-                  <span className="block text-sm font-bold text-slate-400">{r.example}</span>
+                  <span className={`block text-sm font-bold ${MQ_MUTED}`}>{r.example}</span>
                 </span>
               </li>
             ))}
@@ -428,8 +442,8 @@ function HandRanksButton() {
           <ol className="flex flex-wrap gap-1.5">
             {MADAQESH_CARD_ORDER.map((c, i) => (
               <li key={c} className="flex items-center gap-1.5">
-                <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-950 font-black text-sm min-w-10 text-center">{c}</span>
-                {i < MADAQESH_CARD_ORDER.length - 1 && <span className="text-slate-500 font-black">‹</span>}
+                <span className="px-3 py-2 rounded-xl bg-[#f6f1e4] text-[#1a1204] border border-[#d6a531]/60 shadow-[0_0_12px_-4px_rgba(214,165,49,0.7)] font-black text-sm min-w-10 text-center">{c}</span>
+                {i < MADAQESH_CARD_ORDER.length - 1 && <span className="text-slate-400 font-black">‹</span>}
               </li>
             ))}
           </ol>
@@ -447,20 +461,20 @@ function HistoryButton({ ctx }: { ctx: MadaqeshGameCtx }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="سجل الجولات"
-        className="w-11 h-11 rounded-2xl bg-slate-800 border-b-4 border-slate-950 flex items-center justify-center"
+        className={MQ_ICON_BTN}
       >
         <History size={20} />
       </button>
       {open && (
         <Sheet title="📜 سجل الجولات" onClose={() => setOpen(false)}>
           {ctx.history.length === 0 ? (
-            <p className="text-center font-bold text-slate-400 py-6">ما فيه جولات انحسبت للحين</p>
+            <p className={`text-center font-bold ${MQ_MUTED} py-6`}>ما فيه جولات انحسبت للحين</p>
           ) : (
             <ol className="flex flex-col gap-2">
               {ctx.history.map((h) => (
-                <li key={h.id} className="p-3 rounded-2xl bg-slate-800">
+                <li key={h.id} className={`p-3 rounded-2xl ${MQ_TILE}`}>
                   <p className="font-black text-sm mb-1.5">
-                    <span className="text-amber-400">الجولة {h.round}:</span> {roundHeadline(h.data.round, ctx.nameOf)}
+                    <span className={MQ_GOLD}>الجولة {h.round}:</span> {roundHeadline(h.data.round, ctx.nameOf)}
                   </p>
                   <ul className="flex flex-wrap gap-x-3 gap-y-1">
                     {Object.entries(h.data.round.result?.deltas ?? {}).map(([id, d]) => (
@@ -509,7 +523,7 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="قائمة المنشئ"
-        className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 border-b-4 border-amber-700 flex items-center justify-center"
+        className="w-11 h-11 rounded-2xl bg-linear-to-b from-[#f0c75a] to-[#d6a531] text-[#1a1204] border-b-4 border-[#8a6414] shadow-[0_0_18px_-4px_rgba(214,165,49,0.85)] flex items-center justify-center"
       >
         <Crown size={20} />
       </button>
@@ -549,19 +563,19 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
             )}
 
             {inGame && (
-              <div className="p-3 rounded-2xl bg-slate-800">
+              <div className={`p-3 rounded-2xl ${MQ_TILE}`}>
                 <p className="font-black mb-1 flex items-center gap-2"><Pencil size={18} /> اللاعبين</p>
-                <p className="text-xs font-bold text-slate-400 mb-2">تعديل الرصيد · 👁️ متفرج (يظل بالغرفة) · طرد (يطلع جواله)</p>
+                <p className={`text-xs font-bold ${MQ_MUTED} mb-2`}>تعديل الرصيد · 👁️ متفرج (يظل بالغرفة) · طرد (يطلع جواله)</p>
                 <ul className="flex flex-col gap-1.5">
                   {players.map((p) => (
-                    <li key={p.id} className="rounded-xl bg-slate-900/70 p-2">
+                    <li key={p.id} className={`rounded-xl ${MQ_WELL} p-2`}>
                       <p className="font-black leading-tight break-words mb-1.5">{p.display_name}{p.is_out ? " ☠️" : ""}</p>
                       <div className="flex items-center gap-2">
                         <Money value={p.balance} className="flex-1 font-bold text-sm text-slate-300" />
                         <button
                           type="button"
                           onClick={() => { setEditId(editId === p.id ? null : p.id); setEditValue(p.balance); }}
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-xs font-black"
+                          className="px-2.5 py-1.5 rounded-lg bg-[#1b2338] border border-white/10 text-xs font-black"
                         >
                           تعديل
                         </button>
@@ -569,7 +583,7 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
                           <button
                             type="button"
                             onClick={() => confirm(`out-${p.id}`, () => host.out(p.id))}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-black ${armed === `out-${p.id}` ? "bg-amber-600 animate-pulse" : "bg-slate-800 text-slate-300"}`}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-black ${armed === `out-${p.id}` ? "bg-[#d6a531] text-[#1a1204] animate-pulse" : "bg-[#1b2338] border border-white/10 text-slate-300"}`}
                             aria-label={`${p.display_name} يصير متفرج`}
                           >
                             {armed === `out-${p.id}` ? "متفرج؟" : <Eye size={14} />}
@@ -579,7 +593,7 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
                           <button
                             type="button"
                             onClick={() => confirm(`kick-${p.id}`, () => host.kick(p.id))}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-black ${armed === `kick-${p.id}` ? "bg-red-600 animate-pulse" : "bg-slate-800 text-slate-300"}`}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-black ${armed === `kick-${p.id}` ? "bg-[#b3202a] animate-pulse" : "bg-[#1b2338] border border-white/10 text-slate-300"}`}
                             aria-label={`طرد ${p.display_name}`}
                           >
                             {armed === `kick-${p.id}` ? "طرد؟" : <UserX size={14} />}
@@ -646,11 +660,11 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
 
       {askClose &&
         createPortal(
-          <div className="fixed inset-0 z-[2600] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" dir="rtl" onClick={() => setAskClose(false)}>
-            <div className="w-full max-w-sm bg-slate-900 border-2 border-slate-700 rounded-3xl p-6 text-center animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+          <div className={`fixed inset-0 z-[2600] ${MQ_BACKDROP} flex items-center justify-center p-4 animate-in fade-in`} dir="rtl" onClick={() => setAskClose(false)}>
+            <div className={`w-full max-w-sm ${MQ_MODAL} rounded-3xl p-6 text-center text-white animate-in zoom-in-95`} onClick={(e) => e.stopPropagation()}>
               <p className="text-6xl mb-3">🚪</p>
               <h2 className="text-2xl font-black mb-2">هل تريد إغلاق الغرفة؟</h2>
-              <p className="text-sm font-bold text-slate-400 mb-5 leading-relaxed">
+              <p className={`text-sm font-bold ${MQ_MUTED} mb-5 leading-relaxed`}>
                 إذا قفلتها تنتهي اللعبة عند الكل، ويقدر أي واحد منهم يسجّل دخول ويسوي غرفة جديدة.
               </p>
               <div className="flex flex-col gap-3">
@@ -670,7 +684,7 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
                 <button type="button" onClick={goHome} className={btn.ghost}>
                   <Home size={20} /> لا، خلها شغالة
                 </button>
-                <button type="button" onClick={() => setAskClose(false)} className="py-2 font-bold text-slate-400">
+                <button type="button" onClick={() => setAskClose(false)} className={`py-2 font-bold ${MQ_MUTED}`}>
                   رجوع
                 </button>
               </div>
@@ -703,13 +717,13 @@ function MenuItem({
       onClick={onClick}
       disabled={disabled}
       className={`flex items-center gap-3 p-4 rounded-2xl border-b-4 font-black text-start disabled:opacity-40 ${
-        armed ? "bg-red-600 border-red-800 animate-pulse" : "bg-slate-800 border-slate-950"
+        armed ? "bg-[#b3202a] border-[#6e1218] shadow-[0_0_20px_-4px_rgba(179,32,42,0.9)] animate-pulse" : "bg-[#1b2338]/90 border-[#070a14]"
       }`}
     >
       {icon}
       <span className="flex-1">
         {label}
-        {hint && <span className="block text-xs font-bold text-slate-400">{hint}</span>}
+        {hint && <span className={`block text-xs font-bold ${MQ_MUTED}`}>{hint}</span>}
       </span>
     </button>
   );
@@ -718,14 +732,14 @@ function MenuItem({
 /** نافذة من تحت (على الجوال) */
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return createPortal(
-    <div className="fixed inset-0 z-[2500] flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 animate-in fade-in" dir="rtl" onClick={onClose}>
+    <div className={`fixed inset-0 z-[2500] flex items-end sm:items-center justify-center ${MQ_BACKDROP} p-3 animate-in fade-in`} dir="rtl" onClick={onClose}>
       <div
-        className="w-full max-w-lg max-h-[85dvh] overflow-y-auto bg-slate-900 border-2 border-slate-700 rounded-3xl text-white animate-in slide-in-from-bottom-8"
+        className={`w-full max-w-lg max-h-[85dvh] overflow-y-auto ${MQ_MODAL} rounded-3xl text-white animate-in slide-in-from-bottom-8`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4 bg-slate-900 border-b border-slate-800">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4 bg-[#0f1526] border-b border-white/10">
           <h2 className="text-xl font-black">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="إغلاق" className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center">
+          <button type="button" onClick={onClose} aria-label="إغلاق" className="w-10 h-10 rounded-xl bg-[#1b2338] border border-white/10 flex items-center justify-center">
             <X size={20} />
           </button>
         </div>
@@ -746,7 +760,7 @@ function MadaqeshGameOver({ ctx }: { ctx: MadaqeshGameCtx }) {
   const ranked = [...players].sort((a, b) => Number(a.is_out) - Number(b.is_out) || b.balance - a.balance);
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative overflow-hidden rounded-[2rem] p-8 text-center shadow-2xl animate-in zoom-in-50 duration-500 bg-gradient-to-br from-amber-400 to-amber-700 text-slate-950">
+      <div className="relative overflow-hidden rounded-[2rem] p-8 text-center animate-in zoom-in-50 duration-500 bg-linear-to-br from-[#f3d27a] via-[#d6a531] to-[#8a6414] text-[#1a1204] border-2 border-[#f3d27a]/80 shadow-[0_0_50px_-8px_rgba(214,165,49,0.9),0_0_80px_-20px_rgba(179,32,42,0.8)]">
         <p className="text-8xl mb-3">🏆</p>
         <h2 className="text-4xl font-black mb-2">{room.winner_id ? `${nameOf(room.winner_id)} فاز!` : "انتهت اللعبة"}</h2>
         {room.winner_id && (
@@ -760,7 +774,7 @@ function MadaqeshGameOver({ ctx }: { ctx: MadaqeshGameCtx }) {
         <h3 className="font-black text-xl mb-3">🏁 الترتيب النهائي</h3>
         <ol className="flex flex-col gap-2">
           {ranked.map((p, i) => (
-            <li key={p.id} className={`flex items-center gap-3 p-3 rounded-2xl ${i === 0 ? "bg-amber-900/50" : "bg-slate-800"} ${p.is_out ? "opacity-60" : ""}`}>
+            <li key={p.id} className={`flex items-center gap-3 p-3 rounded-2xl ${i === 0 ? "bg-[#d6a531]/20 border border-[#d6a531]/70 shadow-[0_0_20px_-6px_rgba(214,165,49,0.7)]" : MQ_TILE} ${p.is_out ? "opacity-60" : ""}`}>
               <span className="w-8 text-center text-xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</span>
               <span className="flex-1 min-w-0 font-black break-words">{p.display_name}{p.is_out ? " ☠️" : ""}</span>
               <Money value={p.balance} className="font-black" />
@@ -774,7 +788,7 @@ function MadaqeshGameOver({ ctx }: { ctx: MadaqeshGameCtx }) {
           {busy ? <Loader2 className="animate-spin" size={22} /> : <RotateCcw size={22} />} لعبة جديدة بنفس اللاعبين
         </button>
       ) : (
-        <p className="text-center font-bold text-slate-400">بانتظار المنشئ يبدأ لعبة جديدة...</p>
+        <p className={`text-center font-bold ${MQ_MUTED}`}>بانتظار المنشئ يبدأ لعبة جديدة...</p>
       )}
     </div>
   );
@@ -786,8 +800,8 @@ function MadaqeshClosed({ newCode }: { newCode?: string }) {
       <Panel className="text-center">
         <p className="text-6xl mb-3">🚪</p>
         <h2 className="text-2xl font-black mb-2">المنشئ سوّى غرفة جديدة</h2>
-        <p className="font-bold text-slate-400 mb-1">الكود الجديد</p>
-        <p className="text-4xl font-black tracking-[0.3em] text-amber-400 mb-5" dir="ltr">
+        <p className={`font-bold ${MQ_MUTED} mb-1`}>الكود الجديد</p>
+        <p className={`text-4xl font-black tracking-[0.3em] ${MQ_GOLD_GLOW} mb-5`} dir="ltr">
           {newCode}
         </p>
         <a href={`${MADAQESH_GAME.joinPath}?room=${newCode}`} className={btn.primary}>
@@ -800,7 +814,7 @@ function MadaqeshClosed({ newCode }: { newCode?: string }) {
     <Panel className="text-center">
       <p className="text-6xl mb-3">🚪</p>
       <h2 className="text-2xl font-black mb-2">المنشئ قفل الغرفة</h2>
-      <p className="font-bold text-slate-400 mb-5 leading-relaxed">
+      <p className={`font-bold ${MQ_MUTED} mb-5 leading-relaxed`}>
         تبون تكملون؟ واحد منكم يسجّل دخول ويسوي غرفة جديدة، ويرسل الكود للباقين 🔥
       </p>
       <div className="flex flex-col gap-3">

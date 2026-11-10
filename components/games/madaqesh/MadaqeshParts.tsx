@@ -3,11 +3,12 @@
 import React from "react";
 import { MADAQESH_CONFIG, formatMoney } from "@/constants/madaqesh";
 import type { MadaqeshGameCtx } from "@/hooks/games/madaqesh/useMadaqeshGame";
+import { MQ_BTN, MQ_INPUT, MQ_MUTED, MQ_PANEL, MQ_SMALL_BTN, MQ_TILE } from "./madaqeshUi";
 
 export function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <section
-      className={`w-full bg-slate-900/80 border-2 border-slate-800 rounded-[2rem] p-5 md:p-6 shadow-2xl animate-in zoom-in-95 ${className}`}
+      className={`w-full ${MQ_PANEL} rounded-[2rem] p-5 md:p-6 animate-in zoom-in-95 ${className}`}
     >
       {children}
     </section>
@@ -33,14 +34,8 @@ export function Delta({ value, className = "" }: { value: number; className?: st
   );
 }
 
-export const btn = {
-  primary:
-    "w-full py-4 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-black text-lg rounded-2xl border-b-4 border-amber-700 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2",
-  danger:
-    "w-full py-4 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg rounded-2xl border-b-4 border-red-800 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2",
-  ghost:
-    "w-full py-3.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed font-black rounded-2xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-[4px] transition-all flex items-center justify-center gap-2",
-} as const;
+/** الأزرار الكبيرة بألوان مداقش (madaqeshUi.ts) */
+export const btn = MQ_BTN;
 
 /**
  * خانة مبلغ: أرقام بس، وتحتها المبلغ مكتوب بالفواصل،
@@ -75,7 +70,7 @@ export function MoneyInput({
           const n = Number(e.target.value.replace(/[^\d]/g, ""));
           onChange(Number.isFinite(n) ? Math.min(n, 1_000_000_000) : 0);
         }}
-        className="w-full p-4 bg-slate-950 border-2 border-slate-700 focus:border-amber-500 rounded-2xl font-black text-3xl text-center tabular-nums outline-none transition-colors disabled:opacity-50"
+        className={`w-full p-4 ${MQ_INPUT} rounded-2xl font-black text-3xl text-center tabular-nums disabled:opacity-50`}
       />
       {steps.length > 0 && (
         <div className="grid grid-cols-4 gap-1.5">
@@ -85,7 +80,7 @@ export function MoneyInput({
               type="button"
               disabled={disabled}
               onClick={() => onChange((value || base) + s)}
-              className="py-2.5 rounded-xl bg-slate-800 border-b-4 border-slate-950 font-black text-sm tabular-nums active:translate-y-[2px] active:border-b-2 disabled:opacity-40"
+              className={`py-2.5 rounded-xl ${MQ_SMALL_BTN} font-black text-sm tabular-nums active:translate-y-[2px] active:border-b-2 disabled:opacity-40`}
               dir="ltr"
             >
               +{s >= 1000 ? `${s / 1000}K` : s}
@@ -120,13 +115,13 @@ export function BalanceBoard({ ctx }: { ctx: MadaqeshGameCtx }) {
             <li
               key={p.id}
               className={`relative overflow-hidden rounded-2xl px-3 py-2.5 ${
-                p.is_out ? "bg-slate-950 opacity-45 grayscale" : isBidder ? "bg-amber-900/60 ring-2 ring-amber-400" : "bg-slate-800/80"
-              } ${p.id === me?.id ? "border-2 border-sky-600" : ""}`}
+                p.is_out ? "bg-[#0b1020]/80 opacity-45 grayscale" : isBidder ? "bg-[#b3202a]/30 ring-2 ring-[#d6a531] shadow-[0_0_18px_-4px_rgba(214,165,49,0.7)]" : MQ_TILE
+              } ${p.id === me?.id ? "!border-2 !border-sky-300/70" : ""}`}
             >
               {/* شريط التقدم نحو مبلغ الفوز */}
               <span
                 aria-hidden
-                className="absolute inset-y-0 right-0 bg-amber-400/10 transition-[width] duration-700"
+                className="absolute inset-y-0 right-0 bg-[#d6a531]/20 transition-[width] duration-700"
                 style={{ width: `${pct}%` }}
               />
               <span className="relative flex items-center gap-2">
@@ -135,7 +130,7 @@ export function BalanceBoard({ ctx }: { ctx: MadaqeshGameCtx }) {
                     {isDecider && "👑 "}
                     {isBidder && "🎯 "}
                     {p.display_name}
-                    {p.id === me?.id && <span className="text-sky-400 text-xs"> (أنت)</span>}
+                    {p.id === me?.id && <span className="text-sky-300 text-xs"> (أنت)</span>}
                   </span>
                   {(p.bankrupts > 0 || p.is_out) && (
                     <span className="block text-[11px] font-bold text-red-300">
@@ -152,7 +147,7 @@ export function BalanceBoard({ ctx }: { ctx: MadaqeshGameCtx }) {
           );
         })}
       </ul>
-      <p className="text-center text-[11px] font-bold text-slate-500 mt-2">
+      <p className={`text-center text-[11px] font-bold ${MQ_MUTED} mt-2`}>
         🏆 الفوز عند <Money value={target} />
       </p>
     </Panel>

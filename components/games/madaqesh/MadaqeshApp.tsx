@@ -11,6 +11,7 @@ import { readMadaqeshSession, writeMadaqeshSession } from "@/lib/game/madaqesh-s
 import MadaqeshSettingsForm, { DEFAULT_MADAQESH_SETTINGS } from "./MadaqeshSettingsForm";
 import MadaqeshScreen from "./MadaqeshScreen";
 import { btn, Panel } from "./MadaqeshParts";
+import { MQ_GOLD, MQ_GOLD_GLOW, MQ_ICON, MQ_INPUT, MQ_MAIN, MQ_MUTED } from "./madaqeshUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -53,7 +54,7 @@ export default function MadaqeshApp({ mode }: { mode: "host" | "join" }) {
 
   return (
     <main
-      className={`min-h-[100dvh] text-white p-4 md:p-6 flex flex-col relative z-10 bg-gradient-to-b from-indigo-950 via-slate-950 to-slate-950 ${cairo.className}`}
+      className={`${MQ_MAIN} ${cairo.className}`}
       dir="rtl"
     >
       {session && askResume ? (
@@ -109,9 +110,15 @@ function InGame({
 function Header({ subtitle }: { subtitle: string }) {
   return (
     <div className="text-center mb-6">
-      <p className="text-7xl mb-3">🧮</p>
-      <h1 className="text-4xl font-black mb-2">{MADAQESH_GAME.title}</h1>
-      <p className="font-bold text-slate-400 text-sm">{subtitle}</p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={MQ_ICON}
+        alt=""
+        draggable={false}
+        className="w-28 h-28 mx-auto mb-3 rounded-full drop-shadow-[0_0_26px_rgba(214,165,49,0.55)]"
+      />
+      <h1 className="text-5xl font-black mb-2 [text-shadow:0_0_22px_rgba(179,32,42,0.6)]">{MADAQESH_GAME.title}</h1>
+      <p className={`font-bold ${MQ_MUTED} text-sm`}>{subtitle}</p>
     </div>
   );
 }
@@ -119,7 +126,7 @@ function Header({ subtitle }: { subtitle: string }) {
 function NoticeLine({ notice }: { notice: string }) {
   if (!notice) return null;
   return (
-    <p className="mb-4 text-center text-sm font-bold text-amber-200 bg-amber-950/60 border border-amber-800 rounded-xl p-3 animate-in fade-in">
+    <p className="mb-4 text-center text-sm font-bold text-[#f3d98a] bg-[#d6a531]/15 backdrop-blur-sm border border-[#d6a531]/50 rounded-xl p-3 animate-in fade-in">
       {notice}
     </p>
   );
@@ -128,22 +135,21 @@ function NoticeLine({ notice }: { notice: string }) {
 function ErrorLine({ error }: { error: string }) {
   if (!error) return null;
   return (
-    <p className="flex items-center gap-2 text-sm font-bold text-red-200 bg-red-950/60 rounded-xl p-3">
+    <p className="flex items-center gap-2 text-sm font-bold text-red-100 bg-[#b3202a]/25 border border-[#b3202a]/60 rounded-xl p-3">
       <AlertCircle size={18} className="shrink-0" /> {error}
     </p>
   );
 }
 
-const inputClass =
-  "w-full p-4 bg-slate-900 border-2 border-slate-800 rounded-2xl font-black text-lg focus:border-amber-500 outline-none transition-colors";
+const inputClass = `w-full p-4 ${MQ_INPUT} rounded-2xl font-black text-lg`;
 
 function ResumeOrNew({ roomCode, onResume, onNew }: { roomCode: string; onResume: () => void; onNew: () => void }) {
   return (
     <div className="w-full max-w-md mx-auto my-auto">
       <Header subtitle="جوالك داخل غرفة ثانية كلاعب" />
       <Panel className="text-center">
-        <p className="font-bold text-slate-400 mb-1">أنت داخل الغرفة</p>
-        <p className="text-4xl font-black tracking-[0.3em] text-amber-400 mb-5" dir="ltr">
+        <p className={`font-bold ${MQ_MUTED} mb-1`}>أنت داخل الغرفة</p>
+        <p className={`text-4xl font-black tracking-[0.3em] ${MQ_GOLD_GLOW} mb-5`} dir="ltr">
           {roomCode}
         </p>
         <div className="flex flex-col gap-3">
@@ -176,9 +182,9 @@ function CreateRoom({ onCreated, notice }: { onCreated: (s: MadaqeshSession) => 
       <div className="w-full max-w-md mx-auto my-auto">
         <Header subtitle="السوم والتوزيع والمداقشة، والأرصدة تنحسب لحالها" />
         <Panel className="text-center grid gap-3 justify-items-center">
-          <Crown size={40} className="text-amber-400" />
+          <Crown size={40} className={MQ_GOLD} />
           <h2 className="text-2xl font-black">{MADAQESH_GAME.title} من ضمن الاشتراك</h2>
-          <p className="font-bold text-slate-400 text-sm leading-relaxed">{MADAQESH_CONFIG.NO_ACCESS_MESSAGE}</p>
+          <p className={`font-bold ${MQ_MUTED} text-sm leading-relaxed`}>{MADAQESH_CONFIG.NO_ACCESS_MESSAGE}</p>
           <a href="/packages" className={`${btn.primary} mt-2`}>
             شوف الباقات
           </a>
@@ -210,7 +216,7 @@ function CreateRoom({ onCreated, notice }: { onCreated: (s: MadaqeshSession) => 
           }}
         >
           <label className="flex flex-col gap-2">
-            <span className="font-bold text-sm text-slate-400">اسمك (أنت تلعب معهم)</span>
+            <span className={`font-bold text-sm ${MQ_MUTED}`}>اسمك (أنت تلعب معهم)</span>
             <input value={name} maxLength={16} onChange={(e) => setName(e.target.value)} placeholder="اكتب اسمك" className={inputClass} />
           </label>
           <ErrorLine error={error} />
@@ -266,7 +272,7 @@ function JoinRoom({ onJoined, notice }: { onJoined: (s: MadaqeshSession) => void
       <Panel>
         <form onSubmit={join} className="flex flex-col gap-5">
           <label className="flex flex-col gap-2">
-            <span className="font-bold text-sm text-slate-400">رمز الغرفة</span>
+            <span className={`font-bold text-sm ${MQ_MUTED}`}>رمز الغرفة</span>
             <input
               value={roomCode}
               maxLength={MADAQESH_CONFIG.ROOM_CODE_LENGTH}
@@ -276,9 +282,9 @@ function JoinRoom({ onJoined, notice }: { onJoined: (s: MadaqeshSession) => void
               placeholder="DABCD"
               className={`${inputClass} text-2xl text-center tracking-[0.3em]`}
             />
-            {lookupDone && !info && <span className="text-xs font-bold text-red-400">لم نجد غرفة بهذا الرمز.</span>}
+            {lookupDone && !info && <span className="text-xs font-bold text-red-300">لم نجد غرفة بهذا الرمز.</span>}
             {info && (
-              <span className={`text-xs font-bold ${closed || started ? "text-amber-400" : "text-emerald-400"}`}>
+              <span className={`text-xs font-bold ${closed || started ? MQ_GOLD : "text-emerald-300"}`}>
                 {closed
                   ? "هذي الغرفة انقفلت."
                   : started
@@ -288,7 +294,7 @@ function JoinRoom({ onJoined, notice }: { onJoined: (s: MadaqeshSession) => void
             )}
           </label>
           <label className="flex flex-col gap-2">
-            <span className="font-bold text-sm text-slate-400">اسمك</span>
+            <span className={`font-bold text-sm ${MQ_MUTED}`}>اسمك</span>
             <input value={name} maxLength={16} onChange={(e) => setName(e.target.value)} placeholder="اكتب اسمك" className={inputClass} />
           </label>
           <ErrorLine error={error} />

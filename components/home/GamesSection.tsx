@@ -10,7 +10,7 @@ import { MADAQESH_GAME } from "@/constants/madaqesh";
 import { LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 import { GameArt, type GameArtKind } from "./GameArt";
 
-const CATEGORIES = ["الكل", "أدوار سرية", "أسئلة", "استراتيجية", "أدوات"] as const;
+const CATEGORIES = ["الكل", "أدوار سرية", "أسئلة", "استراتيجية", "لعبة ورق"] as const;
 type Category = Exclude<(typeof CATEGORIES)[number], "الكل">;
 
 interface HomeGame {
@@ -101,9 +101,9 @@ const GAMES: HomeGame[] = [
     path: MADAQESH_GAME.path,
     description: MADAQESH_GAME.description,
     line: "سوم وتوزيع ومداقشة، والأرصدة تنحسب لحالها.",
-    category: "أدوات",
+    category: "لعبة ورق",
     meta: ["على جوالات الكل"],
-    cover: { art: "madaqesh" },
+    cover: { img: "/games/madaqesh/madaqesh-cover.webp", full: true },
   },
 ];
 

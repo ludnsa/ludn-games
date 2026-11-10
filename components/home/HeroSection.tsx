@@ -5,9 +5,10 @@ import { Play } from "lucide-react";
 import { mafiaCardSrc } from "@/constants/mafia";
 
 const FAN_CARD = "relative shrink-0 aspect-[512/752] rounded-[14px] overflow-hidden ludn-shadow";
-// العرض مربوط بالشاشة عشان الأربع بطاقات يدخلون في الجوالات الصغيرة بدون ما يطلعون برا الحواف
-const FAN_INNER = "w-[min(29.7vw,136px)] lg:w-[min(14vw,160px)]";
-const FAN_OUTER = "w-[min(25vw,116px)] lg:w-[min(11.8vw,134px)]";
+// العرض مربوط بالشاشة عشان الخمس بطاقات يدخلون في الجوالات الصغيرة بدون ما يطلعون برا الحواف
+const FAN_CENTER = "w-[min(27vw,124px)] lg:w-[min(13vw,150px)]";
+const FAN_INNER = "w-[min(23.5vw,108px)] lg:w-[min(11.6vw,134px)]";
+const FAN_OUTER = "w-[min(20vw,92px)] lg:w-[min(10vw,116px)]";
 
 export const HeroSection = ({
   scrollToSection,
@@ -29,25 +30,30 @@ export const HeroSection = ({
     >
       <div aria-hidden className="ludn-lattice absolute inset-0 pointer-events-none" />
 
-      {/* مروحة بطاقات من الألعاب: كل البطاقات سادة (صورة بس بدون أسماء) وبنفس الإطار */}
+      {/* مروحة خمس بطاقات من الألعاب (مداقش بالنص قدّام): كل البطاقات سادة (صورة بس بدون أسماء) وبنفس الإطار */}
       {/* min-w-0: عرض البطاقات المتراكبة أكبر من مجموعها الظاهر، فما نخليها توسّع العمود */}
       <div aria-hidden className="relative min-w-0 flex justify-center items-end lg:items-center h-[min(47vw,214px)] lg:h-[330px] pb-1.5 lg:col-start-2 lg:row-start-1">
-        <div className={`${FAN_CARD} ludn-fan4-outer-r ${FAN_OUTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
+        <div className={`${FAN_CARD} ludn-fan5-outer-r z-[1] ${FAN_OUTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/games/world-domination/world-domination-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[70%_50%]" />
         </div>
         {/* اسم "مافيا" جزء من صورة البطاقة (شريط تحت يبدأ من 79% من طولها)، وفيها إطار مرسوم:
             نكبّرها 1.31 من فوق عشان يطلع الشريط والإطار المرسوم برا البطاقة، والإطار من الكود مثل الباقي */}
-        <div className={`${FAN_CARD} ludn-fan4-inner-r z-[2] ${FAN_INNER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
+        <div className={`${FAN_CARD} ludn-fan5-inner-r z-[2] ${FAN_INNER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={mafiaCardSrc("mafia")} alt="" draggable={false} className="w-full h-full object-cover scale-131 origin-[50%_5%]" />
         </div>
-        <div className={`${FAN_CARD} ludn-fan4-inner-l z-[3] ${FAN_INNER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
+        {/* مداقش بالنص وفوق الكل */}
+        <div className={`${FAN_CARD} ludn-fan5-center z-[3] ${FAN_CENTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/games/madaqesh/madaqesh-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[50%_35%]" />
+        </div>
+        <div className={`${FAN_CARD} ludn-fan5-inner-l z-[2] ${FAN_INNER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/games/castle-war/castle-war-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[50%_30%]" />
         </div>
         {/* غلاف المزاد بنفس إطار السيطرة على العالم وبدون شريط اسم. أغلب البطاقة تحت حرب القلاع، والدلّال بيمين الصورة: نكبّرها عليه عشان يبان هو ومطرقته */}
-        <div className={`${FAN_CARD} ludn-fan4-outer-l ${FAN_OUTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
+        <div className={`${FAN_CARD} ludn-fan5-outer-l z-[1] ${FAN_OUTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/games/auction/auction-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[100%_30%] scale-150 origin-[100%_25%]" />
         </div>

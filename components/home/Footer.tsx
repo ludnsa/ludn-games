@@ -1,13 +1,12 @@
 import React from "react";
 import Link from "next/link";
-import { Globe, Calculator } from "lucide-react";
+import { Globe } from "lucide-react";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { MAFIA_GAME, mafiaIconSrc } from "@/constants/mafia";
 import { MADAQESH_GAME } from "@/constants/madaqesh";
 import { LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 
 const LINK = "text-ludn-fg/90 hover:text-ludn-gold-text transition-colors";
-const GAME_ICON = "w-[18px] h-[18px] shrink-0 text-ludn-gold-text";
 
 export const Footer = ({ scrollToSection }: { scrollToSection?: (e: React.MouseEvent<HTMLAnchorElement>, id: string) => void }) => {
   // بالرئيسية تنزل للقسم، وبباقي الصفحات ترجع للرئيسية على نفس القسم
@@ -91,7 +90,12 @@ export const Footer = ({ scrollToSection }: { scrollToSection?: (e: React.MouseE
                   <img src={mafiaIconSrc("mafia")} alt="" className="w-5 h-5 shrink-0" /> {MAFIA_GAME.title}
                 </Link>
               </li>
-              <li><Link href={MADAQESH_GAME.path} className={`${LINK} flex items-center gap-2`}><Calculator className={GAME_ICON} /> {MADAQESH_GAME.title}</Link></li>
+              <li>
+                <Link href={MADAQESH_GAME.path} className={`${LINK} flex items-center gap-2`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/games/madaqesh/madaqesh_icon.webp" alt="" className="w-5 h-5 shrink-0" /> {MADAQESH_GAME.title}
+                </Link>
+              </li>
               <li>
                 <Link href={LETTERS_HIVE_GAME.path} className={`${LINK} flex items-center gap-2`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}

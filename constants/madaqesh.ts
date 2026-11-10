@@ -1,8 +1,8 @@
 export const MADAQESH_GAME = {
   id: "madaqesh",
   slug: "madaqesh",
-  title: "حاسبة مداقش",
-  description: "حاسبة ذكية للمداقشة: سوم، توزيع، تثبيت ومداقشة — والأرصدة تنحسب لحالها على جوالات الكل.",
+  title: "مداقش",
+  description: "لعبة ورق: سوم، توزيع، تثبيت ومداقشة — والأرصدة تنحسب لحالها على جوالات الكل.",
   path: "/games/madaqesh",
   /** مسار انضمام اللاعبين — /join معفى من تسجيل الدخول في middleware.ts */
   joinPath: "/games/madaqesh/join",
@@ -11,7 +11,7 @@ export const MADAQESH_GAME = {
 
 export const MADAQESH_CONFIG = {
   /** من ضمن الاشتراك: يطلع للمنشئ لو ما عنده اشتراك ولا تجربة ولا رصيد */
-  NO_ACCESS_MESSAGE: "خلصت تجربتك المجانية لحاسبة مداقش — اشترك وتفتح لك كل الألعاب",
+  NO_ACCESS_MESSAGE: "خلصت تجربتك المجانية لمداقش — اشترك وتفتح لك كل الألعاب",
 
   MIN_PLAYERS: 2,
   MAX_PLAYERS: 12,

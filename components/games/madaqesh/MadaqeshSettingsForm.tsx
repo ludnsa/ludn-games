@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { MADAQESH_CONFIG, formatMoney } from "@/constants/madaqesh";
 import type { MadaqeshSettings } from "@/types/madaqesh";
 import { btn, MoneyInput } from "./MadaqeshParts";
+import { MQ_MUTED, MQ_SELECTED, MQ_UNSELECTED } from "./madaqeshUi";
 
 export const DEFAULT_MADAQESH_SETTINGS: MadaqeshSettings = {
   startBalance: MADAQESH_CONFIG.DEFAULT_START_BALANCE,
@@ -32,7 +33,7 @@ function AmountPicker({
 }) {
   return (
     <div>
-      <p className="font-bold text-sm text-slate-400 mb-2">{label}</p>
+      <p className={`font-bold text-sm ${MQ_MUTED} mb-2`}>{label}</p>
       <div className="grid grid-cols-3 gap-1.5 mb-2">
         {options.map((o) => (
           <button
@@ -41,7 +42,7 @@ function AmountPicker({
             onClick={() => onChange(o)}
             aria-pressed={value === o}
             className={`py-2.5 rounded-2xl font-black text-sm border-b-4 ${
-              value === o ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950"
+              value === o ? MQ_SELECTED : MQ_UNSELECTED
             }`}
           >
             {shortMoney(o)}
@@ -91,7 +92,7 @@ export default function MadaqeshSettingsForm({
         onChange={(targetAmount) => setS((x) => ({ ...x, targetAmount }))}
       />
       <div>
-        <p className="font-bold text-sm text-slate-400 mb-2">
+        <p className={`font-bold text-sm ${MQ_MUTED} mb-2`}>
           💸 كم مرة يقدر يفلس؟ (يرجع رصيده {formatMoney(MADAQESH_CONFIG.REVIVE_BALANCE)})
         </p>
         <div className="grid grid-cols-4 gap-1.5">
@@ -102,7 +103,7 @@ export default function MadaqeshSettingsForm({
               onClick={() => setS((x) => ({ ...x, maxBankrupts: n }))}
               aria-pressed={s.maxBankrupts === n}
               className={`py-2.5 rounded-2xl font-black border-b-4 ${
-                s.maxBankrupts === n ? "bg-amber-500 border-amber-700 text-slate-950" : "bg-slate-800 border-slate-950"
+                s.maxBankrupts === n ? MQ_SELECTED : MQ_UNSELECTED
               }`}
             >
               {n === 0 ? "ولا مرة" : n}
@@ -111,7 +112,7 @@ export default function MadaqeshSettingsForm({
         </div>
       </div>
       {s.targetAmount <= s.startBalance && (
-        <p className="text-sm font-bold text-red-400">مبلغ الفوز لازم يكون أكبر من رصيد البداية.</p>
+        <p className="text-sm font-bold text-red-300">مبلغ الفوز لازم يكون أكبر من رصيد البداية.</p>
       )}
       <button type="submit" disabled={busy || invalid} className={btn.primary}>
         {busy && <Loader2 className="animate-spin" size={22} />}

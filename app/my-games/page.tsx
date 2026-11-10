@@ -96,7 +96,7 @@ export default function MyGamesPage() {
     { id: 'world-domination', title: 'السيطرة على العالم', img: '/games/world-domination/world-domination-cover.webp', full: true },
     // بطاقة المافيا فيها اسمها تحت: القص الافتراضي (تكبير على الوجه) يناسبها
     { id: MAFIA_GAME.id, title: MAFIA_GAME.title, img: mafiaCardSrc('mafia') },
-    { id: MADAQESH_GAME.id, title: MADAQESH_GAME.title, art: 'madaqesh' },
+    { id: MADAQESH_GAME.id, title: MADAQESH_GAME.title, img: '/games/madaqesh/madaqesh-cover.webp', full: true },
     { id: LETTERS_HIVE_GAME.id, title: LETTERS_HIVE_GAME.title, img: '/games/letters-hive/hive-cover.webp', full: true },
   ];
   const active = isSubscriptionActive(endsAt);
