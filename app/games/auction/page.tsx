@@ -17,11 +17,25 @@ import QuestionAndOptionsStates from "@/components/games/auction/referee/states/
 import PostAnswerStates from "@/components/games/auction/referee/states/PostAnswerStates";
 import AccessLoadingScreen from "@/components/games/shared/AccessLoadingScreen";
 import AuctionReveal, { useAuctionReveal } from "@/components/games/auction/AuctionReveal";
+import { useSingleTab } from "@/hooks/shared/useSingleTab";
+import OtherTabScreen from "@/components/games/shared/OtherTabScreen";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
+/** تبويب واحد يتحكم بالمزاد: لو انفتحت نفس الغرفة بتبويب ثاني، هذا يوقف ويشيل المزاد كله لين يرجع التحكم له */
 export default function AuctionRefereeScreen() {
+  const [room, setRoom] = React.useState<string | null>(null);
+  const { active, takeOver } = useSingleTab("auction", room);
+  return active ? <AuctionReferee onRoom={setRoom} /> : <OtherTabScreen onTakeOver={takeOver} />;
+}
+
+function AuctionReferee({ onRoom }: { onRoom: (room: string) => void }) {
   const ctx = useAuctionReferee();
+
+  // كود الغرفة يتعرف بعد ما تجهز (جديدة أو مسترجعة)، وبه يتحدد مين يتحكم
+  React.useEffect(() => {
+    if (ctx.roomCode) onRoom(ctx.roomCode);
+  }, [ctx.roomCode, onRoom]);
 
   // شاشة الكشف تتابع نفس القيم اللي تعرضها اللوحة. ما تشتغل إلا بعد ما تجهز الغرفة واللعبة بدأت،
   // عشان اللي يحدّث الصفحة وسط اللعب ما يطلع له كشف قديم

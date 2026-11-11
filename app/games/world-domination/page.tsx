@@ -18,10 +18,21 @@ import StolenCapitalAlertModal from "@/components/games/world-domination/StolenC
 import AudienceModal from "@/components/games/world-domination/AudienceModal";
 import GameDialog from "@/components/games/world-domination/GameDialog";
 import WDCardReveal, { useWDCardReveal } from "@/components/games/world-domination/WDCardReveal";
+import { useSingleTab } from "@/hooks/shared/useSingleTab";
+import OtherTabScreen from "@/components/games/shared/OtherTabScreen";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
-export default function WorldDominationGame() {
+/**
+ * تبويب واحد يتحكم باللعبة: حالة السيطرة محفوظة بالمتصفح نفسه (localStorage) وأي تبويب يفتحها يكمل نفس اللعبة،
+ * فآخر تبويب ينفتح ياخذ التحكم، واللي قبله يوقف ويشيل اللعبة كلها لين يرجع التحكم له
+ */
+export default function WorldDominationPage() {
+  const { active, takeOver } = useSingleTab("world-domination", "local");
+  return active ? <WorldDominationGame /> : <OtherTabScreen onTakeOver={takeOver} />;
+}
+
+function WorldDominationGame() {
   const {
     roomCode, showAudienceModal, setShowAudienceModal,
     gameState, isLoading, team1Name, setTeam1Name,

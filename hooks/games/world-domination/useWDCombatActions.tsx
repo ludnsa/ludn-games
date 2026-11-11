@@ -22,7 +22,9 @@ export function useWDCombatActions(ctx: any) {
   const handleForceEndGame = () => {
     ctx.showConfirm(
       "هل أنت متأكد من رغبتك في إنهاء اللعبة وتصفيرها بالكامل؟ سيتم مسح جميع البيانات.",
-      () => {
+      async () => {
+        // إنهاء قبل ثالث سؤال: التجربة ترجع. بعدها تظل محسوبة
+        await ctx.endSession();
         localStorage.removeItem("wd_live_sync");
         window.location.reload();
       }

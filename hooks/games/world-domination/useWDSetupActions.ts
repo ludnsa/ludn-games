@@ -10,7 +10,7 @@ export function useWDSetupActions(ctx: any) {
       return;
     }
 
-    // Gatekeeper Check
+    // فحص بس (قراءة): الحجز بعد الخريطة والعواصم، لما يبدأ اللعب الفعلي (beginSession بالعاصمة الثانية)
     const access = await ctx.checkAccess("world-domination", ctx.userId);
     if (!access.allowed) {
       ctx.showConfirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟", () => {
@@ -72,13 +72,9 @@ export function useWDSetupActions(ctx: any) {
     ctx.setSpiedCountryId(null);
 
     localStorage.removeItem("wd_live_sync");
-    
-    // Consume Token or Free Trial
-    await ctx.consumeGameSession("world-domination", ctx.userId, access.reason);
+    // لعبة جديدة: جلسة اللعبة اللي قبلها (لو فيه) ما عاد لها علاقة بهذي
+    ctx.forgetSession();
 
-    // حفظ علامة لعبة نشطة لتجاوز فحص الرصيد عند التحديث
-    sessionStorage.setItem("wd_active_session", "true");
-    
     ctx.setGameState("setupMap");
   };
 

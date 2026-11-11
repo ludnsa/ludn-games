@@ -7,16 +7,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *   احتساب (countGameSession): اللعبة وصلت الجزء الحقيقي، أو انتهت بفائز قبله:
  *                              المافيا: أول صباح. مداقش: أول جولة تخلص.
  *                              تحدي الفئات: ربع أسئلة اللوحة ينحسم. خلية الحروف: فريق يفوز بأول جولة.
+ *                              حرب القلاع: ثلاث هجمات. المزاد: ثلاث أسئلة. السيطرة على العالم: ثلاث أسئلة بعد العواصم.
  *   إنهاء (endGameSession)   : أنهاها بدري: ترجع (مرتين بالكثير لكل لعبة لكل حساب)، وإلا تنحسب.
  * والقواعد كلها (10 دقايق، 3 دقايق بدون الصفحة، حد الإرجاع) بالقاعدة نفسها، بخطوة وحدة.
  *
  * هذا الملف مو "use server" عمداً: دواله ما تنستدعى من المتصفح. لو كانت server actions،
  * أي أحد يعرف كود الغرفة يقدر يحسب تجربة غيره أو يرجّع تجربته واللعبة شغالة.
- * للسيرفر بس، وبمفتاح service role.
+ * للسيرفر بس، وبمفتاح service role. ألعاب المتصفح لها بوابة خاصة: app/actions/browserGameSessions.ts
  */
 
-/** الألعاب اللي انتقلت للنظام الجديد. الباقي على consumeGameSessionAction لين نعتمدها */
-export const SESSION_GAMES: ReadonlySet<string> = new Set(["mafia", "madaqesh", "quiz-grid", "letters-hive"]);
+/** الألعاب اللي انتقلت للنظام الجديد */
+export const SESSION_GAMES: ReadonlySet<string> = new Set([
+  "mafia", "madaqesh", "quiz-grid", "letters-hive", "castle-war", "auction", "world-domination",
+]);
 
 export type GameSessionKind = "trial" | "token" | "subscription" | "purchased";
 
@@ -65,10 +68,18 @@ export async function endGameSession(admin: Admin, gameId: string, roomRef: stri
   if (error) console.error("game_session_end error:", error);
 }
 
-/** صاحب اللعبة فاتح الصفحة (قبل الجزء الحقيقي). لو فات 10 دقايق من البدء: تنحسب */
-export async function pingGameSession(admin: Admin, userId: string, gameId: string, roomRef: string): Promise<void> {
-  const { error } = await admin.rpc("game_session_ping", { p_user: userId, p_game: gameId, p_room: roomRef });
-  if (error) console.error("game_session_ping error:", error);
+/**
+ * صاحب اللعبة فاتح الصفحة (قبل الجزء الحقيقي). لو فات 10 دقايق من البدء: تنحسب.
+ * يرجّع حالة الحجز بعد النبضة: reserved، أو counted (انحسبت الحين)، أو none (ما فيه حجز لهالغرفة). null = خطأ
+ */
+export async function pingGameSession(admin: Admin, userId: string, gameId: string, roomRef: string): Promise<"reserved" | "counted" | "none" | null> {
+  const { data, error } = await admin.rpc("game_session_ping", { p_user: userId, p_game: gameId, p_room: roomRef });
+  if (error) {
+    console.error("game_session_ping error:", error);
+    return null;
+  }
+  const status = (data as { status?: string } | null)?.status;
+  return status === "reserved" || status === "counted" || status === "none" ? status : null;
 }
 
 /** الحجز صار بس اللعبة ما بدأت (فشل البدء): كأنه ما صار، ما ينحسب ولا ينعد إرجاع */

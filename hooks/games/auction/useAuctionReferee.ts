@@ -6,15 +6,23 @@ import { generateRoomCode } from "@/lib/game/room-code";
 import { shuffleArray } from "@/lib/game/shuffle";
 import { useGameTimer } from "@/hooks/shared/useGameTimer";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
+import { useLiveGamePing } from "@/hooks/shared/useLiveGamePing";
+import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
+import { clearLiveGame, markLiveGame, resumeLiveGame } from "@/lib/live-game";
 import { useRouter } from "next/navigation";
 
 // سعر بيع السؤال ثابت: الخصم يدفعه كامل والبائع ياخذه كامل
 const SELL_PRICE = 5000;
 
+const GAME_ID = "auction";
+/** المعيار: التجربة تنحسب لما ينجاوب ثالث سؤال (من 15 أو أكثر) */
+const MILESTONE_QUESTIONS = 3;
+const BUSY_MESSAGE = "عندك مزاد ثاني شغال بنفس الحساب. كمّله أو أنهه، ولو سكّرت صفحته انتظر 3 دقايق وابدأ هذا.";
+
 export function useAuctionReferee() {
   const supabase = getSupabaseBrowser();
   const router = useRouter();
-  const { checkAccess, consumeGameSession } = useGameAccess();
+  const { checkAccess } = useGameAccess();
   
   const [mounted, setMounted] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -97,7 +105,6 @@ export function useAuctionReferee() {
         router.push("/player");
       }
     };
-    getSession();
 
     const initRoom = async () => {
       let savedCode = sessionStorage.getItem("auction_referee_room_code");
@@ -146,7 +153,20 @@ export function useAuctionReferee() {
         t2_balance: startBalance
       }]);
     };
-    initRoom();
+
+    // سكّر التبويب ورجع خلال 10 دقايق (حتى من تبويب جديد): نفس المزاد يرجع لهالتبويب، قبل الفحص وتجهيز الغرفة
+    const boot = async () => {
+      if (!sessionStorage.getItem("auction_referee_room_code")) {
+        const resumed = await resumeLiveGame(GAME_ID);
+        if (resumed) {
+          sessionStorage.setItem("auction_referee_room_code", resumed);
+          sessionStorage.setItem("auction_active_session", "true");
+        }
+      }
+      getSession();
+      initRoom();
+    };
+    boot();
   }, []);
 
   useEffect(() => {
@@ -180,12 +200,32 @@ export function useAuctionReferee() {
 
   useEffect(() => {
     if (gameState === "gameOver") {
+      clearLiveGame(GAME_ID);
       const timer = setTimeout(() => {
         router.push("/my-games");
       }, 5000);
       return () => clearTimeout(timer);
     }
   }, [gameState, router]);
+
+  // المعيار: ثالث سؤال ينجاوب (نتيجته طلعت)، أو انتهى المزاد بفائز قبلها. مرة وحدة لكل مزاد
+  const countedRef = useRef(false);
+  const answeredQuestions = currentIndex + (gameState === "result" || gameState === "rewardChoice" ? 1 : 0);
+  useEffect(() => {
+    if (!roomCode || gameState === "setup" || countedRef.current) return;
+    if (gameState !== "gameOver" && answeredQuestions < MILESTONE_QUESTIONS) return;
+    countedRef.current = true;
+    void countBrowserGameSession(GAME_ID, roomCode);
+  }, [roomCode, gameState, answeredQuestions]);
+
+  // نبضة كل دقيقة وقت المزاد. لو رجعت تجربة هالمزاد (بدأ مزاد ثاني بعد ما طلع من هذا) ينقفل هنا
+  useLiveGamePing(GAME_ID, roomCode, gameState !== "setup" && gameState !== "gameOver", () => {
+    window.alert("انتهى هذا المزاد لأنك بدأت لعبة ثانية بنفس الحساب.");
+    clearLiveGame(GAME_ID);
+    sessionStorage.removeItem("auction_active_session");
+    sessionStorage.removeItem("auction_referee_room_code");
+    window.location.reload();
+  });
 
   // Timer logic is now handled by useGameTimer hook
 
@@ -279,7 +319,11 @@ export function useAuctionReferee() {
   const resetGame = async () => {
     if (!roomCode) return;
     const resetStr = Date.now().toString();
-    
+
+    // إنهاء قبل ثالث سؤال: التجربة ترجع. بعدها تظل محسوبة
+    await endBrowserGameSession(GAME_ID, roomCode).catch(() => null);
+    clearLiveGame(GAME_ID);
+
     // تحديث الغرفة لطرد الفرق وإشعارهم بأن الجلسة القديمة انتهت
     await supabase.from("auction_rooms").update({
       game_state: "gameOver",
@@ -299,20 +343,25 @@ export function useAuctionReferee() {
     }
   };
 
+  // ضغطتين ورا بعض على "ابدأ" ما يحجزون مرتين ولا يكتبون أسئلة مختلفة
+  const startingRef = useRef(false);
+
   const startGame = async () => {
     if (!userId) {
       triggerAlert("يجب تسجيل الدخول لإنشاء الغرفة.");
       return;
     }
 
-    // Gatekeeper Check
-    const access = await checkAccess("auction", userId);
-    if (!access.allowed) {
-      triggerConfirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟", () => {
-        router.push("/packages");
-      });
-      return;
+    if (startingRef.current) return;
+    startingRef.current = true;
+    try {
+      await startGameOnce();
+    } finally {
+      startingRef.current = false;
     }
+  };
+
+  const startGameOnce = async () => {
 
     const { data: realQuestions, error } = await supabase
       .from("aw_questions")
@@ -320,8 +369,22 @@ export function useAuctionReferee() {
 
     if (!realQuestions || realQuestions.length === 0) {
       triggerAlert("بنك الأسئلة فاضي! روح للوحة التحكم وضيف أسئلة قبل تبدأ اللعبة.");
-      return; 
+      return;
     }
+
+    // الحجز بالسيرفر (التجربة أو لعبة من الرصيد). تنحسب مع ثالث سؤال، ولو ما انحجزت اللعبة ما تبدأ
+    const begin = await beginBrowserGameSession(GAME_ID, roomCode).catch(() => null);
+    if (!begin?.ok) {
+      if (begin?.reason === "no_access") {
+        triggerConfirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟", () => {
+          router.push("/packages");
+        });
+      } else {
+        triggerAlert(begin?.reason === "busy" ? BUSY_MESSAGE : "تعذّر بدء اللعبة، تأكد من الاتصال وحاول مرة ثانية.");
+      }
+      return;
+    }
+    countedRef.current = false;
 
     const actualQCount = Math.min(qCount, realQuestions.length);
     const shuffled = shuffleArray(realQuestions);
@@ -367,12 +430,13 @@ export function useAuctionReferee() {
     }).eq("room_code", roomCode);
 
     if (updateError) {
+      // اللعبة ما بدأت: الحجز يرجع
+      await endBrowserGameSession(GAME_ID, roomCode).catch(() => null);
       triggerAlert("خطأ في تحديث قاعدة البيانات: " + updateError.message);
       return;
     }
 
-    // Consume the token or free trial
-    await consumeGameSession("auction", userId, access.reason);
+    markLiveGame(GAME_ID, roomCode);
 
     // حفظ علامة لعبة نشطة لتجاوز فحص الرصيد عند التحديث
     sessionStorage.setItem("auction_active_session", "true");

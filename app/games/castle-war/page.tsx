@@ -18,7 +18,10 @@ import {
   BACKDROP, BAR, BAR_DANGER, BAR_TIGHT, BTN_DANGER_LINE, BTN_DARK, BTN_GOLD, BTN_SOFT, INSET, MODAL, PANEL,
   TEAM1_HP, TEAM1_NAME, TEAM1_WIN, TEAM2_HP, TEAM2_NAME, TEAM2_WIN, timerTone,
 } from "@/components/games/castle-war/castleUi";
-import { useCastleWar, getSavedCastleRoom, TOTAL_SOLDIERS } from "@/hooks/useCastleWar";
+import { useCastleWar, getSavedCastleRoom, resumeCastleRoom, TOTAL_SOLDIERS } from "@/hooks/useCastleWar";
+import { freshLiveGame } from "@/lib/live-game";
+import { useSingleTab } from "@/hooks/shared/useSingleTab";
+import OtherTabScreen from "@/components/games/shared/OtherTabScreen";
 
 import AccessLoadingScreen from "@/components/games/shared/AccessLoadingScreen";
 
@@ -28,15 +31,32 @@ const noopSubscribe = () => () => {};
 
 /**
  * فيه غرفة في هذا التبويب: اللعبة مباشرة (وهذا اللي يصير بعد التحديث).
- * ما فيه: صفحة الإعداد، وهوك اللعبة ما يشتغل أصلاً لين تنشأ الغرفة.
+ * ما فيه بس فيه حرب سكّر تبويبها قبل أقل من 10 دقايق: ترجع نفسها هنا (resumeCastleRoom).
+ * غير كذا: صفحة الإعداد، وهوك اللعبة ما يشتغل أصلاً لين تنشأ الغرفة.
  */
 export default function CastleWarPage() {
   // الغرفة محفوظة في المتصفح والسيرفر ما يعرفها، فنعرض التحميل لين نوصل للمتصفح
   const mounted = React.useSyncExternalStore(noopSubscribe, () => true, () => false);
   const [hasRoom, setHasRoom] = React.useState(() => getSavedCastleRoom() !== null);
+  const [resuming, setResuming] = React.useState(() => getSavedCastleRoom() === null && freshLiveGame("castle-war") !== null);
 
-  if (!mounted) return <div className="dark"><AccessLoadingScreen /></div>;
-  return hasRoom ? <CastleBattleMainScreen /> : <CastleWarSetup onCreated={() => setHasRoom(true)} />;
+  React.useEffect(() => {
+    if (!resuming) return;
+    resumeCastleRoom().then((resumed) => {
+      if (resumed) setHasRoom(true);
+      setResuming(false);
+    });
+  }, [resuming]);
+
+  if (!mounted || resuming) return <div className="dark"><AccessLoadingScreen /></div>;
+  return hasRoom ? <CastleBattleTab /> : <CastleWarSetup onCreated={() => setHasRoom(true)} />;
+}
+
+/** تبويب واحد يتحكم بالحرب: لو انفتحت نفس الغرفة بتبويب ثاني، هذا يوقف ويشيل الحرب كلها لين يرجع التحكم له */
+function CastleBattleTab() {
+  const [room] = React.useState(() => getSavedCastleRoom());
+  const { active, takeOver } = useSingleTab("castle-war", room);
+  return active ? <CastleBattleMainScreen /> : <OtherTabScreen onTakeOver={takeOver} />;
 }
 
 function CastleBattleMainScreen() {
@@ -52,7 +72,7 @@ function CastleBattleMainScreen() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame, freeReset
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame
   } = useCastleWar();
 
   const cardClass = PANEL;
@@ -535,16 +555,6 @@ function CastleBattleMainScreen() {
             <p className="text-ludn-muted font-bold mb-8 text-lg">
               هل أنت متأكد من تصفير اللعبة والبدء من جديد؟ سيتم مسح جميع بيانات الفرق والجنود ولن تتمكن من التراجع.
             </p>
-            {gameState === "playing" && freeReset === "none" && (
-              <p className="-mt-4 mb-6 text-emerald-300 font-black text-sm leading-relaxed">
-                هذا التصفير مجاني: البدء الجاي ما ينحسب لعبة جديدة. يتاح مرة وحدة لكل غرفة.
-              </p>
-            )}
-            {gameState === "playing" && freeReset === "used" && (
-              <p className="-mt-4 mb-6 text-amber-300 font-black text-sm leading-relaxed">
-                استخدمت التصفير المجاني لهذي الغرفة، فالبدء الجاي ينحسب لعبة جديدة.
-              </p>
-            )}
             <div className="flex gap-4">
               <button onClick={() => setShowResetModal(false)} className={`${BTN_DARK} flex-1`}>
                 إلغاء

@@ -4,13 +4,15 @@ export function useWDMapActions(ctx: any) {
   };
 
   const handleGoHome = () => {
-    ctx.showConfirm("هل أنت متأكد من العودة للرئيسية؟ سيتم تصفير هذه اللعبة ولن تتمكن من إكمالها.", () => {
+    ctx.showConfirm("هل أنت متأكد من العودة للرئيسية؟ سيتم تصفير هذه اللعبة ولن تتمكن من إكمالها.", async () => {
+      // تصفير قبل ثالث سؤال: التجربة ترجع
+      await ctx.endSession();
       localStorage.removeItem("wd_live_sync");
       window.location.href = "/";
     });
   };
 
-  const handleCountryClick = (geoId: string) => {
+  const handleCountryClick = async (geoId: string) => {
     const country = ctx.countries.find((c: any) => c.geoId === geoId);
     if (!country) return;
 
@@ -114,6 +116,8 @@ export function useWDMapActions(ctx: any) {
           ctx.showAlert("تم اختيار هذه الدولة كعاصمة للفريق الأول! اختر دولة أخرى.");
           return;
         }
+        // الحجز هنا: الخريطة والعواصم خلصت، واللعب الفعلي يبدأ. لو ما انحجزت اللعبة ما تبدأ
+        if (!(await ctx.beginSession())) return;
         ctx.setCapitals((prev: any) => ({ ...prev, team2: country.id }));
 
         ctx.setCountries((prev: any[]) => {

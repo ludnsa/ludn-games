@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWDRoom } from "./games/world-domination/useWDRoom";
 import { useWDGameFlow } from "./games/world-domination/useWDGameFlow";
 import { useWDCountries } from "./games/world-domination/useWDCountries";
@@ -8,7 +8,38 @@ import { useWDCards } from "./games/world-domination/useWDCards";
 import { useWDCombat } from "./games/world-domination/useWDCombat";
 import { useGameDialog } from "./shared/useGameDialog";
 import { useGameAccess } from "./shared/useGameAccess";
+import { useLiveGamePing } from "./shared/useLiveGamePing";
 import { useRouter } from "next/navigation";
+import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
+import { clearLiveGame, markLiveGame, resumeLiveGame } from "@/lib/live-game";
+
+const GAME_ID = "world-domination";
+/** المعيار: التجربة تنحسب لما ينجاوب ثالث سؤال بعد اختيار الخريطة والعواصم */
+const MILESTONE_ANSWERS = 3;
+const BUSY_MESSAGE = "عندك لعبة سيطرة ثانية شغالة بنفس الحساب. كمّلها أو أنهها، ولو سكّرت صفحتها انتظر 3 دقايق وابدأ هذي.";
+
+/**
+ * جلسة اللعبة الحالية: كود الغرفة وقت الحجز وعدد الأسئلة اللي انجاوبت.
+ * بـ localStorage مثل حالة اللعبة نفسها (wd_live_sync)، لأن كود الغرفة يتغير مع كل فتح للصفحة
+ * والجلسة لازم تظل على نفس المرجع اللي انحجز.
+ */
+const SESSION_KEY = "wd_session";
+type WDSession = { room: string; answered: number };
+const readSession = (): WDSession | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+    return s && typeof s.room === "string" && typeof s.answered === "number" ? s : null;
+  } catch {
+    return null;
+  }
+};
+const writeSession = (s: WDSession | null) => {
+  try {
+    if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    else localStorage.removeItem(SESSION_KEY);
+  } catch {}
+};
 
 // New Action Hooks
 import { useWDSync } from "./games/world-domination/useWDSync";
@@ -25,11 +56,50 @@ export function useWorldDomination() {
   const combat = useWDCombat();
   const dialogCtx = useGameDialog();
   const router = useRouter();
-  const { checkAccess, consumeGameSession } = useGameAccess();
+  const { checkAccess } = useGameAccess();
   const [userId, setUserId] = useState<string | null>(null);
+
+  // جلسة اللعب (الحجز بعد العواصم). sessionRoom = مرجع الحجز، null = ما فيه حجز لهاللعبة
+  const [sessionRoom, setSessionRoom] = useState<string | null>(() => readSession()?.room ?? null);
+  const countedRef = useRef(false);
+  const beginningRef = useRef(false);
+
+  /** يمسح مرجع الجلسة من هالمتصفح بس (اللعبة خلصت أو بدأت وحدة جديدة)، بدون ما يغيّر شي بالسيرفر */
+  const forgetSession = () => {
+    writeSession(null);
+    setSessionRoom(null);
+    countedRef.current = false;
+    clearLiveGame(GAME_ID);
+    sessionStorage.removeItem("wd_active_session");
+  };
+
+  /** إنهاء أو تصفير من الحكم: ترجع لو قبل ثالث سؤال، وبعدها تظل محسوبة */
+  const endSession = async () => {
+    const room = readSession()?.room;
+    if (room) await endBrowserGameSession(GAME_ID, room).catch(() => null);
+    forgetSession();
+  };
+
+  /** سؤال انجاوب وقت اللعب (فوز أو خسارة أو فوز يقرره الحكم). الثالث يحسبها */
+  const noteAnswered = () => {
+    const s = readSession();
+    if (!s) return;
+    const answered = s.answered + 1;
+    writeSession({ ...s, answered });
+    if (answered >= MILESTONE_ANSWERS && !countedRef.current) {
+      countedRef.current = true;
+      void countBrowserGameSession(GAME_ID, s.room);
+    }
+  };
 
   useEffect(() => {
     if (flow.gameState === "gameOver") {
+      // انتهت بفائز (كل الدول انحجزت): تنحسب حتى لو قبل ثالث سؤال
+      const s = readSession();
+      if (s) void countBrowserGameSession(GAME_ID, s.room);
+      writeSession(null);
+      setSessionRoom(null);
+      clearLiveGame(GAME_ID);
       // إزالة علامة اللعبة النشطة عند انتهاء اللعبة
       sessionStorage.removeItem("wd_active_session");
       const timer = setTimeout(() => {
@@ -98,6 +168,14 @@ export function useWorldDomination() {
         const activeSession = sessionStorage.getItem("wd_active_session");
         if (activeSession) {
           // لعبة نشطة - تجاوز فحص الرصيد
+          setIsAccessChecking(false);
+          return;
+        }
+
+        // سكّر التبويب ورجع خلال 10 دقايق (حتى من تبويب جديد): نفس اللعبة تكمل بدل صفحة الباقات
+        const resumed = await resumeLiveGame(GAME_ID);
+        if (resumed && resumed === readSession()?.room) {
+          sessionStorage.setItem("wd_active_session", "true");
           setIsAccessChecking(false);
           return;
         }
@@ -242,6 +320,43 @@ export function useWorldDomination() {
     initGame();
   }, [supabase]);
 
+  /**
+   * الحجز بالسيرفر لما تنختار العاصمة الثانية: بعد الخريطة والعواصم، واللعب الفعلي يبدأ بعده.
+   * false = ما انحجزت (رسالة طلعت للحكم) واللعبة ما تبدأ
+   */
+  const beginSession = async (): Promise<boolean> => {
+    if (beginningRef.current || !roomCode) return false;
+    beginningRef.current = true;
+    try {
+      const res = await beginBrowserGameSession(GAME_ID, roomCode).catch(() => null);
+      if (res?.ok) {
+        writeSession({ room: roomCode, answered: 0 });
+        setSessionRoom(roomCode);
+        countedRef.current = false;
+        markLiveGame(GAME_ID, roomCode);
+        // حفظ علامة لعبة نشطة لتجاوز فحص الرصيد عند التحديث
+        sessionStorage.setItem("wd_active_session", "true");
+        return true;
+      }
+      if (res?.reason === "no_access") {
+        showConfirm("رصيدك غير كافٍ. هل ترغب في شراء باقة للاستمرار باللعب؟", () => router.push("/packages"));
+      } else {
+        showAlert(res?.reason === "busy" ? BUSY_MESSAGE : "تعذّر بدء اللعبة، تأكد من الاتصال وحاول مرة ثانية.");
+      }
+      return false;
+    } finally {
+      beginningRef.current = false;
+    }
+  };
+
+  // نبضة كل دقيقة وقت اللعب. لو رجعت تجربة هاللعبة (بدأ لعبة ثانية بعد ما طلع من هذي) تنقفل هنا
+  useLiveGamePing(GAME_ID, sessionRoom, gameState === "playing", () => {
+    window.alert("انتهت هذي اللعبة لأنك بدأت لعبة ثانية بنفس الحساب.");
+    localStorage.removeItem("wd_live_sync");
+    forgetSession();
+    window.location.reload();
+  });
+
   // Unified context for action hooks
   const ctx = {
     // Room
@@ -264,7 +379,9 @@ export function useWorldDomination() {
     // Dialogs
     dialog, showAlert, showConfirm, closeDialog,
     // Access
-    userId, checkAccess, consumeGameSession, router
+    userId, checkAccess, router,
+    // جلسة اللعب
+    beginSession, endSession, forgetSession
   };
 
   useWDSync(ctx);
@@ -272,6 +389,17 @@ export function useWorldDomination() {
   const mapActions = useWDMapActions(ctx);
   const combatActions = useWDCombatActions(ctx);
   const cardsActions = useWDCardsActions(ctx);
+
+  // كل سؤال ينحسم (فوز أو خسارة أو فوز يقرره الحكم) ينعد للمعيار
+  const handleCapture = (winner: 1 | 2, isForced: boolean = false) => {
+    const answered = !!selectedCountry;
+    combatActions.handleCapture(winner, isForced);
+    if (answered) noteAnswered();
+  };
+  const handleMiss = () => {
+    combatActions.handleMiss();
+    noteAnswered();
+  };
 
   return {
     // State
@@ -295,6 +423,8 @@ export function useWorldDomination() {
     ...mapActions,
     ...combatActions,
     ...cardsActions,
+    handleCapture,
+    handleMiss,
     isAccessChecking,
   };
 }

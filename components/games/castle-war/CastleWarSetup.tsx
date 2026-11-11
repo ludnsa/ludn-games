@@ -22,7 +22,7 @@ const CREATE_ERROR = "ما قدرنا ننشئ الغرفة، تأكد من ال
 /**
  * صفحة إعداد حرب القلاع، بنفس شكل إعداد المافيا (mafiaUi و ludn-fan).
  * فتحها ما يكتب شي في القاعدة ولا يحسب شي: الفحص هنا قراءة فقط،
- * والغرفة تنشأ من الزر، والاحتساب عند "بدء الحرب" في useCastleWar.
+ * والغرفة تنشأ من الزر، والحجز عند "بدء الحرب" في useCastleWar.
  */
 export default function CastleWarSetup({ onCreated }: { onCreated: () => void }) {
   const router = useRouter();
