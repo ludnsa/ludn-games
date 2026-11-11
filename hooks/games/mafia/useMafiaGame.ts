@@ -16,6 +16,7 @@ import {
   killCheaterMafiaPlayer,
   chooseMafiaSheikhMode,
   newMafiaRoom,
+  pingMafiaSession,
   playMafiaAgain,
   renameMafiaPlayer,
   setMafiaDiscussionTime,
@@ -267,6 +268,26 @@ export function useMafiaGame(
       if (res.success) setDevRoles(Object.fromEntries(res.data.map((r) => [r.playerId, r.role])));
     });
   }, [devMode, isHost, roomCode, room?.phase_seq]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // حساب التجربة بالسيرفر: صفحة المنشئ مفتوحة قبل أول صباح = لسا موجود (كل دقيقة، ولما يرجع للصفحة).
+  // لو سكّرها والصباح ما جا، تجربته ترجع لما يبدأ لعبة ثانية. مجرد إشارة، ما تغيّر شي باللعبة
+  const beforeFirstMorning =
+    !!room && (room.phase === "reveal" || room.phase === "night_act" || room.phase === "night_done") && room.night_number <= 1;
+  const sessionPing = isHost && beforeFirstMorning ? roomCode : "";
+  useEffect(() => {
+    if (!sessionPing) return;
+    const ping = () => void pingMafiaSession(sessionPing).catch(() => {});
+    const onVisible = () => {
+      if (document.visibilityState === "visible") ping();
+    };
+    ping();
+    const id = setInterval(ping, 60_000);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [sessionPing]);
 
   // -------------------------------------------------------------------
   // المؤقت والانتقال التلقائي

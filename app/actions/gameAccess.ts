@@ -4,6 +4,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { getSubscriptionEndsAt } from "@/lib/subscriptions";
 import { isSubscriptionActive } from "@/lib/packages";
+import { SESSION_GAMES, gameSessionAccess } from "@/lib/game-sessions";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
@@ -60,6 +61,8 @@ async function computeAccess(admin: Admin, userId: string, gameId: string): Prom
 }
 
 export async function consumeGameSessionAction(gameId: string, clientUserId: string, _reason?: string) {
+  // الألعاب اللي على جلسات اللعب تنحسب من هناك بس (lib/game-sessions.ts)، فما تنحسب مرتين
+  if (SESSION_GAMES.has(gameId)) return { success: true };
   try {
     // 🛡️ حماية أمنية: التأكد من هوية المستخدم الحقيقية من الكوكيز (السيرفر)
     const supabaseServer = await getSupabaseServer();
@@ -219,6 +222,11 @@ export async function checkAccessAction(gameId: string) {
     const supabaseAdmin = createClient(url, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
+
+    // الألعاب اللي على جلسات اللعب (lib/game-sessions.ts): نفس الترتيب، والتجربة المحجوزة ما تنحسب لين تنحسب فعلاً
+    if (SESSION_GAMES.has(gameId)) {
+      return (await gameSessionAccess(supabaseAdmin, userId, gameId)) ?? { allowed: false, reason: "error" as const, availableTokens: 0 };
+    }
 
     return await computeAccess(supabaseAdmin, userId, gameId);
   } catch (err) {

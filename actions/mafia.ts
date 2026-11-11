@@ -2,7 +2,8 @@
 
 import { randomUUID } from "crypto";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
-import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameAccess";
+import { checkAccessAction } from "@/app/actions/gameAccess";
+import { beginGameSession, cancelGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 import { MAFIA_BOT_NAMES, MAFIA_CONFIG, MAFIA_GAME, MAFIA_NIGHT_ORDER, MAFIA_ROLES } from "@/constants/mafia";
 import {
   MafiaCreateSchema,
@@ -186,6 +187,33 @@ async function guardedRoomUpdate(
     return false;
   }
   return Boolean(data && data.length > 0);
+}
+
+// ---------------------------------------------------------------------
+// جلسات اللعب: حساب التجربة المجانية والرصيد القديم بالسيرفر (lib/game-sessions.ts)
+// ---------------------------------------------------------------------
+
+const SESSION_BUSY_MESSAGE = "عندك لعبة مافيا ثانية شغالة بنفس الحساب. كمّلها أو أنهها، وبعدها ابدأ هذي.";
+
+/** اللعبة وقفت فعلاً (رجعت للانتظار أو انتهت أو انقفلت): الجلسة ترجع لو قبل أول صباح */
+async function endSessionIfStopped(admin: Admin, roomCode: string): Promise<void> {
+  const room = await loadRoom(admin, roomCode);
+  if (room && (room.phase === "lobby" || room.phase === "ended" || room.phase === "closed")) {
+    await endGameSession(admin, MAFIA_GAME.id, roomCode);
+  }
+}
+
+/** غرف قديمة طلع منها منشئها قبل أول صباح، ورجعت تجربتها مع البدء الجديد: تنقفل عشان ما تكمل ببلاش */
+async function closeAbandonedRooms(admin: Admin, roomCodes: string[]): Promise<void> {
+  await Promise.all(
+    roomCodes.map(async (code) => {
+      const room = await loadRoom(admin, code);
+      if (!room || room.phase === "lobby" || room.phase === "ended" || room.phase === "closed") return;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { movedTo, ...settings } = room.settings;
+      await guardedRoomUpdate(admin, room, { phase: "closed", night_step: null, phase_ends_at: null, settings });
+    })
+  );
 }
 
 /** يتحقق من مفتاح اللاعب ويرجع الغرفة واللاعب وسرّه */
@@ -1065,7 +1093,11 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         announcements: resolution.announcements,
         phase_ends_at: mafiaDeadline("morning"),
       });
-      if (won) await applyNight(admin, resolution, secretOf);
+      if (won) {
+        await applyNight(admin, resolution, secretOf);
+        // أول صباح = الجزء الحقيقي: التجربة (أو لعبة الرصيد) تنحسب. بعده ما يتغير شي
+        await countGameSession(admin, MAFIA_GAME.id, room.room_code);
+      }
       return;
     }
 
@@ -1227,6 +1259,8 @@ async function endGame(
     announcements: (night?.resolution.announcements ?? []).filter((a) => a.kind === "kill" || a.kind === "bomb"),
   });
   if (won && night) await applyNight(admin, night.resolution, night.secretOf);
+  // انتهت بفائز (حتى لو قبل أول صباح): لعبة كاملة، تنحسب
+  if (won && winner) await countGameSession(admin, MAFIA_GAME.id, room.room_code);
 }
 
 // ---------------------------------------------------------------------
@@ -1400,9 +1434,22 @@ export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole |
     return fail(`لازم يكتمل العدد: ${players.length} من ${room.settings.maxPlayers}.`);
   }
 
-  // كل جولة تنحسب لعبة: اشتراك (بدون خصم)، أو التجربة المجانية، أو لعبة من الرصيد القديم
-  if (!MAFIA_CONFIG.IS_FREE && !(await checkAccessAction(MAFIA_GAME.id)).allowed) {
-    return fail(MAFIA_CONFIG.NO_ACCESS_MESSAGE);
+  // كل جولة تنحجز لها لعبة بالسيرفر: اشتراك (تنحسب على طول)، أو التجربة المجانية أو لعبة من الرصيد
+  // القديم (ما تنحسب إلا مع أول صباح، وترجع لو انتهت قبله). لو ما انحجزت، اللعبة ما تبدأ
+  let sessionId: string | null = null;
+  if (!MAFIA_CONFIG.IS_FREE) {
+    const session = await beginGameSession(admin, ctx.userId, MAFIA_GAME.id, room.room_code);
+    if (session.releasedRooms.length > 0) await closeAbandonedRooms(admin, session.releasedRooms);
+    if (!session.ok) {
+      return fail(
+        session.reason === "no_access"
+          ? MAFIA_CONFIG.NO_ACCESS_MESSAGE
+          : session.reason === "busy"
+            ? SESSION_BUSY_MESSAGE
+            : "تعذّر بدء اللعبة، حاول مرة ثانية."
+      );
+    }
+    sessionId = session.sessionId;
   }
 
   const deck = buildRoleDeck(room.settings);
@@ -1439,8 +1486,20 @@ export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole |
     final_roles: null,
     phase_ends_at: mafiaDeadline("reveal"),
   });
-  if (ok && !MAFIA_CONFIG.IS_FREE) await consumeGameSessionAction(MAFIA_GAME.id, ctx.userId);
+  // البدء ما صار (جهاز ثاني سبقه أو خطأ): الحجز ينلغى كأنه ما صار
+  if (!ok && sessionId) await cancelGameSession(admin, sessionId);
   return ok ? { success: true } : fail("تعذّر بدء اللعبة، حاول مرة ثانية.");
+}
+
+/**
+ * صفحة المنشئ مفتوحة قبل أول صباح (ترسل كل دقيقة): منها يفرّق السيرفر بين منشئ ينتظر
+ * (بعد 10 دقايق تنحسب) ومنشئ طلع (ترجع تجربته لو بدأ لعبة ثانية).
+ */
+export async function pingMafiaSession(roomCode: string): Promise<ActionResult> {
+  const ctx = await requireHost(roomCode);
+  if (!ctx.ok || MAFIA_CONFIG.IS_FREE) return { success: true };
+  await pingGameSession(ctx.admin, ctx.userId, MAFIA_GAME.id, ctx.room.room_code);
+  return { success: true };
 }
 
 /** المنشئ اختار وقت النقاش وضغط "ابدأ النقاش" (الصباح ما له مؤقت — يظل لين يضغط) */
@@ -1503,6 +1562,7 @@ export async function newMafiaRoom(roomCode: string): Promise<ActionResult<{ roo
       phase_seq: room.phase_seq + 1,
     })
     .eq("room_code", room.room_code);
+  await endSessionIfStopped(admin, room.room_code);
 
   return { success: true, data: created };
 }
@@ -1607,6 +1667,7 @@ export async function endMafiaGameNow(roomCode: string): Promise<ActionResult> {
   if (room.phase === "lobby" || room.phase === "ended") return fail("ما فيه لعبة شغالة الحين.");
 
   await endGame(admin, room, null);
+  await endSessionIfStopped(admin, room.room_code);
   return { success: true };
 }
 
@@ -1628,6 +1689,7 @@ export async function closeMafiaRoom(roomCode: string): Promise<ActionResult> {
     phase_ends_at: null,
     settings,
   });
+  await endSessionIfStopped(admin, room.room_code);
   return { success: true };
 }
 
@@ -1707,6 +1769,7 @@ export async function playMafiaAgain(roomCode: string): Promise<ActionResult> {
     winner: null,
     final_roles: null,
   });
+  await endSessionIfStopped(admin, room.room_code);
   return { success: true };
 }
 
