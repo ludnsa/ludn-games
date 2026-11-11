@@ -4,108 +4,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { Play, BookOpen, X, Gift } from "lucide-react";
-import { QUIZ_GAME } from "@/constants/quiz-grid";
-import { MAFIA_CONFIG, MAFIA_GAME, mafiaCardSrc, mafiaIconSrc } from "@/constants/mafia";
-import { MADAQESH_GAME } from "@/constants/madaqesh";
-import { LETTERS_HIVE_GAME } from "@/constants/letters-hive";
-import { GameArt, type GameArtKind } from "./GameArt";
-
-const CATEGORIES = ["الكل", "أدوار سرية", "أسئلة", "استراتيجية", "لعبة ورق"] as const;
-type Category = Exclude<(typeof CATEGORIES)[number], "الكل">;
-
-interface HomeGame {
-  id: string;
-  title: string;
-  path: string;
-  description: string;
-  /** سطر واحد تحت الغلاف */
-  line: string;
-  category: Category;
-  /** معلومات سريعة تطلع بورقة اللعبة */
-  meta: string[];
-  /**
-   * رسمة اللعبة، أو غلاف مؤقت مرسوم بالكود لين تجهز رسمتها.
-   * full: الرسمة مقاسها من البطاقة (4:5) فتطلع كاملة بدون قص وتكبير.
-   */
-  cover: { img: string; full?: boolean } | { art: GameArtKind };
-  badge?: { text: string; icon: string };
-  /** مجانية دايماً (ما تحتاج اشتراك) — يطلع عليها تاق */
-  free?: boolean;
-}
-
-const GAMES: HomeGame[] = [
-  {
-    id: MAFIA_GAME.id,
-    title: MAFIA_GAME.title,
-    path: MAFIA_GAME.path,
-    description: MAFIA_GAME.description,
-    line: "مين المافيا بينكم؟ ليل ونهار، وكل واحد على جواله.",
-    category: "أدوار سرية",
-    meta: [`من ${MAFIA_CONFIG.MIN_PLAYERS} إلى ${MAFIA_CONFIG.MAX_PLAYERS} لاعب`, "كل واحد بجواله", "فئة جديدة: الشيخ"],
-    cover: { img: mafiaCardSrc("mafia") },
-    badge: { text: "جديد: الشيخ", icon: mafiaIconSrc("sheikh") },
-  },
-  {
-    id: QUIZ_GAME.id,
-    title: QUIZ_GAME.title,
-    path: QUIZ_GAME.path,
-    description: QUIZ_GAME.description,
-    line: "لوحة فئات، وفريقين يتنافسون عليها.",
-    category: "أسئلة",
-    meta: ["فريقين", "أسئلة بـ 200 و400 و600"],
-    cover: { img: "/games/quiz-grid/quiz-cover.webp", full: true },
-  },
-  {
-    id: LETTERS_HIVE_GAME.id,
-    title: LETTERS_HIVE_GAME.title,
-    path: LETTERS_HIVE_GAME.path,
-    description: LETTERS_HIVE_GAME.description,
-    line: "لوّن الحروف، وأول فريق يوصّل خطه يفوز.",
-    category: "أسئلة",
-    meta: ["مقدم وفريقين", "شاشة عرض"],
-    cover: { img: "/games/letters-hive/hive-cover.webp", full: true },
-  },
-  {
-    id: "auction",
-    title: "المزاد",
-    path: "/games/auction",
-    description: "لعبة مزادية وتكتيكية لتحديد الفائز بالمزايدة على السؤال الصحيح.",
-    line: "زايد على السؤال اللي تعرف جوابه.",
-    category: "أسئلة",
-    meta: ["فرق", "مزايدة"],
-    cover: { img: "/games/auction/auction-cover.webp", full: true },
-  },
-  {
-    id: "castle-war",
-    title: "حرب القلاع",
-    path: "/games/castle-war",
-    description: "لعبة استراتيجية تعتمد على الهجوم والدفاع، دمر قلاع خصمك لتنتصر.",
-    line: "هاجم ودافع، ودمّر قلاع خصمك.",
-    category: "استراتيجية",
-    meta: ["جوالات اللاعبين", "شاشة عرض"],
-    cover: { img: "/games/castle-war/castle-war-cover.webp", full: true },
-  },
-  {
-    id: "world-domination",
-    title: "السيطرة على العالم",
-    path: "/games/world-domination",
-    description: "لعبة استراتيجية وتكتيكية لفرض نفوذك والسيطرة على القارات وتوسيع إمبراطوريتك.",
-    line: "وسّع نفوذك وسيطر على القارات.",
-    category: "استراتيجية",
-    meta: ["فرق", "الجمهور يشارك"],
-    cover: { img: "/games/world-domination/world-domination-cover.webp", full: true },
-  },
-  {
-    id: MADAQESH_GAME.id,
-    title: MADAQESH_GAME.title,
-    path: MADAQESH_GAME.path,
-    description: MADAQESH_GAME.description,
-    line: "سوم وتوزيع ومداقشة، والأرصدة تنحسب لحالها.",
-    category: "لعبة ورق",
-    meta: ["على جوالات الكل"],
-    cover: { img: "/games/madaqesh/madaqesh-cover.webp", full: true },
-  },
-];
+import { GameArt } from "./GameArt";
+import { CATEGORIES, HOME_GAMES as GAMES, type HomeGame } from "./homeGames";
 
 const countText = (n: number) => (n === 1 ? "لعبة وحدة" : n === 2 ? "لعبتين" : `${n} ألعاب`);
 
@@ -154,13 +54,6 @@ function GameTile({ game, onOpen }: { game: HomeGame; onOpen: () => void }) {
               </span>
             )}
           </span>
-          {game.badge && (
-            <span className="absolute bottom-11 start-2.5 z-[2] inline-flex items-center gap-1.5 text-[11.5px] font-black text-[#1b1404] bg-[#e2b84a] ps-1 pe-2.5 py-0.5 rounded-full">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={game.badge.icon} alt="" className="w-[22px] h-[22px] rounded-full" />
-              {game.badge.text}
-            </span>
-          )}
           <span className="absolute inset-x-3 bottom-2.5 z-[2] font-display text-[21px] leading-tight text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
             {game.title}
           </span>

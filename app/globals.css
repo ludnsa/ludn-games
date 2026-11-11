@@ -250,21 +250,99 @@
   .ludn-fan-l { transform: translateX(22px) rotate(-10deg) translateY(10px); animation: ludnFanL 800ms cubic-bezier(.2, .8, .2, 1) both; }
   .ludn-fan-mid { animation: ludnRise 700ms cubic-bezier(.2, .8, .2, 1) both; }
 
-  /* مروحة الخمس بطاقات بالرئيسية (مداقش بالنص قدّام): الإزاحة نسبة من عرض البطاقة عشان تكبر وتصغر معها */
-  @keyframes ludnFan5 { from { transform: translateX(var(--fan-from)) rotate(0); } }
-  .ludn-fan5-outer-r { --fan-from: -150%; transform: translateX(-62%) rotate(14deg) translateY(10%); }
-  .ludn-fan5-inner-r { --fan-from: -60%; transform: translateX(-25%) rotate(7deg) translateY(3%); }
-  .ludn-fan5-center { --fan-from: 0%; transform: translateY(-2%); }
-  .ludn-fan5-inner-l { --fan-from: 60%; transform: translateX(25%) rotate(-7deg) translateY(3%); }
-  .ludn-fan5-outer-l { --fan-from: 150%; transform: translateX(62%) rotate(-14deg) translateY(10%); }
-  .ludn-fan5-outer-r, .ludn-fan5-inner-r, .ludn-fan5-center, .ludn-fan5-inner-l, .ludn-fan5-outer-l { animation: ludnFan5 800ms cubic-bezier(.2, .8, .2, 1) both; }
+  /* مروحة الألعاب الدوّارة بالرئيسية (HeroFan): نفس أرقام النموذج المعتمد fan-preview بالبكسل،
+     مضروبة بـ --u اللي يصغّرها بس لين تدخل مكانها (الجوالات الصغيرة واللابتوب)، فما تطلع بطاقة برا الشاشة.
+     --u فيها cqw، فتنحسب على عناصر داخل .ludn-hfan (مو عليه نفسه) */
+  .ludn-hfan {
+    container-type: inline-size;
+    position: relative; user-select: none; -webkit-user-select: none; touch-action: pan-y;
+    /* الجوال: 3 بطاقات، عرضها كلها 434 (بطاقة 190، تباعد 118، ميلان 9)، وتقرب من حافة الشاشة لين 8px */
+    --cw: 190; --sp: 118; --ys: 10; --rot: 9deg; --stage: 320; --glow: 300;
+    --u: min(1px, calc((100cqw + 16px) / 434));
+  }
+  @media (min-width: 64rem) {
+    .ludn-hfan {
+      /* الكمبيوتر: 5 بطاقات، عرضها كلها 638 (بطاقة 232، تباعد 102، ميلان 8)، وتطلع 12px بس برا عمودها مثل النموذج
+         (أقل من حشوة القسم 16px، فما ينقصها overflow-x-clip) */
+      --cw: 232; --sp: 102; --ys: 14; --rot: 8deg; --stage: 430; --glow: 420;
+      --u: min(1px, calc((100cqw + 24px) / 638));
+    }
+  }
+  .ludn-hfan-stage { position: relative; height: calc(var(--stage) * var(--u)); }
+  .ludn-hfan-glow {
+    position: absolute; left: 50%; top: calc(50% + 22 * var(--u)); translate: -50% -50%;
+    width: calc(var(--glow) * var(--u)); aspect-ratio: 1; border-radius: 50%;
+    filter: blur(30px); opacity: .3; pointer-events: none; transition: background .7s;
+  }
+  .dark .ludn-hfan-glow { opacity: .45; }
+  .ludn-hfan-card {
+    position: absolute; left: 50%; top: 50%;
+    width: calc(var(--cw) * var(--u)); aspect-ratio: 4 / 5;
+    border-radius: calc(22 * var(--u)); overflow: hidden; cursor: pointer; background: #111;
+    border: 2px solid rgba(255, 255, 255, .08); box-shadow: 0 18px 40px rgba(0, 0, 0, .6);
+    transform: translate(-50%, -50%)
+      translate(calc(var(--o) * var(--sp) * var(--u) * -1), calc(var(--a2) * var(--ys) * var(--u)))
+      rotate(calc(var(--o) * var(--rot) * -1)) scale(var(--s));
+    transition: transform .7s cubic-bezier(.22, .8, .25, 1), opacity .7s, filter .7s, box-shadow .7s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ludn-hfan-card img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .ludn-hfan-card[data-center] {
+    border-color: rgba(226, 184, 74, .85);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, .7), 0 0 0 1px rgba(226, 184, 74, .4), 0 0 60px rgba(226, 184, 74, .25);
+  }
+  .ludn-hfan-card[data-hide] { opacity: 0; pointer-events: none; }
+  @media (min-width: 64rem) { .ludn-hfan-card[data-hide="phone"] { opacity: 1; pointer-events: auto; } }
+  .ludn-hfan-card:focus-visible { outline: 3px solid var(--ludn-gold); outline-offset: 3px; }
+  .ludn-hfan-shine {
+    position: absolute; inset: 0; pointer-events: none; transform: translateX(-120%);
+    background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .18) 50%, transparent 65%);
+  }
+  .ludn-hfan-card[data-center] .ludn-hfan-shine { animation: ludnHfanShine 3s ease-in-out infinite; }
+  @keyframes ludnHfanShine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+  .ludn-hfan-arrow {
+    position: absolute; top: 50%; translate: 0 -50%; z-index: 50;
+    width: 44px; height: 44px; border-radius: 50%; display: none; align-items: center; justify-content: center;
+    border: 1px solid rgba(255, 255, 255, .15); background: rgba(20, 22, 30, .8); color: #fff; cursor: pointer;
+    font: 400 22px/normal Arial, sans-serif; /* نفس خط أسهم النموذج (خط الزر الافتراضي) */
+  }
+  .ludn-hfan-arrow[data-side="r"] { right: 4px; }
+  .ludn-hfan-arrow[data-side="l"] { left: 4px; }
+  @media (min-width: 64rem) { .ludn-hfan-arrow { display: flex; } }
+  .ludn-hfan-info { position: relative; height: 110px; text-align: center; }
+  .ludn-hfan-name {
+    font-size: 34px; line-height: 1.2; color: var(--ludn-fg);
+    transition: opacity .35s, transform .35s;
+  }
+  .dark .ludn-hfan-name { color: #fff; }
+  .ludn-hfan-tags { margin-top: 6px; display: flex; gap: 8px; justify-content: center; }
+  /* تاق التصنيف بلون اللعبة (--c)، والفاتح أغمق شوي عشان يقرا على الخلفية البيضا */
+  .ludn-hfan-tag {
+    font-size: 13px; font-weight: 800; line-height: normal; padding: 4px 12px; border-radius: 20px;
+    background: rgba(20, 24, 33, .04); border: 1px solid color-mix(in srgb, var(--c, #888) 45%, transparent);
+    color: color-mix(in srgb, var(--c, #888) 62%, #000);
+  }
+  .dark .ludn-hfan-tag {
+    background: rgba(255, 255, 255, .07); border-color: color-mix(in srgb, var(--c, #fff) 33%, transparent); color: var(--c, #fff);
+  }
+  .ludn-hfan-tag.ludn-hfan-trial { background: rgba(110, 220, 80, .16); border-color: rgba(60, 150, 40, .4); color: #2f7a17; }
+  .dark .ludn-hfan-tag.ludn-hfan-trial { background: rgba(110, 220, 80, .14); border-color: rgba(110, 220, 80, .45); color: #9cf07a; }
+  .ludn-hfan-dots { position: absolute; bottom: -18px; left: 0; right: 0; display: flex; gap: 7px; justify-content: center; }
+  .ludn-hfan-dot {
+    position: relative; width: 8px; height: 8px; padding: 0; border: 0; border-radius: 8px; cursor: pointer;
+    background: rgba(20, 24, 33, .18); transition: all .4s;
+  }
+  /* مساحة ضغط أكبر من النقطة نفسها (للجوال) بدون ما يتغير شكلها */
+  .ludn-hfan-dot::after { content: ""; position: absolute; inset: -9px -3px; }
+  .dark .ludn-hfan-dot { background: rgba(255, 255, 255, .2); }
+  .ludn-hfan-dot[aria-current], .dark .ludn-hfan-dot[aria-current] { width: 26px; background: var(--ludn-gold); }
 
   @keyframes ludnSheetUp { from { transform: translateY(40px); } }
   .ludn-sheet-up { animation: ludnSheetUp 240ms cubic-bezier(.2, .8, .2, 1) both; }
 
   @media (prefers-reduced-motion: reduce) {
-    .ludn-fan-r, .ludn-fan-l, .ludn-fan-mid, .ludn-sheet-up,
-    .ludn-fan5-outer-r, .ludn-fan5-inner-r, .ludn-fan5-center, .ludn-fan5-inner-l, .ludn-fan5-outer-l { animation: none; }
+    .ludn-fan-r, .ludn-fan-l, .ludn-fan-mid, .ludn-sheet-up, .ludn-hfan-card[data-center] .ludn-hfan-shine { animation: none; }
+    .ludn-hfan-card, .ludn-hfan-name, .ludn-hfan-dot { transition: none; }
   }
 }
 

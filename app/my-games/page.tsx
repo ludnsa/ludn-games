@@ -6,7 +6,7 @@ import { fetchMyPlanAction, fetchUserGamesAction, fetchUserProfileAction } from 
 import { CalendarClock, Gift, Zap } from "lucide-react";
 import Link from "next/link";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
-import { MAFIA_GAME, mafiaCardSrc } from "@/constants/mafia";
+import { MAFIA_GAME } from "@/constants/mafia";
 import { MADAQESH_GAME } from "@/constants/madaqesh";
 import { LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 import { formatPlanDate, isSubscriptionActive, subscriptionDaysLeft } from "@/lib/packages";
@@ -94,8 +94,7 @@ export default function MyGamesPage() {
     { id: 'auction', title: 'المزاد', img: '/games/auction/auction-cover.webp', full: true },
     { id: 'castle-war', title: 'حرب القلاع', img: '/games/castle-war/castle-war-cover.webp', full: true },
     { id: 'world-domination', title: 'السيطرة على العالم', img: '/games/world-domination/world-domination-cover.webp', full: true },
-    // بطاقة المافيا فيها اسمها تحت: القص الافتراضي (تكبير على الوجه) يناسبها
-    { id: MAFIA_GAME.id, title: MAFIA_GAME.title, img: mafiaCardSrc('mafia') },
+    { id: MAFIA_GAME.id, title: MAFIA_GAME.title, img: '/games/mafia/mafia-cover.webp', full: true },
     { id: MADAQESH_GAME.id, title: MADAQESH_GAME.title, img: '/games/madaqesh/madaqesh-cover.webp', full: true },
     { id: LETTERS_HIVE_GAME.id, title: LETTERS_HIVE_GAME.title, img: '/games/letters-hive/hive-cover.webp', full: true },
   ];

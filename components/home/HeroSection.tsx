@@ -2,13 +2,7 @@
 
 import React from "react";
 import { Play } from "lucide-react";
-import { mafiaCardSrc } from "@/constants/mafia";
-
-const FAN_CARD = "relative shrink-0 aspect-[512/752] rounded-[14px] overflow-hidden ludn-shadow";
-// العرض مربوط بالشاشة عشان الخمس بطاقات يدخلون في الجوالات الصغيرة بدون ما يطلعون برا الحواف
-const FAN_CENTER = "w-[min(27vw,124px)] lg:w-[min(13vw,150px)]";
-const FAN_INNER = "w-[min(23.5vw,108px)] lg:w-[min(11.6vw,134px)]";
-const FAN_OUTER = "w-[min(20vw,92px)] lg:w-[min(10vw,116px)]";
+import { HeroFan } from "./HeroFan";
 
 export const HeroSection = ({
   scrollToSection,
@@ -24,90 +18,71 @@ export const HeroSection = ({
   onJoinSubmit: (e: React.FormEvent) => void;
 }) => {
   return (
-    <section
-      id="hero"
-      className="relative w-full max-w-6xl mx-auto px-4 pt-[calc(5.5rem+env(safe-area-inset-top,0px))] lg:pt-32 pb-8 lg:pb-14 grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-x-10"
-    >
-      <div aria-hidden className="ludn-lattice absolute inset-0 pointer-events-none" />
+    // القص الأفقي على غلاف بعرض الشاشة (مو القسم): بطاقات المروحة المخفية اللي تطلع برا ما تسوي سكرول،
+    // وظل البطاقات الظاهرة ما ينقص عند حافة القسم
+    <div className="overflow-x-clip">
+      <section
+        id="hero"
+        className="relative w-full max-w-6xl mx-auto px-4 pt-[calc(5.5rem+env(safe-area-inset-top,0px))] lg:pt-32 pb-8 lg:pb-14 grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-x-10"
+      >
+        <div aria-hidden className="ludn-lattice absolute inset-0 pointer-events-none" />
 
-      {/* مروحة خمس بطاقات من الألعاب (مداقش بالنص قدّام): كل البطاقات سادة (صورة بس بدون أسماء) وبنفس الإطار */}
-      {/* min-w-0: عرض البطاقات المتراكبة أكبر من مجموعها الظاهر، فما نخليها توسّع العمود */}
-      <div aria-hidden className="relative min-w-0 flex justify-center items-end lg:items-center h-[min(47vw,214px)] lg:h-[330px] pb-1.5 lg:col-start-2 lg:row-start-1">
-        <div className={`${FAN_CARD} ludn-fan5-outer-r z-[1] ${FAN_OUTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/games/world-domination/world-domination-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[70%_50%]" />
+        {/* مروحة الألعاب الدوّارة (نفس النموذج المعتمد): كل الألعاب بأغلفتها */}
+        {/* mb-4: بالجوال النقاط تحت المروحة (bottom -18px مثل النموذج) ما تركب على السطر اللي تحتها */}
+        <div className="relative min-w-0 mb-4 lg:mb-0 lg:col-start-2 lg:row-start-1">
+          <HeroFan />
         </div>
-        {/* اسم "مافيا" جزء من صورة البطاقة (شريط تحت يبدأ من 79% من طولها)، وفيها إطار مرسوم:
-            نكبّرها 1.31 من فوق عشان يطلع الشريط والإطار المرسوم برا البطاقة، والإطار من الكود مثل الباقي */}
-        <div className={`${FAN_CARD} ludn-fan5-inner-r z-[2] ${FAN_INNER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={mafiaCardSrc("mafia")} alt="" draggable={false} className="w-full h-full object-cover scale-131 origin-[50%_5%]" />
-        </div>
-        {/* مداقش بالنص وفوق الكل */}
-        <div className={`${FAN_CARD} ludn-fan5-center z-[3] ${FAN_CENTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/games/madaqesh/madaqesh-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[50%_35%]" />
-        </div>
-        <div className={`${FAN_CARD} ludn-fan5-inner-l z-[2] ${FAN_INNER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/games/castle-war/castle-war-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[50%_30%]" />
-        </div>
-        {/* غلاف المزاد بنفس إطار السيطرة على العالم وبدون شريط اسم. أغلب البطاقة تحت حرب القلاع، والدلّال بيمين الصورة: نكبّرها عليه عشان يبان هو ومطرقته */}
-        <div className={`${FAN_CARD} ludn-fan5-outer-l z-[1] ${FAN_OUTER} border-2 border-[#c0ada0] bg-[#0b0c10]`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/games/auction/auction-cover.webp" alt="" draggable={false} className="w-full h-full object-cover object-[100%_30%] scale-150 origin-[100%_25%]" />
-        </div>
-      </div>
 
-      <div className="relative grid gap-4 min-w-0 lg:col-start-1 lg:row-start-1">
-        <p className="text-[13px] font-bold tracking-wide text-ludn-gold-text">ألعاب جماعية · بدون تحميل</p>
-        <h1 className="font-display text-[clamp(36px,10vw,58px)] leading-[1.12] text-ludn-fg text-balance">
-          اجمع الربع والعبوا من جوالاتكم
-        </h1>
-        <p className="text-base font-semibold leading-relaxed text-ludn-muted max-w-[34em]">
-          ألعاب جماعية للعائلة والأصدقاء والدوام. واحد ينشئ الغرفة، والباقين يدخلون بالكود من جوالاتهم.
-        </p>
+        <div className="relative grid gap-4 min-w-0 lg:col-start-1 lg:row-start-1">
+          <p className="text-[13px] font-bold tracking-wide text-ludn-gold-text">ألعاب جماعية · بدون تحميل</p>
+          <h1 className="font-display text-[clamp(36px,10vw,58px)] leading-[1.12] text-ludn-fg text-balance">
+            اجمع الربع والعبوا من جوالاتكم
+          </h1>
+          <p className="text-base font-semibold leading-relaxed text-ludn-muted max-w-[34em]">
+            ألعاب جماعية للعائلة والأصدقاء والدوام. واحد ينشئ الغرفة، والباقين يدخلون بالكود من جوالاتهم.
+          </p>
 
-        {/* grid-cols-1 (minmax(0,1fr)) بالعمودين: خانة الكود لها عرض افتراضي، وبدونها تفرض على العمود أعرض من الجوالات الضيقة */}
-        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[auto_1fr] lg:items-end">
-          <a
-            href="#games-section"
-            onClick={(e) => scrollToSection(e, "games-section")}
-            className="min-h-[52px] px-7 rounded-2xl bg-ludn-gold text-ludn-gold-ink font-black text-base flex items-center justify-center gap-2 shadow-[0_8px_22px_var(--ludn-glow)] transition-transform active:scale-[0.98]"
-          >
-            <Play size={20} className="fill-current" /> ابدأ اللعب
-          </a>
+          {/* grid-cols-1 (minmax(0,1fr)) بالعمودين: خانة الكود لها عرض افتراضي، وبدونها تفرض على العمود أعرض من الجوالات الضيقة */}
+          <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[auto_1fr] lg:items-end">
+            <a
+              href="#games-section"
+              onClick={(e) => scrollToSection(e, "games-section")}
+              className="min-h-[52px] px-7 rounded-2xl bg-ludn-gold text-ludn-gold-ink font-black text-base flex items-center justify-center gap-2 shadow-[0_8px_22px_var(--ludn-glow)] transition-transform active:scale-[0.98]"
+            >
+              <Play size={20} className="fill-current" /> ابدأ اللعب
+            </a>
 
-          <form onSubmit={onJoinSubmit} className="grid grid-cols-1 gap-1.5 rounded-[18px] bg-ludn-surface border border-ludn-line p-3">
-            <label htmlFor="join-code" className="text-[13px] font-bold text-ludn-muted">
-              عندك كود غرفة؟
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="join-code"
-                type="text"
-                maxLength={5}
-                value={joinCode}
-                onChange={(e) => onJoinCodeChange(e.target.value)}
-                placeholder="مثال: C7X9K"
-                dir="ltr"
-                autoComplete="off"
-                autoCapitalize="characters"
-                spellCheck={false}
-                className="flex-1 min-w-0 h-12 rounded-xl border border-ludn-line bg-ludn-surface-2 px-3.5 text-center text-lg font-black tracking-[0.3em] uppercase text-ludn-fg placeholder:tracking-normal placeholder:text-sm placeholder:font-bold placeholder:text-ludn-muted outline-none focus:border-ludn-gold transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={joinCode.trim().length !== 5}
-                className="h-12 px-5 rounded-xl bg-ludn-green text-white font-black transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                دخول
-              </button>
-            </div>
-            {joinError && <p className="text-[12.5px] font-bold text-rose-500">{joinError}</p>}
-          </form>
+            <form onSubmit={onJoinSubmit} className="grid grid-cols-1 gap-1.5 rounded-[18px] bg-ludn-surface border border-ludn-line p-3">
+              <label htmlFor="join-code" className="text-[13px] font-bold text-ludn-muted">
+                عندك كود غرفة؟
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="join-code"
+                  type="text"
+                  maxLength={5}
+                  value={joinCode}
+                  onChange={(e) => onJoinCodeChange(e.target.value)}
+                  placeholder="مثال: C7X9K"
+                  dir="ltr"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  className="flex-1 min-w-0 h-12 rounded-xl border border-ludn-line bg-ludn-surface-2 px-3.5 text-center text-lg font-black tracking-[0.3em] uppercase text-ludn-fg placeholder:tracking-normal placeholder:text-sm placeholder:font-bold placeholder:text-ludn-muted outline-none focus:border-ludn-gold transition-colors"
+                />
+                <button
+                  type="submit"
+                  disabled={joinCode.trim().length !== 5}
+                  className="h-12 px-5 rounded-xl bg-ludn-green text-white font-black transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  دخول
+                </button>
+              </div>
+              {joinError && <p className="text-[12.5px] font-bold text-rose-500">{joinError}</p>}
+            </form>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 };
