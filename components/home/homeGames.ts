@@ -37,7 +37,7 @@ export const HOME_GAMES: HomeGame[] = [
     description: MAFIA_GAME.description,
     line: "مين المافيا بينكم؟ ليل ونهار، وكل واحد على جواله.",
     category: "أدوار سرية",
-    meta: [`من ${MAFIA_CONFIG.MIN_PLAYERS} إلى ${MAFIA_CONFIG.MAX_PLAYERS} لاعب`, "كل واحد بجواله", "فئة جديدة: الشيخ"],
+    meta: [`من ${MAFIA_CONFIG.MIN_PLAYERS} إلى ${MAFIA_CONFIG.MAX_PLAYERS} لاعب`, "كل واحد بجواله"],
     cover: { img: "/games/mafia/mafia-cover.webp", full: true },
     color: "#e24646",
   },

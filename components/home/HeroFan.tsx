@@ -13,6 +13,8 @@ const SPIN_MS = 3000;
 /** الاسم يختفي ويرجع بعد هالمدة باسم اللعبة الجديدة (نفس النموذج) */
 const LABEL_DELAY_MS = 180;
 const SWIPE_PX = 40;
+/** بالجوال: أي لمسة (ضغط أو سحب) توقف اللف وهي على الشاشة وهالمدة بعد ما تنرفع، عشان البطاقة ما تتحرك تحت الإصبع */
+const TOUCH_HOLD_MS = 5000;
 
 /** مكان البطاقة من اللي بالنص: 0 بالنص، الموجب يسار والسالب يمين */
 const offsetOf = (i: number, cur: number) => {
@@ -24,17 +26,31 @@ const offsetOf = (i: number, cur: number) => {
 export function HeroFan() {
   const [cur, setCur] = useState(0);
   const [label, setLabel] = useState(0);
-  /** يزيد مع كل تنقّل يدوي عشان عدّاد اللف يبدأ من جديد */
+  /** يزيد مع كل تنقّل يدوي أو رفع إصبع عشان عدّاد اللف يبدأ من جديد */
   const [restart, setRestart] = useState(0);
   const hover = useRef(false);
+  /** إصبع على المروحة الحين */
+  const touching = useRef(false);
+  /** ما فيه لف تلقائي قبل هالوقت (آخر لمسة + 5 ثواني) */
+  const holdUntil = useRef(0);
   const touchX = useRef<number | null>(null);
   const swipedAt = useRef(0);
 
+  // اللف: كل 3 ثواني، إلا والماوس فوقها، أو فيه إصبع عليها، أو ما مرت 5 ثواني من آخر لمسة
   useEffect(() => {
-    const id = setInterval(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const wait = (ms: number) => {
+      timer = setTimeout(step, ms);
+    };
+    const step = () => {
+      if (touching.current) return wait(TOUCH_HOLD_MS); // رفع الإصبع يعيد الجدولة
+      const held = holdUntil.current - Date.now();
+      if (held > 0) return wait(held);
       if (!hover.current) setCur((c) => (c + 1) % N);
-    }, SPIN_MS);
-    return () => clearInterval(id);
+      wait(SPIN_MS);
+    };
+    wait(Math.max(SPIN_MS, holdUntil.current - Date.now()));
+    return () => clearTimeout(timer);
   }, [restart]);
 
   useEffect(() => {
@@ -65,9 +81,17 @@ export function HeroFan() {
         hover.current = false;
       }}
       onTouchStart={(e) => {
+        touching.current = true;
+        holdUntil.current = Date.now() + TOUCH_HOLD_MS;
         touchX.current = e.touches[0].clientX;
       }}
       onTouchEnd={(e) => {
+        // آخر إصبع ارتفع: اللف يرجع بعد 5 ثواني من الحين
+        if (e.touches.length === 0) {
+          touching.current = false;
+          holdUntil.current = Date.now() + TOUCH_HOLD_MS;
+          setRestart((r) => r + 1);
+        }
         if (touchX.current === null) return;
         const dx = e.changedTouches[0].clientX - touchX.current;
         touchX.current = null;
@@ -75,6 +99,12 @@ export function HeroFan() {
           swipedAt.current = Date.now();
           go(cur + (dx > 0 ? 1 : -1));
         }
+      }}
+      onTouchCancel={() => {
+        touching.current = false;
+        holdUntil.current = Date.now() + TOUCH_HOLD_MS;
+        touchX.current = null;
+        setRestart((r) => r + 1);
       }}
     >
       <div className="ludn-hfan-stage">
