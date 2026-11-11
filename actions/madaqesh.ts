@@ -2,7 +2,8 @@
 
 import { randomUUID } from "crypto";
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
-import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameAccess";
+import { checkAccessAction } from "@/app/actions/gameAccess";
+import { beginGameSession, cancelGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 import { MADAQESH_BOT_NAMES, MADAQESH_CONFIG, MADAQESH_GAME } from "@/constants/madaqesh";
 import {
   MadaqeshCreateSchema,
@@ -97,6 +98,31 @@ async function guardedUpdate(admin: Admin, room: MadaqeshRoom, patch: Partial<Ma
     return false;
   }
   return Boolean(data && data.length > 0);
+}
+
+// ---------------------------------------------------------------------
+// جلسات اللعب: حساب التجربة المجانية والرصيد القديم بالسيرفر (lib/game-sessions.ts)
+// ---------------------------------------------------------------------
+
+const SESSION_BUSY_MESSAGE = "عندك لعبة مداقش ثانية شغالة بنفس الحساب. كمّلها أو أنهها، وبعدها ابدأ هذي.";
+
+/** اللعبة وقفت فعلاً (رجعت للانتظار أو انتهت أو انقفلت): الجلسة ترجع لو قبل ما تخلص أول جولة */
+async function endSessionIfStopped(admin: Admin, roomCode: string): Promise<void> {
+  const room = await loadRoom(admin, roomCode);
+  if (room && (room.phase === "lobby" || room.phase === "ended" || room.phase === "closed")) {
+    await endGameSession(admin, MADAQESH_GAME.id, roomCode);
+  }
+}
+
+/** غرف قديمة طلع منها منشئها قبل ما تخلص أول جولة، ورجعت تجربتها مع البدء الجديد: تنقفل عشان ما تكمل ببلاش */
+async function closeAbandonedRooms(admin: Admin, roomCodes: string[]): Promise<void> {
+  await Promise.all(
+    roomCodes.map(async (code) => {
+      const room = await loadRoom(admin, code);
+      if (!room || room.phase === "lobby" || room.phase === "ended" || room.phase === "closed") return;
+      await guardedUpdate(admin, room, { phase: "closed", phase_ends_at: null });
+    })
+  );
 }
 
 type PlayerContext =
@@ -266,6 +292,8 @@ async function settle(admin: Admin, room: MadaqeshRoom, round: MadaqeshRound, wi
         admin.from("madaqesh_players").update({ balance: u.balance, bankrupts: u.bankrupts, is_out: u.is_out }).eq("id", u.id)
       )
   );
+  // جلسات اللعب: أول جولة تخلص (أو فاز أحد) = اللعبة تنحسب. التراجع عن الجولة بعدها ما يرجّعها
+  await countGameSession(admin, MADAQESH_GAME.id, room.room_code);
   return true;
 }
 
@@ -674,9 +702,20 @@ export async function startMadaqeshGame(roomCode: string): Promise<ActionResult>
   const players = await loadPlayers(admin, room.room_code);
   if (players.length < MADAQESH_CONFIG.MIN_PLAYERS) return fail(`لازم ${MADAQESH_CONFIG.MIN_PLAYERS} لاعبين على الأقل.`);
 
-  // كل بدء ينحسب لعبة (نفس المافيا): اشتراك بدون خصم، أو التجربة المجانية، أو لعبة من الرصيد القديم.
-  // الفحص قبل تصفير الأرصدة، عشان اللي ما عنده اشتراك ما تنمسح لعبته الحالية
-  if (!(await checkAccessAction(MADAQESH_GAME.id)).allowed) return fail(MADAQESH_CONFIG.NO_ACCESS_MESSAGE);
+  // كل بدء تنحجز له لعبة بالسيرفر (نفس المافيا): اشتراك (تنحسب على طول)، أو التجربة المجانية أو لعبة
+  // من الرصيد القديم (ما تنحسب إلا لما تخلص أول جولة، وترجع لو انتهت قبلها). لو ما انحجزت، اللعبة ما تبدأ.
+  // الحجز قبل تصفير الأرصدة، عشان اللي ما عنده اشتراك ما تنمسح لعبته الحالية
+  const session = await beginGameSession(admin, ctx.userId, MADAQESH_GAME.id, room.room_code);
+  if (session.releasedRooms.length > 0) await closeAbandonedRooms(admin, session.releasedRooms);
+  if (!session.ok) {
+    return fail(
+      session.reason === "no_access"
+        ? MADAQESH_CONFIG.NO_ACCESS_MESSAGE
+        : session.reason === "busy"
+          ? SESSION_BUSY_MESSAGE
+          : "تعذّر بدء اللعبة، حاول مرة ثانية."
+    );
+  }
 
   await admin.from("madaqesh_rounds").delete().eq("room_code", room.room_code);
   await admin
@@ -684,9 +723,23 @@ export async function startMadaqeshGame(roomCode: string): Promise<ActionResult>
     .update({ balance: room.settings.startBalance, bankrupts: 0, is_out: false })
     .eq("room_code", room.room_code);
   const ok = await startRound(admin, { ...room, round_number: 0 }, null);
-  if (!ok) return fail("تعذّر بدء اللعبة، حاول مرة ثانية.");
-  await consumeGameSessionAction(MADAQESH_GAME.id, ctx.userId);
+  if (!ok) {
+    // البدء ما صار (جهاز ثاني سبقه أو خطأ): الحجز ينلغى كأنه ما صار
+    await cancelGameSession(admin, session.sessionId);
+    return fail("تعذّر بدء اللعبة، حاول مرة ثانية.");
+  }
   await runBots(admin, room.room_code);
+  return { success: true };
+}
+
+/**
+ * صفحة المنشئ مفتوحة واللعبة شغالة (ترسل كل دقيقة): منها يفرّق السيرفر بين منشئ موجود
+ * (بعد 10 دقايق تنحسب) ومنشئ طلع (ترجع تجربته لو بدأ لعبة ثانية).
+ */
+export async function pingMadaqeshSession(roomCode: string): Promise<ActionResult> {
+  const ctx = await requireHost(roomCode);
+  if (!ctx.ok) return { success: true };
+  await pingGameSession(ctx.admin, ctx.userId, MADAQESH_GAME.id, ctx.room.room_code);
   return { success: true };
 }
 
@@ -807,7 +860,9 @@ export async function kickMadaqeshPlayer(input: { roomCode: string; playerId: st
     const players = await loadPlayers(admin, room.room_code);
     const winner = checkMadaqeshWinner(players, room.settings.targetAmount);
     if (fresh && winner && players.filter((p) => !p.is_out).length <= 1) {
-      await guardedUpdate(admin, fresh, { phase: "ended", phase_ends_at: null, winner_id: winner });
+      const ended = await guardedUpdate(admin, fresh, { phase: "ended", phase_ends_at: null, winner_id: winner });
+      // انتهت بفائز قبل ما تخلص أول جولة: تنحسب
+      if (ended) await countGameSession(admin, MADAQESH_GAME.id, room.room_code);
     }
   }
   await runBots(admin, room.room_code);
@@ -869,6 +924,7 @@ export async function newMadaqeshRoom(roomCode: string): Promise<ActionResult<{ 
     .from("madaqesh_rooms")
     .update({ phase: "closed", phase_ends_at: null, settings: { ...room.settings, movedTo: newCode }, phase_seq: room.phase_seq + 1 })
     .eq("room_code", room.room_code);
+  await endSessionIfStopped(admin, room.room_code);
   return { success: true, data: { roomCode: newCode, token: joined.token } };
 }
 
@@ -880,6 +936,7 @@ export async function endMadaqeshGame(roomCode: string): Promise<ActionResult> {
   const players = await loadPlayers(admin, room.room_code);
   const top = players.filter((p) => !p.is_out).sort((a, b) => b.balance - a.balance)[0];
   await guardedUpdate(admin, room, { phase: "ended", phase_ends_at: null, winner_id: top?.id ?? null });
+  await endSessionIfStopped(admin, room.room_code);
   return { success: true };
 }
 
@@ -901,6 +958,7 @@ export async function playMadaqeshAgain(roomCode: string): Promise<ActionResult>
     round: null,
     winner_id: null,
   });
+  await endSessionIfStopped(admin, room.room_code);
   return { success: true };
 }
 
@@ -911,6 +969,7 @@ export async function closeMadaqeshRoom(roomCode: string): Promise<ActionResult>
   const { admin, room } = ctx;
   if (room.phase === "closed") return { success: true };
   await guardedUpdate(admin, room, { phase: "closed", phase_ends_at: null });
+  await endSessionIfStopped(admin, room.room_code);
   return { success: true };
 }
 

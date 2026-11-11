@@ -15,6 +15,7 @@ import {
   getQuizCategories,
   getQuizPreparedBoard,
   getQuizSession,
+  pingQuizSession,
   prepareQuizSession,
   resolveQuizQuestion,
   revealQuizAnswer,
@@ -331,6 +332,27 @@ export function useQuizHost() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode, gameState]);
 
+  // جلسات اللعب: صفحة الحكم ترسل كل دقيقة والجلسة شغالة. منها يعرف السيرفر إن الحكم موجود
+  // (بعد 10 دقايق تنحسب)، ولو سكّرها وبدأ جلسة ثانية ترجع تجربة هذي.
+  // والجلسة الشغالة تنعلّم هنا كمان (مو بس لما يوصل رد "ابدأ")، عشان لو الرد ضاع وحدّث الصفحة يكمل بدل الباقات
+  const inPlay = gameState === "board" || gameState === "question" || gameState === "answer";
+  const sessionPing = inPlay ? roomCode : "";
+  useEffect(() => {
+    if (!sessionPing) return;
+    sessionStorage.setItem(ACTIVE_SESSION_KEY, "true");
+    const ping = () => void pingQuizSession(sessionPing).catch(() => {});
+    const onVisible = () => {
+      if (document.visibilityState === "visible") ping();
+    };
+    ping();
+    const id = setInterval(ping, 60_000);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [sessionPing]);
+
   // -------------------------------------------------------------------
   // المؤقت — يُحسب محلياً من وقت الانتهاء، بلا أي كتابة لكل ثانية
   // -------------------------------------------------------------------
@@ -579,7 +601,9 @@ export function useQuizHost() {
     });
 
   const newSession = () =>
-    triggerConfirm("بدء جلسة جديدة؟ سيتم إنشاء رمز غرفة جديد وطرد اللاعبين الحاليين.", () => {
+    triggerConfirm("بدء جلسة جديدة؟ سيتم إنشاء رمز غرفة جديد وطرد اللاعبين الحاليين.", async () => {
+      // الجلسة الحالية شغالة: تنتهي بالسيرفر أول (نفس "إنهاء الجلسة")، عشان ما تظل محجوزة على الحساب
+      if (inPlay) await endQuizSession(roomCode).catch(() => null);
       sessionStorage.removeItem(ROOM_STORAGE_KEY);
       sessionStorage.removeItem(ACTIVE_SESSION_KEY);
       window.location.reload();

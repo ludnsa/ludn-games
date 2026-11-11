@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { initialHiveState, startHiveSession, type HiveState, type HiveTeam } from "@/lib/game/letters-hive-engine";
-import { getMyHiveRoom, openHiveRoom, saveHiveRoom, startHiveRoom } from "@/actions/letters-hive";
+import { getMyHiveRoom, openHiveRoom, pingHiveSession, saveHiveRoom, startHiveRoom } from "@/actions/letters-hive";
 import { HIVE_ROOM_CODE_RE } from "@/constants/letters-hive";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { createThrottledRunner } from "@/lib/throttled-runner";
@@ -354,6 +354,24 @@ export function useLettersHiveHost() {
     }
   }, [state, boot, flush]);
 
+  // جلسات اللعب: صفحة المقدم ترسل كل دقيقة والجلسة شغالة. منها يعرف السيرفر إن المقدم موجود
+  // (بعد 10 دقايق تنحسب)، ولو طلع وبدأ جلسة ثانية بعد 3 دقايق ترجع تجربة هذي
+  const sessionLive = boot === "ready" && state.status === "playing";
+  useEffect(() => {
+    if (!sessionLive) return;
+    const ping = () => void pingHiveSession().catch(() => {});
+    const onVisible = () => {
+      if (document.visibilityState === "visible") ping();
+    };
+    ping();
+    const id = setInterval(ping, 60_000);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [sessionLive]);
+
   const update = useCallback(
     (fn: (s: HiveState) => HiveState) => setState((s) => ({ ...fn(s), updatedAt: nextStamp(s.updatedAt) })),
     []
@@ -369,6 +387,19 @@ export function useLettersHiveHost() {
     } catch {
       return "error";
     }
+    if (!res.success && res.error === "busy") {
+      // فيه جلسة محجوزة لهالحساب (مثلاً "ابدأ" الأول وصل للسيرفر ورده ما وصل): نكمل منها بدل ما تنحجز ثانية
+      try {
+        const mine = await withTimeout(getMyHiveRoom(), 10_000);
+        if (mine.success && mine.data.room?.active && aliveRef.current) {
+          apply(mine.data);
+          return "ok";
+        }
+      } catch {
+        // نرجع خطأ عادي ويحاول مرة ثانية
+      }
+      return "error";
+    }
     if (!res.success) return res.error === "no_access" ? "no_access" : "error";
     queue.current.pending = null;
     fromServerRef.current = next;
@@ -379,7 +410,7 @@ export function useLettersHiveHost() {
     // الشاشات اللي فاتحة الكود من قبل البدء تقرا على طول (لو الغرفة جديدة، البث من القاعدة يوصلها)
     if (res.data.roomCode) sendHint(next.updatedAt);
     return "ok";
-  }, [sendHint]);
+  }, [sendHint, apply]);
 
   /** نافذة شاشة العرض قبل البدء: نجهّز الغرفة (بدون ما ينحسب شي) ونرجّع كودها */
   const ensureRoom = useCallback(async (): Promise<string | null> => {

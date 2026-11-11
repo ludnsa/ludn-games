@@ -14,6 +14,7 @@ import {
   newMadaqeshRoom,
   nextMadaqeshRound,
   outMadaqeshPlayer,
+  pingMadaqeshSession,
   placeMadaqeshBid,
   playMadaqeshAgain,
   respondMadaqesh,
@@ -160,6 +161,25 @@ export function useMadaqeshGame(
       supabase.removeChannel(channel);
     };
   }, [supabase, roomCode, fetchPublic, fetchMe, fetchHistory]);
+
+  // جلسات اللعب: صفحة المنشئ ترسل كل دقيقة واللعبة شغالة. منها يعرف السيرفر إن المنشئ موجود
+  // (بعد 10 دقايق تنحسب)، ولو سكّرها وبدأ لعبة ثانية ترجع تجربة هذي
+  const inPlay = !!room && room.phase !== "lobby" && room.phase !== "ended" && room.phase !== "closed";
+  const sessionPing = me?.isHost && inPlay ? roomCode : "";
+  useEffect(() => {
+    if (!sessionPing) return;
+    const ping = () => void pingMadaqeshSession(sessionPing).catch(() => {});
+    const onVisible = () => {
+      if (document.visibilityState === "visible") ping();
+    };
+    ping();
+    const id = setInterval(ping, 60_000);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [sessionPing]);
 
   // السجل يتحدث مع كل جولة تنحسب أو تنعاد
   const historyKey = `${room?.round_number ?? 0}:${room?.phase ?? ""}`;

@@ -4,7 +4,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * جلسات اللعب (supabase/migrations/0015_game_sessions.sql): التجربة المجانية والرصيد القديم
  * ما ينحرقون لحظة "ابدأ".
  *   ابدأ (beginGameSession)  : يحجز. لو ما انحجز، اللعبة ما تبدأ.
- *   احتساب (countGameSession): اللعبة وصلت الجزء الحقيقي (المافيا: أول صباح أو فائز).
+ *   احتساب (countGameSession): اللعبة وصلت الجزء الحقيقي، أو انتهت بفائز قبله:
+ *                              المافيا: أول صباح. مداقش: أول جولة تخلص.
+ *                              تحدي الفئات: ربع أسئلة اللوحة ينحسم. خلية الحروف: فريق يفوز بأول جولة.
  *   إنهاء (endGameSession)   : أنهاها بدري: ترجع (مرتين بالكثير لكل لعبة لكل حساب)، وإلا تنحسب.
  * والقواعد كلها (10 دقايق، 3 دقايق بدون الصفحة، حد الإرجاع) بالقاعدة نفسها، بخطوة وحدة.
  *
@@ -14,7 +16,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 /** الألعاب اللي انتقلت للنظام الجديد. الباقي على consumeGameSessionAction لين نعتمدها */
-export const SESSION_GAMES: ReadonlySet<string> = new Set(["mafia"]);
+export const SESSION_GAMES: ReadonlySet<string> = new Set(["mafia", "madaqesh", "quiz-grid", "letters-hive"]);
 
 export type GameSessionKind = "trial" | "token" | "subscription" | "purchased";
 

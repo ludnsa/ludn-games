@@ -1,10 +1,10 @@
 "use server";
 
 import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
-import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameAccess";
+import { beginGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 import { LETTERS_HIVE_CONFIG, LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 import { HiveRevSchema, HiveRoomCodeSchema, HiveStateSchema } from "@/lib/schemas";
-import type { HiveState } from "@/lib/game/letters-hive-engine";
+import { hiveScores, type HiveState } from "@/lib/game/letters-hive-engine";
 
 // =====================================================================
 // غرفة خلية الحروف الأونلاين (جدول hive_rooms، migration 0014)
@@ -12,14 +12,17 @@ import type { HiveState } from "@/lib/game/letters-hive-engine";
 // - كل حساب له غرفة وحدة (hive_room_hosts)، وكودها يظل نفسه ما دام تحدثت آخر 24 ساعة.
 // - الكتابة كلها من هنا بمفتاح الخدمة، بعد ما نتأكد إن اللي يكتب صاحب الغرفة.
 //   المتصفح يقرا بس (شاشة العرض بالكود).
-// - اللعبة تنحسب مرة وحدة: في startHiveRoom ("ابدأ الجلسة"). الحفظ ما يقدر يبدأ جلسة.
+// - جلسات اللعب (lib/game-sessions.ts): "ابدأ الجلسة" يحجز التجربة أو لعبة من الرصيد القديم (المشترك
+//   تنحسب على طول). تنحسب مرة وحدة لما يفوز فريق بأول جولة (أو 10 دقايق والمقدم موجود)، والجولات بعدها
+//   ما تنحسب. وترجع لو انتهت الجلسة قبلها. الحفظ ما يقدر يبدأ جلسة.
 // - لو الجدول مو موجود أو فيه مشكلة: الغرفة ترجع null واللعبة تكمل على نفس الجهاز مثل قبل.
 //
-// الأخطاء اللي يفهمها الجهاز: login (مو مسجّل)، no_access (خلصت التجربة)، invalid، error (مؤقت).
+// الأخطاء اللي يفهمها الجهاز: login (مو مسجّل)، no_access (خلصت التجربة)، busy (فيه جلسة شغالة لنفس
+// الحساب، مثلاً "ابدأ" الأول وصل للسيرفر ورده ما وصل)، invalid، error (مؤقت).
 // =====================================================================
 
 type Admin = ReturnType<typeof getSupabaseServiceRole>;
-type Fail = { success: false; error: "login" | "no_access" | "invalid" | "error" };
+type Fail = { success: false; error: "login" | "no_access" | "busy" | "invalid" | "error" };
 type Ok<T> = { success: true; data: T };
 
 const fail = (error: Fail["error"]): Fail => ({ success: false, error });
@@ -35,6 +38,12 @@ export type HiveRoomInfo = {
   /** فيه جلسة شغالة يكمل منها المقدم */
   active: boolean;
 };
+
+/**
+ * جلسة اللعب مربوطة بالحساب نفسه: كل حساب له غرفة وحدة، والجلسة تمشي حتى لو الغرفة الأونلاين
+ * مو متاحة (نفس الجهاز بس)
+ */
+const sessionRef = (userId: string) => userId;
 
 /** نترك دقيقة احتياط عشان الغرفة ما تختفي عن الشاشات وسط الحفظ */
 const FRESH_MS = LETTERS_HIVE_CONFIG.ROOM_FRESH_HOURS * 3_600_000 - 60_000;
@@ -170,9 +179,9 @@ export async function openHiveRoom(input: { state: HiveState }): Promise<Ok<{ ro
 }
 
 /**
- * "ابدأ الجلسة": هنا بس تنحسب اللعبة، مرة وحدة لكل جلسة (نفس قواعد gameAccess).
- * جولة جديدة، وتحديث الصفحة، والرجوع من جهاز ثاني ما تنحسب.
- * roomCode: null = الغرفة الأونلاين ما تجهزت، واللعبة تبدأ على نفس الجهاز (والعدّ صار).
+ * "ابدأ الجلسة": هنا بس تنحجز اللعبة، مرة وحدة لكل جلسة (نفس قواعد gameAccess).
+ * جولة جديدة، وتحديث الصفحة، والرجوع من جهاز ثاني ما تنحجز من جديد.
+ * roomCode: null = الغرفة الأونلاين ما تجهزت، واللعبة تبدأ على نفس الجهاز (والحجز صار).
  */
 export async function startHiveRoom(input: { state: HiveState }): Promise<Ok<{ roomCode: string | null; rev: number }> | Fail> {
   const parsed = HiveStateSchema.safeParse(input?.state);
@@ -184,16 +193,24 @@ export async function startHiveRoom(input: { state: HiveState }): Promise<Ok<{ r
   const userId = await currentUserId();
   if (!userId) return fail("login");
 
-  const access = await checkAccessAction(LETTERS_HIVE_GAME.id);
-  if (!access.allowed) return fail(access.reason === "no_tokens" ? "no_access" : "error");
+  // الحجز قبل ما تنكتب الجلسة بالغرفة. لو ما انحجزت، الجلسة ما تبدأ
+  const admin = getSupabaseServiceRole();
+  const session = await beginGameSession(admin, userId, LETTERS_HIVE_GAME.id, sessionRef(userId));
+  if (!session.ok) return fail(session.reason === "no_access" ? "no_access" : session.reason === "busy" ? "busy" : "error");
 
-  const [counted, room] = await Promise.all([
-    consumeGameSessionAction(LETTERS_HIVE_GAME.id, userId),
-    ensureRoom(getSupabaseServiceRole(), userId, s, true),
-  ]);
-  // نفس قبل: لو العدّ فشل، الجلسة تبدأ عادي
-  if (!counted.success) console.error("letters-hive startHiveRoom: counting failed");
+  const room = await ensureRoom(admin, userId, s, true);
   return { success: true, data: { roomCode: room?.code ?? null, rev: room?.rev ?? s.updatedAt } };
+}
+
+/**
+ * صفحة المقدم مفتوحة والجلسة شغالة (ترسل كل دقيقة): منها يفرّق السيرفر بين مقدم موجود
+ * (بعد 10 دقايق تنحسب) ومقدم طلع (ترجع تجربته لو بدأ جلسة ثانية بعد 3 دقايق).
+ */
+export async function pingHiveSession(): Promise<Ok<null> | Fail> {
+  const userId = await currentUserId();
+  if (!userId) return fail("login");
+  await pingGameSession(getSupabaseServiceRole(), userId, LETTERS_HIVE_GAME.id, sessionRef(userId));
+  return { success: true, data: null };
 }
 
 /**
@@ -239,7 +256,17 @@ export async function saveHiveRoom(input: {
     console.error("letters-hive saveHiveRoom update error:", error);
     return fail("error");
   }
-  if (data && data.length > 0) return { success: true, data: { result: "saved" } };
+  if (data && data.length > 0) {
+    // جلسات اللعب (بعد ما تأكدنا إنها انحفظت وإن اللي حفظ صاحب الغرفة):
+    // فاز فريق بجولة = الجلسة تنحسب (مرة وحدة، والجولات بعدها ما تنحسب). انتهت قبلها = ترجع
+    if (!playing) {
+      await endGameSession(admin, LETTERS_HIVE_GAME.id, sessionRef(userId));
+    } else {
+      const scores = hiveScores(state.data as HiveState);
+      if (scores.green + scores.red > 0) await countGameSession(admin, LETTERS_HIVE_GAME.id, sessionRef(userId));
+    }
+    return { success: true, data: { result: "saved" } };
+  }
 
   const { data: row } = await admin.from("hive_rooms").select("status").eq("room_code", code.data).maybeSingle();
   if (!row) return { success: true, data: { result: "gone" } };

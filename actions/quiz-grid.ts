@@ -12,7 +12,8 @@ import {
   QuizSelectCellSchema,
   QuizStartSessionSchema,
 } from "@/lib/schemas";
-import { checkAccessAction, consumeGameSessionAction } from "@/app/actions/gameAccess";
+import { checkAccessAction } from "@/app/actions/gameAccess";
+import { beginGameSession, cancelGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 import type {
   QuizBoardCell,
   QuizCategory,
@@ -107,6 +108,49 @@ async function requireHost(rawRoomCode: string): Promise<HostContext> {
   }
 
   return { ok: true, admin, room: room as QuizRoom, userId: user.id, roomCode };
+}
+
+// ---------------------------------------------------------------------
+// جلسات اللعب: حساب التجربة المجانية والرصيد القديم بالسيرفر (lib/game-sessions.ts)
+// ---------------------------------------------------------------------
+
+const SESSION_BUSY_MESSAGE =
+  "عندك جلسة تحدي فئات ثانية شغالة بنفس الحساب. أنهها من صفحتها، ولو سكّرت صفحتها انتظر 3 دقايق وابدأ هذي.";
+
+/** حالات اللعب (بين "ابدأ" ونهاية الجلسة) */
+const QUIZ_IN_PLAY = ["board", "question", "answer"];
+
+/** الجلسة تنحسب لما ينحسم ربع أسئلة اللوحة */
+const quarterResolved = (total: number, remaining: number) => total > 0 && total - remaining >= Math.ceil(total / 4);
+
+/**
+ * غرف قديمة طلع منها الحكم (سكّر صفحتها) قبل ربع اللوحة، ورجعت تجربتها مع البدء الجديد:
+ * تنتهي (نفس "إنهاء الجلسة") عشان ما تكمل ببلاش
+ */
+async function closeAbandonedRooms(admin: ReturnType<typeof getSupabaseServiceRole>, roomCodes: string[]): Promise<void> {
+  await Promise.all(
+    roomCodes.map(async (code) => {
+      const { data: room } = await admin
+        .from("quiz_rooms")
+        .select("game_state, t1_score, t2_score")
+        .eq("room_code", code)
+        .maybeSingle();
+      if (!room || !QUIZ_IN_PLAY.includes(room.game_state)) return;
+      const winner = room.t1_score === room.t2_score ? 0 : room.t1_score > room.t2_score ? 1 : 2;
+      await admin
+        .from("quiz_rooms")
+        .update({
+          game_state: "gameOver",
+          winner_team: winner,
+          ended_at: new Date().toISOString(),
+          is_timer_running: false,
+          active_cell_id: null,
+          is_question_revealed: false,
+        })
+        .eq("room_code", code)
+        .in("game_state", QUIZ_IN_PLAY);
+    })
+  );
 }
 
 /** يحوّل مسارات الصور في التخزين الخاص إلى روابط موقّعة مؤقتة. */
@@ -560,10 +604,18 @@ export async function startQuizSession(input: {
     return fail("لم يتم تجهيز الأسئلة بعد — ارجع لخطوة اختيار الفئات.");
   }
 
-  // بوابة الرصيد — تُفحص من جديد هنا لأن التحصيل الفعلي يحدث الآن
-  const access = await checkAccessAction(QUIZ_GAME.id);
-  if (!access.allowed) {
-    return fail("رصيدك غير كافٍ لبدء لعبة جديدة.");
+  // كل بدء تنحجز له لعبة بالسيرفر: اشتراك (تنحسب على طول)، أو التجربة المجانية أو لعبة من الرصيد القديم
+  // (ما تنحسب إلا لما ينحسم ربع أسئلة اللوحة، وترجع لو انتهت قبلها). لو ما انحجزت، الجلسة ما تبدأ
+  const session = await beginGameSession(admin, userId, QUIZ_GAME.id, ctx.roomCode);
+  if (session.releasedRooms.length > 0) await closeAbandonedRooms(admin, session.releasedRooms);
+  if (!session.ok) {
+    return fail(
+      session.reason === "no_access"
+        ? "رصيدك غير كافٍ لبدء لعبة جديدة."
+        : session.reason === "busy"
+          ? SESSION_BUSY_MESSAGE
+          : "تعذّر بدء الجلسة."
+    );
   }
 
   const { error: updateError } = await admin
@@ -597,11 +649,22 @@ export async function startQuizSession(input: {
 
   if (updateError) {
     console.error("startQuizSession update error:", updateError);
+    // البدء ما صار: الحجز ينلغى كأنه ما صار
+    await cancelGameSession(admin, session.sessionId);
     return fail("تعذّر بدء الجلسة.");
   }
 
-  await consumeGameSessionAction(QUIZ_GAME.id, userId, access.reason);
+  return { success: true };
+}
 
+/**
+ * صفحة الحكم مفتوحة والجلسة شغالة (ترسل كل دقيقة): منها يفرّق السيرفر بين حكم موجود
+ * (بعد 10 دقايق تنحسب) وحكم سكّر صفحته (ترجع تجربته لو بدأ جلسة ثانية).
+ */
+export async function pingQuizSession(roomCode: string): Promise<ActionResult> {
+  const ctx = await requireHost(roomCode);
+  if (!ctx.ok) return { success: true };
+  await pingGameSession(ctx.admin, ctx.userId, QUIZ_GAME.id, ctx.roomCode);
   return { success: true };
 }
 
@@ -834,6 +897,13 @@ export async function resolveQuizQuestion(input: {
     return fail("تعذّر احتساب النتيجة.");
   }
 
+  // جلسات اللعب: انحسم ربع أسئلة اللوحة (أو خلصت) = الجلسة تنحسب
+  const { count: total } = await admin
+    .from("quiz_session_questions")
+    .select("*", { count: "exact", head: true })
+    .eq("room_code", ctx.roomCode);
+  if (quarterResolved(total || 0, remaining || 0)) await countGameSession(admin, QUIZ_GAME.id, ctx.roomCode);
+
   return { success: true };
 }
 
@@ -979,6 +1049,8 @@ export async function endQuizSession(roomCode: string): Promise<ActionResult> {
     .eq("room_code", ctx.roomCode);
 
   if (error) return fail("تعذّر إنهاء الجلسة.");
+  // أنهاها قبل ربع اللوحة: الجلسة ترجع (لو باقي له إرجاع)
+  await endGameSession(admin, QUIZ_GAME.id, ctx.roomCode);
   return { success: true };
 }
 
