@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { getBrowserSessionUser, getSupabaseBrowser } from "@/lib/supabase/client";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { QUIZ_CONFIG, QUIZ_GAME, QUIZ_LIFELINES, QUIZ_LIFELINES_PER_TEAM } from "@/constants/quiz-grid";
 import {
@@ -201,9 +201,7 @@ export function useQuizHost() {
     setMounted(true);
 
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getBrowserSessionUser();
 
       if (!user) {
         router.push("/player");

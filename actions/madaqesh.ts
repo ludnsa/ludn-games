@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
+import { getGameUserId, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { checkAccessAction } from "@/app/actions/gameAccess";
 import { beginGameSession, cancelGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 import { MADAQESH_BOT_NAMES, MADAQESH_CONFIG, MADAQESH_GAME } from "@/constants/madaqesh";
@@ -158,17 +158,14 @@ async function requireHost(rawRoomCode: string): Promise<HostContext> {
   const parsed = MadaqeshRoomCodeSchema.safeParse(rawRoomCode);
   if (!parsed.success) return { ok: false, error: "رمز الغرفة غير صحيح." };
 
-  const userClient = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
-  if (!user) return { ok: false, error: "يجب تسجيل الدخول." };
+  const userId = await getGameUserId();
+  if (!userId) return { ok: false, error: "يجب تسجيل الدخول." };
 
   const admin = getSupabaseServiceRole();
   const room = await loadRoom(admin, parsed.data);
   if (!room) return { ok: false, error: "الغرفة غير موجودة." };
-  if (room.host_user_id !== user.id) return { ok: false, error: "هذا الزر لمنشئ اللعبة فقط." };
-  return { ok: true, admin, room, userId: user.id };
+  if (room.host_user_id !== userId) return { ok: false, error: "هذا الزر لمنشئ اللعبة فقط." };
+  return { ok: true, admin, room, userId };
 }
 
 async function insertPlayer(
@@ -423,11 +420,8 @@ export async function createMadaqeshRoom(input: {
   const { displayName, settings } = parsed.data;
   if (settings.targetAmount <= settings.startBalance) return fail("مبلغ الفوز لازم يكون أكبر من رصيد البداية.");
 
-  const userClient = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
-  if (!user) return fail("يجب تسجيل الدخول لإنشاء غرفة.");
+  const userId = await getGameUserId();
+  if (!userId) return fail("يجب تسجيل الدخول لإنشاء غرفة.");
 
   // نفس المافيا: الاشتراك يتفحص هنا بدري (بدون ما ينحسب شي) عشان المنشئ ما يجمع الشباب على الفاضي
   if (!(await checkAccessAction(MADAQESH_GAME.id)).allowed) return fail(MADAQESH_CONFIG.NO_ACCESS_MESSAGE);
@@ -436,7 +430,7 @@ export async function createMadaqeshRoom(input: {
   let roomCode = "";
   for (let attempt = 0; attempt < 8 && !roomCode; attempt++) {
     const code = generateRoomCode();
-    const { error } = await admin.from("madaqesh_rooms").insert({ room_code: code, host_user_id: user.id, phase: "lobby", settings });
+    const { error } = await admin.from("madaqesh_rooms").insert({ room_code: code, host_user_id: userId, phase: "lobby", settings });
     if (!error) roomCode = code;
     else if (error.code !== "23505") {
       console.error("createMadaqeshRoom error:", error);

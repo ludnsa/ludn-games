@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
+import { getGameUserId, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { beginGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 import { LETTERS_HIVE_CONFIG, LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 import { HiveRevSchema, HiveRoomCodeSchema, HiveStateSchema } from "@/lib/schemas";
@@ -59,11 +59,7 @@ function generateRoomCode(): string {
 }
 
 async function currentUserId(): Promise<string | null> {
-  const userClient = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
-  return user?.id ?? null;
+  return getGameUserId();
 }
 
 /** غرفة الحساب. ok: false = الجدول مو موجود أو مشكلة بالقاعدة (نكمل على نفس الجهاز) */

@@ -12,6 +12,7 @@ import { useLiveGamePing } from "./shared/useLiveGamePing";
 import { useRouter } from "next/navigation";
 import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
 import { clearLiveGame, markLiveGame, resumeLiveGame } from "@/lib/live-game";
+import { getBrowserSessionUser } from "@/lib/supabase/client";
 
 const GAME_ID = "world-domination";
 /** المعيار: التجربة تنحسب لما ينجاوب ثالث سؤال بعد اختيار الخريطة والعواصم */
@@ -160,7 +161,7 @@ export function useWorldDomination() {
   // دالة استرجاع اللعبة فوراً عند فتح أو تحديث الصفحة
   useEffect(() => {
     const getSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getBrowserSessionUser();
       if (user) {
         setUserId(user.id);
 

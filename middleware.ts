@@ -73,13 +73,21 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // جلب بيانات المستخدم الموثق
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // جلب بيانات المستخدم الموثق:
+  // - لوحة التحكم: getUser (يسأل خادم Supabase، فالصلاحية وتسجيل الخروج يتطبقون على طول)
+  // - باقي الصفحات: getClaims يتحقق من توقيع التوكن هنا بدون طلب لخادم Supabase مع كل صفحة.
+  //   الاثنين يجددون التوكن لو قرّب يخلص (والكوكيز الجديدة تنكتب تحت في setAll)
+  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
+  let user: { app_metadata?: { [key: string]: unknown } } | null = null;
+  if (isAdminRoute) {
+    user = (await supabase.auth.getUser()).data.user;
+  } else {
+    const claims = (await supabase.auth.getClaims()).data?.claims;
+    user = claims?.sub ? { app_metadata: claims.app_metadata } : null;
+  }
 
   // الحماية الجدارية للوحة التحكم (Admin)
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  if (isAdminRoute) {
     if (!user) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
@@ -116,9 +124,9 @@ export async function middleware(request: NextRequest) {
   return supabaseResponse;
 }
 
-// تحديد المسارات اللي يشتغل عليها ملف الأمان (نستثني ملفات النظام والصور)
+// تحديد المسارات اللي يشتغل عليها ملف الأمان (نستثني ملفات النظام والصور والأصوات والملفات الثابتة)
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp3|wav|ogg|html|txt|xml|webmanifest|woff2?)$).*)",
   ],
 };

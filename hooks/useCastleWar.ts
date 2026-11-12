@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { getBrowserSessionUser, getSupabaseBrowser } from "@/lib/supabase/client";
 import { useCWGameFlow } from "./games/castle-war/useCWGameFlow";
 import { useCWRoom } from "./games/castle-war/useCWRoom";
 import { useCWCombat } from "./games/castle-war/useCWCombat";
@@ -302,7 +302,7 @@ export function useCastleWar() {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
     const getSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getBrowserSessionUser();
       if (user) {
         setUserId(user.id);
 

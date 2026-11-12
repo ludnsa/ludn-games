@@ -10,7 +10,7 @@ import { BAR_BTN, BTN_GOLD, CARD, ERROR, FIELD, H_PAGE, LABEL } from "@/componen
 import { CASTLE_CARDS } from "@/constants/castle-war";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { createCastleRoom } from "@/hooks/useCastleWar";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { getBrowserSessionUser } from "@/lib/supabase/client";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -36,9 +36,7 @@ export default function CastleWarSetup({ onCreated }: { onCreated: () => void })
   // نفس فحص الدخول للعبة: بدون حساب لصفحة الدخول، وبدون رصيد للباقات
   useEffect(() => {
     const check = async () => {
-      const {
-        data: { user },
-      } = await getSupabaseBrowser().auth.getUser();
+      const user = await getBrowserSessionUser();
       if (!user) {
         router.push("/player");
         return;

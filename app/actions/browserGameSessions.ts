@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
+import { getGameUserId, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { beginGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 
 /**
@@ -21,11 +21,9 @@ export type BrowserGamePing = "reserved" | "counted" | "released" | "none" | "er
 
 async function context(gameId: string, room: string) {
   if (!BROWSER_GAMES.has(gameId) || typeof room !== "string" || !ROOM_RE.test(room)) return null;
-  const {
-    data: { user },
-  } = await (await getSupabaseServer()).auth.getUser();
-  if (!user) return null;
-  return { admin: getSupabaseServiceRole(), userId: user.id, ref: `${room}:${user.id}` };
+  const userId = await getGameUserId();
+  if (!userId) return null;
+  return { admin: getSupabaseServiceRole(), userId, ref: `${room}:${userId}` };
 }
 
 /**

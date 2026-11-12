@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
+import { getGameUserId, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { checkAccessAction } from "@/app/actions/gameAccess";
 import { beginGameSession, cancelGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 import { MAFIA_BOT_NAMES, MAFIA_CONFIG, MAFIA_GAME, MAFIA_NIGHT_ORDER, MAFIA_ROLES } from "@/constants/mafia";
@@ -261,18 +261,15 @@ async function requireHost(rawRoomCode: string): Promise<HostContext> {
   if (!parsed.success) return { ok: false, error: "رمز الغرفة غير صحيح." };
   const roomCode = parsed.data;
 
-  const userClient = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
-  if (!user) return { ok: false, error: "يجب تسجيل الدخول." };
+  const userId = await getGameUserId();
+  if (!userId) return { ok: false, error: "يجب تسجيل الدخول." };
 
   const admin = getSupabaseServiceRole();
   const room = await loadRoom(admin, roomCode);
   if (!room) return { ok: false, error: "الغرفة غير موجودة." };
-  if (room.host_user_id !== user.id) return { ok: false, error: "هذا الزر لمنشئ اللعبة فقط." };
+  if (room.host_user_id !== userId) return { ok: false, error: "هذا الزر لمنشئ اللعبة فقط." };
 
-  return { ok: true, admin, room, roomCode, userId: user.id };
+  return { ok: true, admin, room, roomCode, userId };
 }
 
 async function insertPlayer(
@@ -364,18 +361,15 @@ export async function createMafiaRoom(input: {
   const settingsError = validateMafiaSettings(settings);
   if (settingsError) return fail(settingsError);
 
-  const userClient = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
-  if (!user) return fail("يجب تسجيل الدخول لإنشاء غرفة.");
+  const userId = await getGameUserId();
+  if (!userId) return fail("يجب تسجيل الدخول لإنشاء غرفة.");
 
   // الاشتراك يتفحص هنا بدري (بدون ما ينحسب شي) عشان المنشئ ما يجمع الشباب على الفاضي
   if (!MAFIA_CONFIG.IS_FREE && !(await checkAccessAction(MAFIA_GAME.id)).allowed) {
     return fail(MAFIA_CONFIG.NO_ACCESS_MESSAGE);
   }
 
-  const created = await createRoomInternal(getSupabaseServiceRole(), user.id, displayName, settings);
+  const created = await createRoomInternal(getSupabaseServiceRole(), userId, displayName, settings);
   if ("error" in created) return fail(created.error);
   return { success: true, data: created };
 }
@@ -1814,13 +1808,10 @@ export async function devGetMafiaRoles(
 export async function isMafiaRoomFromOtherAccount(rawRoomCode: string): Promise<boolean> {
   const parsed = MafiaRoomCodeSchema.safeParse(rawRoomCode);
   if (!parsed.success) return false;
-  const userClient = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
-  if (!user) return false;
+  const userId = await getGameUserId();
+  if (!userId) return false;
   const room = await loadRoom(getSupabaseServiceRole(), parsed.data);
-  return Boolean(room && room.host_user_id !== user.id);
+  return Boolean(room && room.host_user_id !== userId);
 }
 
 /** هل وضع التجربة متاح؟ (الواجهة تسأل السيرفر بدل ما تعتمد على متغيرات المتصفح) */

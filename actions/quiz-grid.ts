@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabaseServer, getSupabaseServiceRole } from "@/lib/supabase/server";
+import { getGameUserId, getSupabaseServiceRole } from "@/lib/supabase/server";
 import { shuffleArray } from "@/lib/game/shuffle";
 import { QUIZ_CONFIG, QUIZ_GAME, QUIZ_LIFELINES, quizTotalCells } from "@/constants/quiz-grid";
 import {
@@ -83,12 +83,9 @@ async function requireHost(rawRoomCode: string): Promise<HostContext> {
   }
   const roomCode = parsed.data;
 
-  const userClient = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
+  const userId = await getGameUserId();
 
-  if (!user) {
+  if (!userId) {
     return { ok: false, error: "يجب تسجيل الدخول." };
   }
 
@@ -103,11 +100,11 @@ async function requireHost(rawRoomCode: string): Promise<HostContext> {
     return { ok: false, error: "الغرفة غير موجودة." };
   }
 
-  if (room.host_user_id !== user.id) {
+  if (room.host_user_id !== userId) {
     return { ok: false, error: "لا تملك صلاحية التحكم بهذه الغرفة." };
   }
 
-  return { ok: true, admin, room: room as QuizRoom, userId: user.id, roomCode };
+  return { ok: true, admin, room: room as QuizRoom, userId, roomCode };
 }
 
 // ---------------------------------------------------------------------
@@ -234,12 +231,9 @@ export async function getQuizCategories(): Promise<ActionResult<QuizCategoryOpti
 
 /** ينشئ غرفة جديدة بحالة "إعداد" ويعيد رمزها. */
 export async function createQuizRoom(): Promise<ActionResult<{ roomCode: string }>> {
-  const userClient = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
+  const userId = await getGameUserId();
 
-  if (!user) return fail("يجب تسجيل الدخول لإنشاء غرفة.");
+  if (!userId) return fail("يجب تسجيل الدخول لإنشاء غرفة.");
 
   const admin = getSupabaseServiceRole();
 
@@ -248,7 +242,7 @@ export async function createQuizRoom(): Promise<ActionResult<{ roomCode: string 
     const roomCode = generateQuizRoomCode();
     const { error } = await admin.from("quiz_rooms").insert({
       room_code: roomCode,
-      host_user_id: user.id,
+      host_user_id: userId,
       game_state: "setup",
     });
 

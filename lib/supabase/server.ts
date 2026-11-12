@@ -29,6 +29,19 @@ export async function getSupabaseServer() {
   );
 }
 
+/**
+ * رقم حساب المستخدم لدوال الألعاب (من الكوكيز).
+ * getClaims يتحقق من توقيع التوكن هنا بالسيرفر (مفاتيح المشروع ES256) بدون طلب لخادم Supabase
+ * مع كل دالة مثل getUser، ولو التوكن قرّب يخلص يجدده أول.
+ * الفرق الوحيد عن getUser: لو انسجّل خروج الحساب من جهاز ثاني، التوكن يظل صالح لين تخلص مدته (ساعة).
+ * عشان كذا الدفع والاشتراك والأدمن يظلون على getUser.
+ */
+export async function getGameUserId(): Promise<string | null> {
+  const { data } = await (await getSupabaseServer()).auth.getClaims();
+  const sub = data?.claims?.sub;
+  return typeof sub === "string" && sub.length > 0 ? sub : null;
+}
+
 // Service Role Client - يمتلك كامل الصلاحيات ويتجاهل RLS (يستخدم للتحديثات الآمنة من السيرفر)
 export function getSupabaseServiceRole() {
   return createClient(

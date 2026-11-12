@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { getBrowserSessionUser, getSupabaseBrowser } from "@/lib/supabase/client";
 import { generateRoomCode } from "@/lib/game/room-code";
 import { shuffleArray } from "@/lib/game/shuffle";
 import { useGameTimer } from "@/hooks/shared/useGameTimer";
@@ -82,7 +82,7 @@ export function useAuctionReferee() {
     setMounted(true);
     
     const getSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getBrowserSessionUser();
       if (user) {
         setUserId(user.id);
 

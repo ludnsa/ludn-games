@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseServer } from "@/lib/supabase/server";
+import { getGameUserId, getSupabaseServer } from "@/lib/supabase/server";
 import { getSubscriptionEndsAt } from "@/lib/subscriptions";
 import { isSubscriptionActive } from "@/lib/packages";
 import { SESSION_GAMES, gameSessionAccess } from "@/lib/game-sessions";
@@ -206,13 +206,12 @@ export async function fetchUserProfileAction(clientUserId: string) {
 
 export async function checkAccessAction(gameId: string) {
   try {
-    const supabaseServer = await getSupabaseServer();
-    const { data: { user } } = await supabaseServer.auth.getUser();
-    if (!user) {
+    // الحساب من التوكن بدون طلب لخادم Supabase (lib/supabase/server.ts)
+    const userId = await getGameUserId();
+    if (!userId) {
       return { allowed: false, reason: "error" as const, availableTokens: 0 };
     }
 
-    const userId = user.id;
     const serviceKey = getServiceRoleKey();
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!serviceKey || !url) {

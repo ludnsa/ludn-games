@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
@@ -36,6 +36,31 @@ const NAV: NavItem[] = [
   { label: "كيف تلعب؟", Icon: BookOpen, href: "/guides" },
 ];
 
+type NavLinkProps = Omit<React.ComponentProps<typeof Link>, "href" | "prefetch"> & { href: string };
+
+/**
+ * روابط الهيدر ما تتحمّل مسبقاً لمجرد إنها ظاهرة بالشاشة (كانت تنطلب كذا مرة مع كل تنقّل،
+ * وكل طلب يمر على الـ middleware). تتحمّل لما يقرّب منها الماوس أو يلمسها الإصبع، فالضغطة تظل سريعة.
+ */
+function NavLink({ href, onMouseEnter, onTouchStart, ...rest }: NavLinkProps) {
+  const router = useRouter();
+  return (
+    <Link
+      {...rest}
+      href={href}
+      prefetch={false}
+      onMouseEnter={(e) => {
+        router.prefetch(href);
+        onMouseEnter?.(e);
+      }}
+      onTouchStart={(e) => {
+        router.prefetch(href);
+        onTouchStart?.(e);
+      }}
+    />
+  );
+}
+
 const ICON_BTN =
   "w-10 h-10 shrink-0 rounded-xl bg-ludn-surface border border-ludn-line text-ludn-fg grid place-items-center transition-transform active:scale-95";
 
@@ -66,9 +91,9 @@ export const TopNav = ({ scrollToSection, afterLogout }: { scrollToSection?: Scr
     );
     if ("href" in item) {
       return (
-        <Link key={item.label} href={item.href} onClick={onPick} className={className}>
+        <NavLink key={item.label} href={item.href} onClick={onPick} className={className}>
           {body}
-        </Link>
+        </NavLink>
       );
     }
     return (
@@ -101,11 +126,11 @@ export const TopNav = ({ scrollToSection, afterLogout }: { scrollToSection?: Scr
 
       <header className="fixed inset-x-0 top-0 z-[60] bg-ludn-header backdrop-blur-xl border-b border-ludn-line pt-[env(safe-area-inset-top,0px)]">
         <div className="max-w-6xl mx-auto h-16 px-4 flex items-center gap-2">
-          <Link href="/" className="flex items-center gap-2.5 me-auto shrink-0 transition-transform active:scale-95">
+          <NavLink href="/" className="flex items-center gap-2.5 me-auto shrink-0 transition-transform active:scale-95">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/ludn-logo.webp" alt="منصة ألعاب لدن" width={46} height={40} className="h-10 w-auto" />
             <span className="font-display text-[22px] leading-none pt-1 text-ludn-fg">ألعاب لدن</span>
-          </Link>
+          </NavLink>
 
           <nav className="hidden lg:flex items-center gap-1 me-2">
             {NAV.map((item) =>
@@ -154,9 +179,9 @@ export const TopNav = ({ scrollToSection, afterLogout }: { scrollToSection?: Scr
                       <p className="text-sm font-black text-ludn-fg truncate">{profile.email}</p>
                     </div>
                     <div className="flex flex-col py-1.5 font-bold text-ludn-fg">
-                      <Link href="/profile" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">حسابي</Link>
-                      <Link href="/my-games" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">ألعابي</Link>
-                      <Link href="/packages" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">باقات الألعاب</Link>
+                      <NavLink href="/profile" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">حسابي</NavLink>
+                      <NavLink href="/my-games" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">ألعابي</NavLink>
+                      <NavLink href="/packages" className="px-4 py-2.5 hover:bg-ludn-surface-2 transition-colors">باقات الألعاب</NavLink>
                       <button
                         type="button"
                         onClick={() => {
@@ -174,13 +199,13 @@ export const TopNav = ({ scrollToSection, afterLogout }: { scrollToSection?: Scr
               )}
             </div>
           ) : (
-            <Link
+            <NavLink
               href="/player"
               aria-label="دخول المنظم"
               className="h-10 shrink-0 flex items-center justify-center gap-1.5 px-3 rounded-xl bg-ludn-gold text-ludn-gold-ink font-black text-sm transition-transform active:scale-95"
             >
               <User size={18} strokeWidth={2.5} /> <span className="hidden sm:inline">دخول المنظم</span>
-            </Link>
+            </NavLink>
           )}
         </div>
       </header>
@@ -223,9 +248,9 @@ export const TopNav = ({ scrollToSection, afterLogout }: { scrollToSection?: Scr
                     {body}
                   </a>
                 ) : (
-                  <Link href={tab.href} aria-current={tab.active ? "page" : undefined} className={className}>
+                  <NavLink href={tab.href} aria-current={tab.active ? "page" : undefined} className={className}>
                     {body}
-                  </Link>
+                  </NavLink>
                 )}
               </li>
             );
