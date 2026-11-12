@@ -250,8 +250,20 @@ export function useWorldDomination() {
 
       // جلب جميع البيانات من الجداول الجديدة المستقلة
       try {
-        // 1. جلب الإعدادات (تبقى في wd_settings)
-        const { data: settingsData } = await supabase.from("wd_settings").select("*");
+        // الأربع قراءات تنطلب مع بعض بدل وحدة ورا الثانية، والمعالجة بعدها نفسها وبنفس الترتيب
+        const [
+          { data: settingsData },
+          { data: countriesData },
+          { data: questionsData },
+          { data: challengesData },
+        ] = await Promise.all([
+          supabase.from("wd_settings").select("*"),
+          supabase.from("wd_countries").select("*"),
+          supabase.from("wd_country_questions").select("*"),
+          supabase.from("wd_challenges").select("*"),
+        ]);
+
+        // 1. الإعدادات (تبقى في wd_settings)
         if (settingsData) {
           settingsData.forEach((item) => {
             if (item.key === "countries_limit" && item.value !== undefined) {
@@ -263,13 +275,7 @@ export function useWorldDomination() {
           });
         }
 
-        // 2. جلب الدول
-        const { data: countriesData } = await supabase.from("wd_countries").select("*");
-        
-        // 3. جلب الأسئلة
-        const { data: questionsData } = await supabase.from("wd_country_questions").select("*");
-        
-        // تجميع الدول مع أسئلتها بالهيكلة المعتمدة للعبة
+        // 2 و 3. تجميع الدول مع أسئلتها بالهيكلة المعتمدة للعبة
         if (countriesData) {
           const mappedCountries = countriesData.map((country, index) => {
             const cQuestions = (questionsData || [])
@@ -296,8 +302,7 @@ export function useWorldDomination() {
           setDbCountries(mappedCountries);
         }
 
-        // 4. جلب تحديات الحكم
-        const { data: challengesData } = await supabase.from("wd_challenges").select("*");
+        // 4. تحديات الحكم
         if (challengesData) {
           setDbWdChallenges(challengesData.map(c => c.question));
         }

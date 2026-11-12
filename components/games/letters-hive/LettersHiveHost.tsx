@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Cairo } from "next/font/google";
 import { Monitor, Settings2, Square, Undo2, Shuffle, Home, X, Play, Eraser, Crown, Loader2, RotateCcw } from "lucide-react";
 import { checkAccessAction } from "@/app/actions/gameAccess";
+import type { HiveAccess } from "@/actions/letters-hive";
 import { LETTERS_HIVE_CONFIG, LETTERS_HIVE_GAME, LETTERS_HIVE_TEAMS } from "@/constants/letters-hive";
 import {
   HIVE_TEAMS,
@@ -108,7 +109,7 @@ function HostBody() {
   if (state.status === "setup") {
     return (
       <>
-        <Setup state={state} notice={message} onDisplay={showDisplay} onStart={hive.start} />
+        <Setup state={state} notice={message} onDisplay={showDisplay} onStart={hive.start} takeBootAccess={hive.takeBootAccess} />
         {modal}
       </>
     );
@@ -194,11 +195,13 @@ function Setup({
   notice,
   onDisplay,
   onStart,
+  takeBootAccess,
 }: {
   state: HiveState;
   notice: string;
   onDisplay: () => void;
   onStart: (teams: Record<HiveTeam, string>, hard: boolean) => Promise<HiveStartResult>;
+  takeBootAccess: () => HiveAccess | null;
 }) {
   const [teams, setTeams] = useState(state.teams);
   const [hard, setHard] = useState(state.hardLetters);
@@ -208,10 +211,14 @@ function Setup({
   // من ضمن الاشتراك (نفس المافيا): لو ما عنده اشتراك ولا تجربة ولا رصيد، نوريه الباقات بدل الإعدادات
   const [noAccess, setNoAccess] = useState(false);
   useEffect(() => {
-    checkAccessAction(LETTERS_HIVE_GAME.id).then((a) => {
+    const check = (a: HiveAccess) => {
       if (!a.allowed && a.reason === "no_tokens") setNoAccess(true);
-    });
-  }, []);
+    };
+    // أول ما تنفتح الشاشة: الفحص وصل مع الغرفة بنفس الطلب. بعدها (جلسة جديدة مثلاً) يتفحص من جديد
+    const fromBoot = takeBootAccess();
+    if (fromBoot) check(fromBoot);
+    else checkAccessAction(LETTERS_HIVE_GAME.id).then(check);
+  }, [takeBootAccess]);
 
   // كل بدء جلسة ينحسب لعبة مرة وحدة، بالسيرفر (جولة جديدة وتحديث الصفحة ما تنحسب)
   const start = async () => {

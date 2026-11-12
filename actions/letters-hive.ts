@@ -1,6 +1,7 @@
 "use server";
 
 import { getGameUserId, getSupabaseServiceRole } from "@/lib/supabase/server";
+import { checkAccessAction } from "@/app/actions/gameAccess";
 import { beginGameSession, countGameSession, endGameSession, pingGameSession } from "@/lib/game-sessions";
 import { LETTERS_HIVE_CONFIG, LETTERS_HIVE_GAME } from "@/constants/letters-hive";
 import { HiveRevSchema, HiveRoomCodeSchema, HiveStateSchema } from "@/lib/schemas";
@@ -28,6 +29,8 @@ type Ok<T> = { success: true; data: T };
 const fail = (error: Fail["error"]): Fail => ({ success: false, error });
 
 type RoomRow = { room_code: string; state: unknown; rev: number | string; status: "playing" | "ended"; updated_at: string };
+/** فحص الاشتراك اللي يرجع مع الغرفة لما تنفتح الشاشة (نفس رد checkAccessAction) */
+export type HiveAccess = { allowed: boolean; reason: Awaited<ReturnType<typeof checkAccessAction>>["reason"] };
 
 export type HiveRoomInfo = {
   code: string;
@@ -64,22 +67,19 @@ async function currentUserId(): Promise<string | null> {
 
 /** غرفة الحساب. ok: false = الجدول مو موجود أو مشكلة بالقاعدة (نكمل على نفس الجهاز) */
 async function loadMyRoom(admin: Admin, userId: string): Promise<{ ok: true; room: RoomRow | null } | { ok: false }> {
-  const { data: host, error } = await admin.from("hive_room_hosts").select("room_code").eq("host_user_id", userId).maybeSingle();
+  // صاحب الغرفة وغرفته بطلب واحد (hive_room_hosts.room_code مربوط بـ hive_rooms من 0014)
+  const { data: host, error } = await admin
+    .from("hive_room_hosts")
+    .select("room_code, hive_rooms(room_code, state, rev, status, updated_at)")
+    .eq("host_user_id", userId)
+    .maybeSingle();
   if (error) {
-    console.error("letters-hive loadMyRoom (hosts) error:", error);
+    console.error("letters-hive loadMyRoom error:", error);
     return { ok: false };
   }
   if (!host) return { ok: true, room: null };
-  const { data: room, error: roomError } = await admin
-    .from("hive_rooms")
-    .select("room_code, state, rev, status, updated_at")
-    .eq("room_code", host.room_code)
-    .maybeSingle();
-  if (roomError) {
-    console.error("letters-hive loadMyRoom (rooms) error:", roomError);
-    return { ok: false };
-  }
-  return { ok: true, room: (room as RoomRow | null) ?? null };
+  const room = (host as { hive_rooms: RoomRow | RoomRow[] | null }).hive_rooms;
+  return { ok: true, room: (Array.isArray(room) ? room[0] : room) ?? null };
 }
 
 /**
@@ -136,14 +136,21 @@ async function ensureRoom(
  * أول ما تنفتح شاشة المقدم: غرفة حسابي — منها يكمل الجلسة من أي جهاز بدون ما تنحسب.
  * online: false = الغرفة الأونلاين مو متاحة الحين (نفس الجهاز بس).
  */
-export async function getMyHiveRoom(): Promise<Ok<{ userId: string; online: boolean; room: HiveRoomInfo | null }> | Fail> {
+export async function getMyHiveRoom(opts?: {
+  /** فتح الشاشة: فحص الاشتراك يرجع مع الغرفة بنفس الطلب (بدل طلب ثاني بعده) */
+  withAccess?: boolean;
+}): Promise<Ok<{ userId: string; online: boolean; room: HiveRoomInfo | null; access?: HiveAccess }> | Fail> {
   const userId = await currentUserId();
   if (!userId) return fail("login");
-  const mine = await loadMyRoom(getSupabaseServiceRole(), userId);
-  if (!mine.ok) return { success: true, data: { userId, online: false, room: null } };
+  const [mine, checked] = await Promise.all([
+    loadMyRoom(getSupabaseServiceRole(), userId),
+    opts?.withAccess ? checkAccessAction(LETTERS_HIVE_GAME.id) : Promise.resolve(null),
+  ]);
+  const access = checked ? { access: { allowed: checked.allowed, reason: checked.reason } } : {};
+  if (!mine.ok) return { success: true, data: { userId, online: false, room: null, ...access } };
   const row = mine.room;
   const parsed = row ? HiveStateSchema.safeParse(row.state) : null;
-  if (!row || !parsed?.success) return { success: true, data: { userId, online: true, room: null } };
+  if (!row || !parsed?.success) return { success: true, data: { userId, online: true, room: null, ...access } };
 
   const fresh = isFresh(row.updated_at);
   const state = parsed.data as HiveState;
@@ -151,6 +158,7 @@ export async function getMyHiveRoom(): Promise<Ok<{ userId: string; online: bool
     success: true,
     data: {
       userId,
+      ...access,
       online: true,
       room: {
         code: row.room_code,

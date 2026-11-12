@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { initialHiveState, startHiveSession, type HiveState, type HiveTeam } from "@/lib/game/letters-hive-engine";
-import { getMyHiveRoom, openHiveRoom, pingHiveSession, saveHiveRoom, startHiveRoom } from "@/actions/letters-hive";
+import { getMyHiveRoom, openHiveRoom, pingHiveSession, saveHiveRoom, startHiveRoom, type HiveAccess } from "@/actions/letters-hive";
 import { HIVE_ROOM_CODE_RE } from "@/constants/letters-hive";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { createThrottledRunner } from "@/lib/throttled-runner";
@@ -159,6 +159,8 @@ export function useLettersHiveHost() {
   /** آخر حالة جات من السيرفر (أو انحفظت فيه مع البدء) — ما نرجّع نحفظها */
   const fromServerRef = useRef<HiveState | null>(null);
   const aliveRef = useRef(true);
+  /** فحص الاشتراك اللي وصل مع الغرفة لما انفتحت الشاشة: شاشة الإعداد تاخذه أول مرة بس، وبعدها تفحص بنفسها */
+  const bootAccessRef = useRef<HiveAccess | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** قناة الإشارة السريعة للشاشات (مع كود الغرفة) */
   const hintRef = useRef<HintEntry | null>(null);
@@ -218,7 +220,7 @@ export function useLettersHiveHost() {
     let res: Awaited<ReturnType<typeof getMyHiveRoom>> | null = null;
     for (let attempt = 0; attempt < 2 && !res; attempt++) {
       try {
-        res = await withTimeout(getMyHiveRoom(), 10_000);
+        res = await withTimeout(getMyHiveRoom({ withAccess: true }), 10_000);
       } catch {
         res = null;
       }
@@ -226,6 +228,7 @@ export function useLettersHiveHost() {
     if (!aliveRef.current) return;
     if (!res) return setBoot("failed");
     if (!res.success) return setBoot(res.error === "login" ? "login" : "failed");
+    bootAccessRef.current = res.data.access ?? null;
     apply(res.data);
     readyRef.current = true;
     setBoot("ready");
@@ -437,7 +440,14 @@ export function useLettersHiveHost() {
     void load();
   }, [load]);
 
-  return { boot, state, update, start, ensureRoom, reload, roomCode, online, saving, notice };
+  /** يرجّع فحص الاشتراك اللي وصل مع فتح الشاشة مرة وحدة (بعدها null) */
+  const takeBootAccess = useCallback((): HiveAccess | null => {
+    const access = bootAccessRef.current;
+    bootAccessRef.current = null;
+    return access;
+  }, []);
+
+  return { boot, state, update, start, ensureRoom, reload, roomCode, online, saving, notice, takeBootAccess };
 }
 
 /** صيغة الكود صحيحة؟ (H + 4) */

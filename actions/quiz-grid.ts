@@ -190,21 +190,16 @@ export interface QuizCategoryOption extends QuizCategory {
 export async function getQuizCategories(): Promise<ActionResult<QuizCategoryOption[]>> {
   const admin = getSupabaseServiceRole();
 
-  const { data: categories, error } = await admin
-    .from("quiz_categories")
-    .select("*")
-    .eq("is_active", true)
-    .order("name_ar", { ascending: true });
+  // الفئات وأسئلتها تنقرأ مع بعض
+  const [{ data: categories, error }, { data: questions }] = await Promise.all([
+    admin.from("quiz_categories").select("*").eq("is_active", true).order("name_ar", { ascending: true }),
+    admin.from("quiz_questions").select("category_id, points").eq("is_active", true),
+  ]);
 
   if (error) {
     console.error("getQuizCategories error:", error);
     return fail("تعذّر جلب الفئات.");
   }
-
-  const { data: questions } = await admin
-    .from("quiz_questions")
-    .select("category_id, points")
-    .eq("is_active", true);
 
   const signed = await signMedia(
     admin,
@@ -279,18 +274,20 @@ export async function getQuizSession(roomCode: string): Promise<ActionResult<Qui
 
   const { admin, room } = ctx;
 
-  const { data: cells } = await admin
-    .from("quiz_session_questions")
-    .select("id, column_index, row_index, category_name_ar, points, status, awarded_team")
-    .eq("room_code", ctx.roomCode)
-    .order("column_index", { ascending: true })
-    .order("row_index", { ascending: true });
-
-  const { data: players } = await admin
-    .from("quiz_session_players")
-    .select("*")
-    .eq("room_code", ctx.roomCode)
-    .order("joined_at", { ascending: true });
+  // خلايا اللوحة واللاعبين ينقرون مع بعض
+  const [{ data: cells }, { data: players }] = await Promise.all([
+    admin
+      .from("quiz_session_questions")
+      .select("id, column_index, row_index, category_name_ar, points, status, awarded_team")
+      .eq("room_code", ctx.roomCode)
+      .order("column_index", { ascending: true })
+      .order("row_index", { ascending: true }),
+    admin
+      .from("quiz_session_players")
+      .select("*")
+      .eq("room_code", ctx.roomCode)
+      .order("joined_at", { ascending: true }),
+  ]);
 
   const columns: string[] = [];
   (cells || []).forEach((c: QuizBoardCell) => {
@@ -561,6 +558,64 @@ export async function getQuizPreparedBoard(
 
   const board = await buildPreparedBoard(ctx.admin, ctx.roomCode);
   return { success: true, data: board };
+}
+
+// ---------------------------------------------------------------------
+// فتح شاشة الحكم بطلب واحد
+// ---------------------------------------------------------------------
+
+export interface QuizHostBoot {
+  /** فحص الدخول (null = ما انطلب: فيه جلسة جارية بهالتبويب) */
+  access: Awaited<ReturnType<typeof checkAccessAction>> | null;
+  /** قائمة الفئات لشاشة الإعداد (null = ما وصلت) */
+  categories: QuizCategoryOption[] | null;
+  /** الغرفة المحفوظة بالتبويب لو لسا شغالة (مو gameOver) */
+  saved: {
+    session: QuizSessionView;
+    board: QuizPreparedBoard | null;
+    /** السؤال المعروض الحين، لو الغرفة على سؤال أو إجابة */
+    activeCell: ActionResult<QuizActiveCellView | null> | null;
+  } | null;
+  /** غرفة جديدة انسوت (لما ما فيه غرفة محفوظة شغالة) */
+  created: ActionResult<{ roomCode: string; session: QuizSessionView | null }> | null;
+}
+
+/**
+ * فتح شاشة الحكم بطلب واحد بدل 3 إلى 5 طلبات ورا بعض (المتصفح يرسل دوال السيرفر وحدة وحدة):
+ * فحص الدخول، والفئات، والغرفة المحفوظة ولوحتها، وإلا غرفة جديدة. نفس الدوال ونفس الشروط:
+ * ما يرجع شي من الفئات أو الغرفة، ولا تنسوى غرفة، إلا لو الدخول مسموح (أو فيه جلسة جارية بالتبويب).
+ */
+export async function bootQuizHost(input: { savedRoomCode: string | null; checkAccess: boolean }): Promise<QuizHostBoot> {
+  const saved = typeof input?.savedRoomCode === "string" && input.savedRoomCode ? input.savedRoomCode : null;
+  const [access, categories, session, board] = await Promise.all([
+    input?.checkAccess ? checkAccessAction(QUIZ_GAME.id) : Promise.resolve(null),
+    getQuizCategories(),
+    saved ? getQuizSession(saved) : Promise.resolve(null),
+    saved ? getQuizPreparedBoard(saved) : Promise.resolve(null),
+  ]);
+  if (access && !access.allowed) return { access, categories: null, saved: null, created: null };
+  const cats = categories.success ? categories.data : null;
+
+  if (saved && session?.success && session.data.room.game_state !== "gameOver") {
+    const state = session.data.room.game_state;
+    const activeCell = state === "question" || state === "answer" ? await getQuizActiveCell(saved) : null;
+    return {
+      access,
+      categories: cats,
+      saved: { session: session.data, board: board?.success ? board.data : null, activeCell },
+      created: null,
+    };
+  }
+
+  const created = await createQuizRoom();
+  if (!created.success) return { access, categories: cats, saved: null, created };
+  const fresh = await getQuizSession(created.data.roomCode);
+  return {
+    access,
+    categories: cats,
+    saved: null,
+    created: { success: true, data: { roomCode: created.data.roomCode, session: fresh.success ? fresh.data : null } },
+  };
 }
 
 /**
