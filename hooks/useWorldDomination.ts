@@ -311,9 +311,7 @@ export function useWorldDomination() {
         console.error("خطأ في جلب بيانات اللعبة:", e);
       }
 
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 400);
+      setIsLoading(false);
 
       setIsInitialized(true);
     } catch (error) {

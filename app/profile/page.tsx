@@ -8,10 +8,12 @@ import { useRouter } from "next/navigation";
 import { SitePage, PageHeading } from "@/components/home/SitePage";
 import { NoticeDialog } from "@/components/home/NoticeDialog";
 import { BTN_GOLD, CARD, FIELD, LABEL, SPINNER } from "@/components/home/ui";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 export default function ProfilePage() {
   const router = useRouter();
   const supabase = getSupabaseBrowser();
+  const { refreshProfile } = useAuth();
   const [userSession, setUserSession] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -74,6 +76,8 @@ export default function ProfilePage() {
         .eq("id", userSession.id);
 
       if (error) throw error;
+      // الهيدر ياخذ الاسم الجديد على طول (طلب واحد للاسم)
+      void refreshProfile();
       setNotification({ isOpen: true, message: "تم تحديث بيانات حسابك بنجاح.", type: "success" });
     } catch (error: any) {
       setNotification({ isOpen: true, message: "حدث خطأ أثناء حفظ التغييرات.", type: "error" });
