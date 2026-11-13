@@ -444,11 +444,21 @@ export function useMafiaGame(
    * - عندي مهمة: منها يبدأ مؤقت الليل السريع، ومنها يعرف السيرفر إن النظام يقدر يختار عني لو ما اخترت
    *   (اللي ما وصلته مهمته، ما ينختار عنه)
    * - أنا مافيا ومو القائد (بدور المافيا): أقدر آخذ القرار لو القائد ما وصلته مهمته
+   * - السريع وما عندي مهمة: مؤقت الليل ينتظر كل الجوالات، مو بس أصحاب المهام
    * التأكيد يتعاد لو تغيرت الشاشة بنفس المرحلة (مثلاً صرت أنا القائد)
    */
   const nightNow = room?.phase === "night_act" && viewFresh && view?.me.alive ? room : null;
   const mafiaTurn = Boolean(nightNow && (isFastMafia(nightNow.settings) || nightNow.night_step === "mafia"));
-  const ackKind = !nightNow ? null : view?.task ? "task" : view?.me.role === "mafia" && mafiaTurn ? "view" : null;
+  // السريع: حتى اللي ما عنده مهمة يأكد ("seen") — المؤقت ينتظر كل الجوالات، فبدايته ما تكشف مين عنده دور
+  const ackKind = !nightNow
+    ? null
+    : view?.task
+      ? "task"
+      : view?.me.role === "mafia" && mafiaTurn
+        ? "view"
+        : isFastMafia(nightNow.settings)
+          ? "seen"
+          : null;
   const ackSeq = nightNow && ackKind ? nightNow.phase_seq : null;
   const ackKey = ackSeq === null ? null : `${ackSeq}:${ackKind}`;
   const ackedKey = useRef<string | null>(null);

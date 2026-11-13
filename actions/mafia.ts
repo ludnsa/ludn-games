@@ -127,6 +127,8 @@ type ViewStep = "view:mafia" | "view:fast";
 const viewStep = (fast: boolean): ViewStep => (fast ? "view:fast" : "view:mafia");
 /** القرار انتقل من قائد المافيا (actor_id) لعضو ثاني (target_id) — مرة وحدة بالليلة */
 const LEAD_STEP = "lead:mafia";
+/** النمط السريع: شاشة الليل وصلت جوال لاعب ما عنده مهمة — المؤقت ينتظر كل الجوالات، مو بس أصحاب المهام */
+const NIGHT_SEEN = "seen:night";
 type MissedStep = `missed:${MafiaNightStep}`;
 type ActionStep =
   | MafiaNightStep
@@ -137,6 +139,7 @@ type ActionStep =
   | GotStep
   | ViewStep
   | typeof LEAD_STEP
+  | typeof NIGHT_SEEN
   | MissedStep;
 
 /**
@@ -1062,20 +1065,24 @@ export async function markMafiaRoleSeen(input: { roomCode: string; token: string
   return { success: true };
 }
 
-/** النمط السريع: مين من أصحاب المهام الليلة وصلته مهمته (أو اختار — يعني أكيد وصلته) */
+/**
+ * النمط السريع: مين وصلته شاشة الليل — صاحب مهمة (got)، مافيا مو القائد (view)، أو ما عنده مهمة (seen:night)،
+ * أو اختار (يعني أكيد وصلته). علامة انتقال القرار (lead) ما تنحسب: صاحبها القائد اللي ما وصلته.
+ */
 async function fastNightReceivers(admin: Admin, room: MafiaRoom): Promise<Set<string>> {
   const { data } = await admin
     .from("mafia_actions")
     .select("actor_id")
     .eq("room_code", room.room_code)
     .eq("night", room.night_number)
-    .in("step", [gotStep(null), ...mafiaNightSteps(room.settings)]);
+    .in("step", [gotStep(null), viewStep(true), NIGHT_SEEN, FAST_DECOY, ...mafiaNightSteps(room.settings)]);
   return new Set(((data ?? []) as { actor_id: string }[]).map((r) => r.actor_id));
 }
 
 /**
- * النمط السريع: الليل يبدأ بمهلة = أقصى انتظار + المؤقت. أول ما يوصل كل أصحاب المهام دورهم
- * يبدأ المؤقت من الحين — الوقت يقصر بس، ما يطول أبداً (فلو انطلبت مرتين ما يتغير شي).
+ * النمط السريع: الليل يبدأ بمهلة = أقصى انتظار + المؤقت. أول ما توصل شاشة الليل لكل الجوالات (كل لاعب حي،
+ * عنده مهمة أو لا — عشان بداية المؤقت ما تكشف مين عنده دور) يبدأ المؤقت من الحين.
+ * الوقت يقصر بس، ما يطول أبداً (فلو انطلبت مرتين ما يتغير شي).
  */
 async function armFastNightIfReady(admin: Admin, roomCode: string, seq: number): Promise<void> {
   const room = await loadRoom(admin, roomCode);
@@ -1084,15 +1091,8 @@ async function armFastNightIfReady(admin: Admin, roomCode: string, seq: number):
   const armedEnd = new Date(Date.now() + MAFIA_CONFIG.FAST_NIGHT_SECONDS * 1000).toISOString();
   if (Date.parse(room.phase_ends_at) <= Date.parse(armedEnd)) return; // المؤقت شغال أصلاً
 
-  const [{ engine, players }, received] = await Promise.all([
-    loadEngine(admin, roomCode),
-    fastNightReceivers(admin, room),
-  ]);
-  const bots = new Set(players.filter((p) => p.is_bot).map((p) => p.id));
-  const leaderId = await nightLeaderId(admin, room, engine);
-  const pending = engine.filter(
-    (p) => p.alive && !bots.has(p.id) && fastNightStep(p, leaderId, engine) !== null && !received.has(p.id)
-  );
+  const [players, received] = await Promise.all([loadPlayers(admin, roomCode), fastNightReceivers(admin, room)]);
+  const pending = players.filter((p) => p.is_alive && !p.is_bot && !received.has(p.id));
   if (pending.length > 0) return;
 
   const { error } = await admin
@@ -1108,9 +1108,10 @@ async function armFastNightIfReady(admin: Admin, roomCode: string, seq: number):
 const isMafiaTurn = (room: MafiaRoom, fast: boolean) => fast || room.night_step === "mafia";
 
 /**
- * الجوال يأكد إن شاشة الليل وصلته وانعرضت له:
- * - صاحب المهمة (got): منها يبدأ مؤقت الليل السريع، والنظام ما يختار عن اللي ما وصلته مهمته أبداً
+ * الجوال يأكد إن شاشة الليل وصلته وانعرضت له (السريع: من تأكيدات كل الجوالات يبدأ مؤقت الليل):
+ * - صاحب المهمة (got): والنظام ما يختار عن اللي ما وصلته مهمته أبداً
  * - عضو مافيا مو القائد (view): يقدر ياخذ القرار لو القائد ما وصلته مهمته
+ * - السريع، ما عنده مهمة (seen:night): بس عشان المؤقت ينتظره مثل الباقين
  */
 export async function ackMafiaNightTask(input: { roomCode: string; token: string; seq: number }): Promise<ActionResult> {
   const ctx = await requirePlayer(input);
@@ -1130,7 +1131,9 @@ export async function ackMafiaNightTask(input: { roomCode: string; token: string
     ? gotStep(fast ? null : step)
     : me.role === "mafia" && isMafiaTurn(room, fast)
       ? viewStep(fast)
-      : null;
+      : fast
+        ? NIGHT_SEEN
+        : null;
   if (!mark) return { success: true };
 
   const { error } = await admin.from("mafia_actions").upsert(
@@ -1141,7 +1144,7 @@ export async function ackMafiaNightTask(input: { roomCode: string; token: string
     console.error("ackMafiaNightTask error:", error);
     return fail("تعذّر التأكيد.");
   }
-  if (fast && hasTask) await armFastNightIfReady(admin, room.room_code, room.phase_seq);
+  if (fast) await armFastNightIfReady(admin, room.room_code, room.phase_seq);
   return { success: true };
 }
 
@@ -1310,7 +1313,7 @@ function enterNight(room: MafiaRoom, night: number): Partial<MafiaRoom> {
     night_step: fast ? null : mafiaNightSteps(room.settings)[0],
     night_number: night,
     // الحماسي: أدوار الليل بدون مؤقت، تمشي لما الكل يختارون. السريع: تمشي لما الكل يختارون أو يخلص المؤقت.
-    // السريع يبدأ بمهلة الانتظار + المؤقت، وأول ما توصل كل أصحاب المهام دورهم يبدأ المؤقت (armFastNightIfReady)
+    // السريع يبدأ بمهلة الانتظار + المؤقت، وأول ما توصل شاشة الليل لكل الجوالات يبدأ المؤقت (armFastNightIfReady)
     phase_ends_at: fast
       ? new Date(
           Date.now() + (MAFIA_CONFIG.FAST_ROLE_WAIT_SECONDS + MAFIA_CONFIG.FAST_NIGHT_SECONDS) * 1000

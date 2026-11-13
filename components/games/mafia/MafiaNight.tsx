@@ -72,7 +72,7 @@ function FastNightAct({ ctx }: { ctx: MafiaGameCtx }) {
         <Moon size={20} className="shrink-0 text-indigo-300" /> الكل يختار الحين بنفس الوقت…
       </p>
       {/* نفس السطر عند الكل — ما يفضح مين عنده مهمة */}
-      {ctx.nightArming && <p className={NOTE}>المؤقت يبدأ أول ما توصل المهام لكل الجوالات</p>}
+      {ctx.nightArming && <p className={NOTE}>المؤقت يبدأ أول ما توصل الشاشة لكل الجوالات</p>}
       {!fresh ? (
         <Panel className="flex justify-center py-12">
           <Loader2 size={34} className="animate-spin text-ludn-gold" />
