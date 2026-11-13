@@ -19,6 +19,9 @@ import {
   Ghost,
   Lock,
   FlaskConical,
+  Check,
+  Eye,
+  Hourglass,
   type LucideIcon,
 } from "lucide-react";
 import { MAFIA_CONFIG, MAFIA_GAME } from "@/constants/mafia";
@@ -44,7 +47,7 @@ import {
 import MafiaGameOver from "./MafiaGameOver";
 import MafiaHostMenu, { MafiaHostHush, MafiaHostSkip } from "./MafiaHostMenu";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
-import { BAR_BTN, BTN_GOLD, BTN_SOFT, ERROR, H_CARD, LABEL, NOTE } from "./mafiaUi";
+import { BAR_BTN, BTN_GOLD, BTN_SOFT, ERROR, H_CARD, INFO, LABEL, NOTE } from "./mafiaUi";
 import { unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 
 const NIGHT_PHASES: MafiaPhase[] = ["night_act", "night_done"];
@@ -133,7 +136,8 @@ export default function MafiaScreen({
           <div className="flex items-center gap-2 shrink-0">
             {phase !== "lobby" && (
               <RolePeek
-                role={me.role}
+                // دور قديم (من جولة قبل) ما يطلع: لين توصل حالتي من هاللعبة
+                role={ctx.roleReady ? me.role : null}
                 teammates={me.role === "mafia" ? (view?.mafiaTeam ?? []).filter((m) => m.id !== me.id).map((m) => m.name) : []}
               />
             )}
@@ -151,7 +155,8 @@ export default function MafiaScreen({
             <PhaseIcon size={20} className={`shrink-0 ${isNight ? "text-indigo-300" : "text-ludn-gold-text"}`} />
             <span className="truncate pt-1">{phaseLabel(phase, room.night_number)}</span>
           </h1>
-          {showTimer && <TimerBadge seconds={secondsLeft} danger={3} />}
+          {/* الليل السريع قبل ما يبدأ مؤقته (ننتظر أصحاب المهام يوصلهم دورهم): بدون عداد */}
+          {showTimer && <TimerBadge seconds={ctx.nightArming ? null : secondsLeft} danger={3} />}
         </div>
       </header>
 
@@ -252,12 +257,19 @@ export default function MafiaScreen({
   );
 }
 
+/**
+ * كشف الأدوار: الدور يطلع بس لو وصل من هالجولة (نفس رقم المرحلة) — مثل شاشات الليل —
+ * وإلا "جاري تحميل دورك...". كل لاعب يضغط "شفت دوري"، والكشف يخلص لما الكل يضغط (أو يخلص الوقت).
+ */
 function MafiaReveal({ ctx }: { ctx: MafiaGameCtx }) {
-  const { me, view } = ctx;
-  if (!me?.role) {
+  const { me, view, viewFresh, iSawRole } = ctx;
+  const role = viewFresh ? (me?.role ?? null) : null;
+  if (!me || !role) {
     return (
-      <div className="flex justify-center py-20">
+      <div className="flex flex-col items-center gap-4 py-16">
         <Loader2 size={40} className="animate-spin text-ludn-gold" />
+        <p className="font-black text-ludn-muted">جاري تحميل دورك...</p>
+        <RevealWaiting ctx={ctx} />
       </div>
     );
   }
@@ -265,8 +277,40 @@ function MafiaReveal({ ctx }: { ctx: MafiaGameCtx }) {
   return (
     <div className="flex flex-col items-center gap-5">
       <p className="text-center text-[15px] font-black text-ludn-muted">غطّ جوالك… هذا دورك</p>
-      <RoleCard flip role={me.role} teammates={me.role === "mafia" ? teammates.map((m) => m.name) : []} />
+      <RoleCard flip role={role} teammates={role === "mafia" ? teammates.map((m) => m.name) : []} />
+      {iSawRole ? (
+        <p className="text-center text-[15px] font-black text-ludn-green animate-in fade-in">
+          <Check size={18} className="inline -mt-1 me-1" />
+          تم — ننتظر الباقين يشوفون أدوارهم
+        </p>
+      ) : (
+        <button type="button" onClick={() => void ctx.seeRole()} className={BTN_GOLD}>
+          <Eye size={20} /> شفت دوري
+        </button>
+      )}
+      <RevealWaiting ctx={ctx} />
     </div>
+  );
+}
+
+/** مين باقي ما شاف دوره: المنشئ يشوف الأسماء، والباقين العدد بس */
+function RevealWaiting({ ctx }: { ctx: MafiaGameCtx }) {
+  const r = ctx.revealReady;
+  if (!r) return null;
+  const myId = ctx.me?.id;
+  const waiting = (r.waiting ?? []).filter((id) => !(ctx.iSawRole && id === myId));
+  const left = r.waiting ? waiting.length : Math.max(0, r.total - r.done);
+  if (left === 0) return null;
+  const names = ctx.isHost ? waiting.map((id) => ctx.nameOf(id)).filter(Boolean) : [];
+  return (
+    <p className={`${INFO} w-full animate-in fade-in break-words`}>
+      <Hourglass size={16} className="inline -mt-1 me-1" />
+      {names.length > 0
+        ? `${names.length === 1 ? "باقي ما شاف دوره" : "باقي ما شافوا أدوارهم"}: ${names.join("، ")}`
+        : left === 1
+          ? "باقي واحد ما شاف دوره"
+          : `باقي ${left} ما شافوا أدوارهم`}
+    </p>
   );
 }
 

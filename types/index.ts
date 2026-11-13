@@ -275,7 +275,17 @@ export interface MafiaRoom {
    * يحتاج 0007_mafia_night_ready.sql
    */
   /** النمط السريع: step = null (الكل بنفس الوقت) وبدون waiting — العدد بس */
-  night_ready?: { night: number; step: MafiaNightStep | null; done: number; total: number; waiting?: string[] } | null;
+  /** كشف الأدوار: night = 0 و seq = رقم المرحلة، و waiting = اللي ما ضغطوا "شفت دوري" */
+  /** غرفة الانتظار: lastSeat = آخر رقم مقعد انعطى (السيرفر يوزّع منه أرقام ما تتكرر) */
+  night_ready?: {
+    night: number;
+    step: MafiaNightStep | null;
+    seq?: number;
+    lastSeat?: number;
+    done: number;
+    total: number;
+    waiting?: string[];
+  } | null;
   vote_result: MafiaVoteResult | null;
   winner: MafiaTeam | null;
   final_roles: MafiaFinalRole[] | null;

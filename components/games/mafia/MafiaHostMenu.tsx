@@ -159,7 +159,7 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
                   <MenuButton
                     icon={<SkipForward size={20} />}
                     label="تخطي المرحلة الحالية"
-                    hint="بالليل: لو أحد غايب، الدور يمشي والنظام يختار عن صاحب الدور"
+                    hint="بالليل: لو أحد غايب، الدور يمشي والنظام يختار عن صاحب الدور (إذا وصله دوره)"
                     onClick={() => runAndClose(host.skipPhase)}
                     disabled={busy}
                   />

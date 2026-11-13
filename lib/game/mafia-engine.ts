@@ -531,7 +531,7 @@ export function mafiaNightShortcut(
 export function mafiaPhaseSeconds(phase: MafiaPhase): number | null {
   switch (phase) {
     case "reveal":
-      return MAFIA_CONFIG.ROLE_REVEAL_SECONDS;
+      return MAFIA_CONFIG.ROLE_REVEAL_MAX_SECONDS;
     case "night_done":
       return MAFIA_CONFIG.NIGHT_DONE_SECONDS;
     case "discussion":
