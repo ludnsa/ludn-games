@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "import:quiz": "tsx scripts/import-questions.ts"
+    "import:quiz": "tsx scripts/import-questions.ts",
+    "sim:mafia": "tsx --tsconfig scripts/mafia-sim/tsconfig.json scripts/mafia-sim/index.ts",
+    "sim:mafia:quick": "tsx --tsconfig scripts/mafia-sim/tsconfig.json scripts/mafia-sim/index.ts --quick"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

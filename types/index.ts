@@ -210,6 +210,12 @@ export interface MafiaSettings {
   discussionSeconds?: number;
   /** الغرفة انقفلت والمنشئ فتح غرفة جديدة بهذا الكود */
   movedTo?: string;
+  /**
+   * بذرة ترتيب قادة المافيا لهذي الجولة — تنكتب مع كل بداية (startMafiaGame).
+   * منها يتحدد مين من المافيا يبدأ بالقرار ومين بعده (عشوائي لكل جولة، ثابت طولها).
+   * معلنة مثل باقي الإعدادات: ما تكشف شي بدون معرفة مين المافيا.
+   */
+  leadSeed?: string;
 }
 
 export type MafiaAnnouncementKind =

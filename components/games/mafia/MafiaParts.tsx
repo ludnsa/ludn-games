@@ -146,6 +146,20 @@ function CardBack() {
 }
 
 /**
+ * بطاقة مقفولة (ظهرها بس) — بعد ما يضغط اللاعب "شفت دوري": الدور ما يظل ظاهر على الشاشة،
+ * ويشوفه وقت ما يبي من زر "دوري".
+ */
+export function ClosedCard({ small = false }: { small?: boolean }) {
+  return (
+    <div className={`mfx-card mfx-card-static ${small ? "mfx-card-sm" : ""}`}>
+      <div className="mfx-card-inner">
+        <CardBack />
+      </div>
+    </div>
+  );
+}
+
+/**
  * بطاقة الدور بالصورة.
  * flip: كشف الدور — يطلع ظهر البطاقة وتنقلب بحركة، وبعدها لمعة وتوهج بلون الدور.
  * بدونه (زر "دوري"): البطاقة تطلع على طول.
@@ -303,6 +317,7 @@ export function PlayerPicker({
   badge,
   voters,
   accent = "red",
+  tint,
 }: {
   options: PickerOption[];
   selectedId: string | null;
@@ -313,6 +328,8 @@ export function PlayerPicker({
   /** أسماء اللي صوّتوا على هذا اللاعب — تطلع تحت اسمه */
   voters?: (id: string) => string[];
   accent?: "red" | "emerald" | "sky" | "purple" | "amber" | "orange";
+  /** الأزرار كلها بلون (مو بس المختار) — قائمة القتل لما ينتقل القرار، عشان تبان غير قائمة التمويه */
+  tint?: "red";
 }) {
   const selectedStyle: Record<string, string> = {
     red: "bg-red-600 border-red-800",
@@ -341,7 +358,9 @@ export function PlayerPicker({
             } ${
               selected
                 ? `${selectedStyle[accent]} text-white scale-[1.03]`
-                : "bg-ludn-surface-2 border-ludn-line border-b-black/40 text-ludn-fg hover:border-white/20"
+                : tint === "red"
+                  ? "bg-red-950/70 border-red-500/70 border-b-red-900 text-ludn-fg"
+                  : "bg-ludn-surface-2 border-ludn-line border-b-black/40 text-ludn-fg hover:border-white/20"
             } disabled:cursor-not-allowed ${disabled && !selected ? "opacity-45" : ""}`}
           >
             {/* الاسم بسطر كامل عشان ما ينكسر، والعدد والمصوّتين تحته */}

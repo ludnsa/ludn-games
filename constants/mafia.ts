@@ -118,7 +118,8 @@ export const MAFIA_ROLES: Record<MafiaRole, MafiaRoleDef> = {
     key: "magician",
     label: "الساحر",
     team: "town",
-    description: "إذا مات المحقق أو الطبيب أو الجندي، تقدر تاخذ مكانه (مرة وحدة طول اللعبة). وأنت من صف المواطنين.",
+    description:
+      "إذا مات المحقق أو الطبيب أو الجندي بالليل، الليلة اللي بعدها تاخذ مكانه وتستخدم دوره بنفس الليلة (مرة وحدة طول اللعبة). وأنت من صف المواطنين.",
     accent: "from-purple-500 to-fuchsia-700",
     art: "wizard",
     glow: "#a855f7",
@@ -154,7 +155,8 @@ export const MAFIA_ROLES: Record<MafiaRole, MafiaRoleDef> = {
     key: "silencer",
     label: "المسكت",
     team: "town",
-    description: "كل ليلة تختار لاعب يصير ممنوع من الكلام اليوم الجاي — وإذا تكلم ينقتل. ما تقدر تختار نفس الشخص ليلتين ورا بعض.",
+    description:
+      "كل ليلة تختار لاعب (حتى نفسك) يصير ممنوع من الكلام اليوم الجاي — وإذا تكلم ينقتل. ما تقدر تختار نفس الشخص ليلتين ورا بعض.",
     accent: "from-cyan-600 to-teal-800",
     art: "silencer",
     glow: "#7dd3fc",
@@ -197,14 +199,18 @@ export const MAFIA_OPTIONAL_ROLES: readonly MafiaOptionalRole[] = [
   "sheikh",
 ] as const;
 
-/** ترتيب أدوار الليل. الجندي ما له دور بالليل لأن درعه تلقائي، والشيخ دوره بالنهار. */
+/**
+ * ترتيب أدوار الليل. الجندي ما له دور بالليل لأن درعه تلقائي، والشيخ دوره بالنهار.
+ * الساحر أول واحد: يختار فئة المذبوح (المحقق/الطبيب/الجندي) وتصير فئته من نفس اللحظة،
+ * فيلعب بها بنفس الليلة لما يجي دورها بترتيبها العادي (حماية الطبيب قبل ذبح المافيا).
+ */
 export const MAFIA_NIGHT_ORDER: readonly MafiaNightStep[] = [
+  "magician",
   "doctor",
   "mafia",
   "suicide",
   "detective",
   "journalist",
-  "magician",
   "silencer",
 ] as const;
 
@@ -235,7 +241,7 @@ export const MAFIA_NIGHT_STEPS: Record<MafiaNightStep, MafiaNightStepDef> = {
   },
   magician: {
     headline: "الساحر يجهّز سحره...",
-    prompt: "وش تبي تصير؟ (مرة وحدة طول اللعبة)",
+    prompt: "وش تبي تصير؟ (مرة وحدة طول اللعبة، وتلعب بها الليلة)",
     doneText: "الساحر خلّص سحره",
   },
   journalist: {

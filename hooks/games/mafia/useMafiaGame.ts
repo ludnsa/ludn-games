@@ -21,10 +21,9 @@ import {
   skipMafiaPhase,
   startMafiaDiscussion,
   startMafiaGame,
-  submitMafiaNightAction,
-  submitMafiaDecoy,
   updateMafiaSettings,
   type MafiaMyView,
+  type MafiaTask,
 } from "@/actions/mafia";
 import { MAFIA_SKIP_KEY, isFastMafia, mafiaNightSteps, silencedPlayerId } from "@/lib/game/mafia-engine";
 import { MAFIA_CONFIG } from "@/constants/mafia";
@@ -87,13 +86,23 @@ export function mafiaMorningSchedule(announcements: MafiaAnnouncement[]): number
   return schedule;
 }
 
-/** اختيار الليل ما وصل للسيرفر (النت انقطع): نرجّع الشاشة عشان يضغط من جديد بدل ما يعلق */
-const OFFLINE = { success: false, error: "ما وصل اختيارك — تأكد من النت واضغط مرة ثانية" } as const;
+/** اختيار الليل ما وصل للسيرفر بعد كل المحاولات (النت انقطع): نرجّع الشاشة عشان يضغط من جديد بدل ما يعلق */
+const OFFLINE_ERROR = "ما وصل اختيارك — تأكد من النت واضغط مرة ثانية";
 
 /** مهلة طلبات اللعب: الطلب اللي ما رد خلالها ينقطع وينعاد، بدل ما يعلق الجوال وراه */
 const MAFIA_REQUEST_TIMEOUT_MS = 4000;
+/** اختيار الليل وجواب التمويه: كم مرة نعيد الطلب (كل وحدة بمهلتها) قبل ما نقول "ما وصل" */
+const MAFIA_PICK_ATTEMPTS = 8;
+/**
+ * مهلة المحاولة رقم n (من صفر): أول وحدة 4 ثواني، وكل إعادة أطول بثانيتين لين 10 —
+ * لو السيرفر أو النت بطيء دايماً (أكثر من 4 ثواني) الطلب ينقطع كل مرة وما يوصل أبداً، فالإعادة تعطيه وقت أكثر
+ */
+const attemptTimeout = (n: number) => Math.min(10_000, MAFIA_REQUEST_TIMEOUT_MS + 2000 * n);
 /** طلب الانتقال (يسوي شغل أكثر بالسيرفر، والمرحلة الجديدة توصل بالبث): ننتظره أطول وما نكرره وهو شغال */
 const MAFIA_ADVANCE_TIMEOUT_MS = 20000;
+/** القراءة الاحتياطية للغرفة: البث اللحظي شغال = كل 10 ثواني، مقطوع = كل 4 */
+const SAFETY_POLL_LIVE_MS = 10_000;
+const SAFETY_POLL_OFFLINE_MS = 4_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -105,8 +114,8 @@ type MafiaApiResult<T> = { success: true; data?: T } | { success: false; error: 
  * network = ما رد أو انقطع أو خطأ بالسيرفر: ينفع نعيده.
  */
 async function postMafia<T = undefined>(
-  op: "view" | "seen" | "got" | "advance" | "lead",
-  body: { roomCode: string; token: string; seq?: number },
+  op: "view" | "seen" | "got" | "advance" | "lead" | "act" | "decoy",
+  body: { roomCode: string; token: string; seq?: number; targetId?: string | null; card?: string },
   timeoutMs = MAFIA_REQUEST_TIMEOUT_MS
 ): Promise<MafiaApiResult<T>> {
   const ctrl = new AbortController();
@@ -129,6 +138,54 @@ async function postMafia<T = undefined>(
 }
 
 const isNetworkFail = <T,>(res: MafiaApiResult<T>) => !res.success && res.network === true;
+
+/** اختيار ليل بالطريق (ما وصل رده للحين): الشاشة تظل مقفلة عليه حتى لو وصلت حالة من السيرفر قبله */
+type PendingPick =
+  | { kind: "act"; seq: number; step: string; targetId: string | null; card?: string; cardRole?: string }
+  | { kind: "decoy"; seq: number; targetId: string };
+
+/** نفس القفل اللي يطلع على الشاشة لحظة الضغطة (الساحر بالسريع: تظل البطاقة اللي اختارها بس) */
+function lockTask(task: MafiaTask, targetId: string | null, card?: string): MafiaTask {
+  return {
+    ...task,
+    locked: true,
+    selectedId: targetId,
+    ...(card && task.cards ? { cards: task.cards.filter((c) => c.id === card) } : {}),
+  };
+}
+
+/** حالتي من السيرفر وصلت واختياري للحين بالطريق: نحط عليها القفل عشان القائمة ما تنفتح من جديد */
+function withPendingPick(view: MafiaMyView, p: PendingPick | null): MafiaMyView {
+  if (!p || view.phaseSeq !== p.seq) return view;
+  if (p.kind === "decoy") return !view.task && view.decoyId === null ? { ...view, decoyId: p.targetId } : view;
+  const task = view.task;
+  if (!task || task.locked) return view;
+  // الساحر بالسريع: لو فئته تغيّرت قبل ما يتسجل الشخص، مهمته صارت فئة البطاقة — نفس الاختيار
+  if (task.step === p.step || (p.card && task.step === p.cardRole)) return { ...view, task: lockTask(task, p.targetId, task.step === p.step ? p.card : undefined) };
+  return view;
+}
+
+/**
+ * قائمة "باقي ما اختار/ما شاف دوره" اللي يكتبها السيرفر: لو ضغط كذا واحد بنفس اللحظة ممكن توصل نسخة
+ * قديمة بعد الجديدة، فيرجع اسم كان اختفى. هنا الاسم اللي اختفى مرة (لنفس المرحلة) ما يرجع.
+ */
+function useStableWaiting(key: string | null, waiting: string[] | undefined): string[] | undefined {
+  // الذاكرة بحالة React (مو ref): تتعدّل وقت الرسم لما تتغير القائمة — نمط "تعديل الحالة مع تغيّر الخصائص"
+  const [mem, setMem] = useState<{ key: string | null; last: string[] | undefined; done: string[] }>({
+    key: null,
+    last: undefined,
+    done: [],
+  });
+  let done = mem.key === key ? mem.done : [];
+  if (waiting && (mem.key !== key || mem.last !== waiting)) {
+    const last = mem.key === key ? mem.last ?? [] : [];
+    const newlyDone = last.filter((id) => !waiting.includes(id) && !done.includes(id));
+    if (newlyDone.length) done = [...done, ...newlyDone];
+    setMem({ key, last: waiting, done });
+  }
+  if (!waiting) return waiting;
+  return done.length ? waiting.filter((id) => !done.includes(id)) : waiting;
+}
 
 /** صوتي ينحسب على الشاشة فوراً (العداد وأسماء المصوّتين)، والسيرفر يأكده بعدين */
 function withLocalVote(room: MafiaRoom, voterId: string, prev: string | null, next: string): MafiaRoom {
@@ -208,11 +265,14 @@ export function useMafiaGame(
     }
   }, [supabase, roomCode]);
 
+  /** اختياري بالطريق (ما رد السيرفر للحين) — شوف withPendingPick */
+  const pendingPick = useRef<PendingPick | null>(null);
+
   /** ok = وصلت. fail = ما رد أو انقطع (نعيد). stop = رد نهائي ما ينفع نعيده */
-  const fetchViewOnce = useCallback(async (): Promise<"ok" | "fail" | "stop"> => {
+  const fetchViewOnce = useCallback(async (timeoutMs = MAFIA_REQUEST_TIMEOUT_MS): Promise<"ok" | "fail" | "stop"> => {
     if (!roomCode || !token) return "stop";
     const sentAt = Date.now();
-    const res = await postMafia<MafiaMyView>("view", { roomCode, token });
+    const res = await postMafia<MafiaMyView>("view", { roomCode, token }, timeoutMs);
     if (!res.success) {
       if (res.network) return "fail";
       if (res.error.includes("انتهت جلستك") || res.error.includes("غير موجودة")) {
@@ -223,14 +283,16 @@ export function useMafiaGame(
     if (!res.data) return "fail";
     const roundTrip = Date.now() - sentAt;
     offsetRef.current = res.data.serverNow + roundTrip / 2 - Date.now();
-    setView(res.data);
+    setView(withPendingPick(res.data, pendingPick.current));
+    // السيرفر يقول إن اختياري وصل (ردّه هو اللي ضاع): رسالة "ما وصل اختيارك" ما لها داعي
+    if (res.data.task?.locked || res.data.decoyId) setError((e) => (e === OFFLINE_ERROR ? "" : e));
     return "ok";
   }, [roomCode, token]);
 
   /**
    * جلب حالتي الخاصة — طلب واحد بس بالمرة. لو انطلب جلب والجلب الحالي ما خلص، نعيده مرة وحدة
    * بعده عشان آخر حالة توصل. الطلب اللي ما رد خلال 4 ثواني ينقطع، ونعيد المحاولة تلقائياً لين ينجح
-   * (بدون ما يوقف باقي الطلبات — كل طلب لحاله).
+   * (كل إعادة بمهلة أطول — attemptTimeout — وبدون ما يوقف باقي الطلبات: كل طلب لحاله).
    */
   const fetchViewLatest = useRef(fetchViewOnce);
   useEffect(() => {
@@ -253,7 +315,7 @@ export function useMafiaGame(
         let failures = 0;
         do {
           viewAgain.current = false;
-          const result = await fetchViewLatest.current();
+          const result = await fetchViewLatest.current(attemptTimeout(failures));
           if (gen !== viewGen.current) return;
           if (result === "fail") {
             failures++;
@@ -282,6 +344,9 @@ export function useMafiaGame(
     fetchView();
     isMafiaDevMode().then(setDevMode);
 
+    // البث اللحظي متصل؟ (يحدد كل كم نقرا القراءة الاحتياطية)
+    let live = false;
+    let lastSafety = Date.now();
     const channel = supabase
       .channel(`mafia_${roomCode}_${Math.random().toString(36).slice(2, 8)}`)
       .on(
@@ -297,7 +362,15 @@ export function useMafiaGame(
           fetchView();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        const wasLive = live;
+        live = status === "SUBSCRIBED";
+        // رجع الاتصال بعد انقطاع: نجيب آخر حالة على طول، ما ننتظر القراءة الاحتياطية
+        if (live && !wasLive) {
+          lastSafety = Date.now();
+          fetchPublic();
+        }
+      });
 
     // الجوالات تقطع الاتصال عند إطفاء الشاشة — نُحدّث عند العودة
     const onVisible = () => {
@@ -308,8 +381,12 @@ export function useMafiaGame(
     };
     document.addEventListener("visibilitychange", onVisible);
 
-    // شبكة أمان لو البث اللحظي انقطع بصمت
-    const safety = setInterval(fetchPublic, 5000);
+    // شبكة أمان لو البث اللحظي انقطع بصمت: كل 10 ثواني وهو متصل، وكل 4 لو انقطع
+    const safety = setInterval(() => {
+      if (Date.now() - lastSafety < (live ? SAFETY_POLL_LIVE_MS : SAFETY_POLL_OFFLINE_MS)) return;
+      lastSafety = Date.now();
+      fetchPublic();
+    }, 1000);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
@@ -468,7 +545,7 @@ export function useMafiaGame(
     let stopped = false;
     (async () => {
       for (let i = 0; i < 30 && !stopped; i++) {
-        const res = await postMafia("got", { roomCode, token, seq: ackSeq });
+        const res = await postMafia("got", { roomCode, token, seq: ackSeq }, attemptTimeout(i));
         if (!isNetworkFail(res)) return;
         await sleep(1000);
       }
@@ -491,8 +568,9 @@ export function useMafiaGame(
     const seenAt = seqSeenAt.current.seq === leadSeq ? seqSeenAt.current.at : Date.now();
     (async () => {
       await sleep(Math.max(0, seenAt + MAFIA_CONFIG.FAST_ROLE_WAIT_SECONDS * 1000 - Date.now()));
-      while (!stopped) {
-        const res = await postMafia<{ leader: boolean; stop: boolean }>("lead", { roomCode, token, seq: leadSeq });
+      for (let failures = 0; !stopped; ) {
+        const res = await postMafia<{ leader: boolean; stop: boolean }>("lead", { roomCode, token, seq: leadSeq }, attemptTimeout(failures));
+        if (isNetworkFail(res)) failures++;
         if (stopped) return;
         if (res.success && res.data?.leader) {
           fetchView();
@@ -508,37 +586,63 @@ export function useMafiaGame(
     };
   }, [leadSeq, roomCode, token, fetchView]);
 
-  /** كشف الأدوار: ضغطت "شفت دوري" (رقم المرحلة) — يتحدد على شاشتي فوراً، والسيرفر بالخلفية */
+  /**
+   * كشف الأدوار: ضغطت "شفت دوري" (رقم المرحلة) — البطاقة تنقفل على شاشتي فوراً، والضغطة تنرسل
+   * بالخلفية وتنعاد تلقائياً لين يأكدها السيرفر (ما دام الكشف نفسه شغال). seenSent = السيرفر أكدها.
+   */
   const [seenSeq, setSeenSeq] = useState<number | null>(null);
+  const [seenSent, setSeenSent] = useState<number | null>(null);
   const revealSeq = room?.phase === "reveal" ? room.phase_seq : null;
+  const revealSeqRef = useRef(revealSeq);
+  revealSeqRef.current = revealSeq;
   const seeRole = useCallback(async () => {
     if (revealSeq === null || seenSeq === revealSeq) return;
     unlockMafiaAudio();
     setError("");
     setSeenSeq(revealSeq);
-    for (let i = 0; i < 15; i++) {
-      const res = await postMafia("seen", { roomCode, token, seq: revealSeq });
-      if (res.success) return;
+    for (let i = 0; ; i++) {
+      const res = await postMafia("seen", { roomCode, token, seq: revealSeq }, attemptTimeout(i));
+      if (res.success) {
+        setSeenSent(revealSeq);
+        return;
+      }
       if (!isNetworkFail(res)) {
-        setSeenSeq(null);
+        // رد نهائي (مثل: دورك ما وصل للحين): نرجّع الزر عشان يضغط من جديد
+        setSeenSeq((s) => (s === revealSeq ? null : s));
         setError(res.error);
         return;
       }
-      await sleep(1000);
+      // الكشف خلص أو صار شي ثاني: ما فيه داعي نكمل
+      if (revealSeqRef.current !== revealSeq) return;
+      await sleep(Math.min(3000, 500 + i * 500));
     }
-    setSeenSeq(null);
-    setError("ما وصلت ضغطتك — تأكد من النت واضغط مرة ثانية");
   }, [revealSeq, seenSeq, roomCode, token]);
 
-  // مين باقي ما شاف دوره (السيرفر يكتبه بـ night_ready بليلة صفر)
-  const revealReady =
+  // مين باقي ما شاف دوره (السيرفر يكتبه بـ night_ready بليلة صفر) — والاسم اللي اختفى ما يرجع
+  const revealReadyRaw =
     room?.phase === "reveal" && room.night_ready?.night === 0 && room.night_ready.seq === room.phase_seq
       ? room.night_ready
       : null;
+  const revealWaiting = useStableWaiting(revealReadyRaw ? `reveal:${revealReadyRaw.seq}` : null, revealReadyRaw?.waiting);
+  const revealReady = useMemo(
+    () => (revealReadyRaw ? { ...revealReadyRaw, waiting: revealWaiting } : null),
+    [revealReadyRaw, revealWaiting]
+  );
+  // مين باقي ما اختار بدور الليل (نفس الشي)
+  const nightReadyRaw = room?.phase === "night_act" && room.night_ready && room.night_ready.night === room.night_number ? room.night_ready : null;
+  const nightWaiting = useStableWaiting(
+    nightReadyRaw ? `night:${room?.phase_seq}:${nightReadyRaw.night}:${nightReadyRaw.step ?? "fast"}` : null,
+    nightReadyRaw?.waiting
+  );
+  const nightReady = useMemo(
+    () => (nightReadyRaw ? { ...nightReadyRaw, waiting: nightWaiting } : null),
+    [nightReadyRaw, nightWaiting]
+  );
   const myId = view?.me.id;
-  const iSawRole =
-    revealSeq !== null &&
-    (seenSeq === revealSeq || Boolean(revealReady?.waiting && myId && !revealReady.waiting.includes(myId)));
+  const serverSawMe = Boolean(revealReady?.waiting && myId && !revealReady.waiting.includes(myId));
+  const iSawRole = revealSeq !== null && (seenSeq === revealSeq || serverSawMe);
+  /** السيرفر أكد ضغطتي "شفت دوري" (رد عليها، أو شالني من قائمة الباقين) */
+  const seenConfirmed = revealSeq !== null && (seenSent === revealSeq || serverSawMe);
 
   // -------------------------------------------------------------------
   // المؤثرات الصوتية
@@ -676,31 +780,71 @@ export function useMafiaGame(
 
   /**
    * صاحب الدور يضغط على اسم (null = الساحر/الصحفي يعدّي الليلة) — ضغطة وحدة والاختيار نهائي.
+   * card (السريع، الساحر): البطاقة اللي يصيرها مع الشخص بطلب واحد (null targetId للجندي: الدرع بس).
    * بدون صوت وبدون حركة ولا لون خاص: شاشته لازم تكون مثل شاشات الباقين بالضبط،
-   * لأن اللي جنبه يقدر يلمحها. ينرسل مرة وحدة بس لكل دور (لو ضغط مرتين بسرعة).
+   * لأن اللي جنبه يقدر يلمحها. ينرسل مرة وحدة بس لكل مهمة (لو ضغط مرتين بسرعة) — المهمة = المرحلة + الدور.
    */
-  const actSeq = useRef<number | null>(null);
+  const taskStepRef = useRef<string | null>(null);
+  const viewRef = useRef(view);
+  useEffect(() => {
+    taskStepRef.current = view?.task?.step ?? null;
+    viewRef.current = view;
+  }, [view]);
+  // رقم المرحلة الحالي (للإعادة: لو تغيّرت المرحلة نوقف إعادة الطلب القديم)
+  const liveSeq = useRef(seq);
+  useEffect(() => {
+    liveSeq.current = seq;
+  }, [seq]);
+
+  /**
+   * يرسل اختيار الليل أو جواب التمويه بطلب عادي (app/api/mafia/[op]) مو دالة سيرفر: الطلب اللي ما رد خلال
+   * 4 ثواني ينقطع وينعاد تلقائياً (السيرفر يقبل الإعادة لو الأول وصل، وما يتغير شي)، وما يوقف أي طلب ثاني.
+   * null = المرحلة تغيّرت والطلب ما رد — ما فيه داعي نكمل.
+   */
+  const sendPick = useCallback(
+    async (op: "act" | "decoy", body: { roomCode: string; token: string; seq: number; targetId: string | null; card?: string }) => {
+      for (let i = 0; i < MAFIA_PICK_ATTEMPTS; i++) {
+        const res = await postMafia(op, body, attemptTimeout(i));
+        if (!isNetworkFail(res)) return res;
+        if (liveSeq.current !== body.seq) return null;
+        await sleep(Math.min(1500, 300 * (i + 1)));
+        if (liveSeq.current !== body.seq) return null;
+      }
+      return { success: false as const, error: OFFLINE_ERROR };
+    },
+    []
+  );
+
+  const actKey = useRef<string | null>(null);
   const act = useCallback(
-    async (targetId: string | null) => {
-      if (phaseSeq === undefined || actSeq.current === phaseSeq) return;
-      actSeq.current = phaseSeq;
+    async (targetId: string | null, card?: string | null) => {
+      if (phaseSeq === undefined) return;
+      const step = taskStepRef.current ?? "";
+      const key = `${phaseSeq}:${step}`;
+      if (actKey.current === key) return;
+      actKey.current = key;
       unlockMafiaAudio();
       setError("");
-      // الشاشة تتقفل على اختياره فوراً، والسيرفر يحفظ بالخلفية (لو فشل نرجّعها)
-      setView((v) => (v?.task ? { ...v, task: { ...v.task, locked: true, selectedId: targetId } } : v));
-      const res = await submitMafiaNightAction({ roomCode, token, targetId }).catch(() => OFFLINE);
-      if (!res.success) {
-        actSeq.current = null;
+      // الشاشة تتقفل على اختياره فوراً، والسيرفر يحفظ بالخلفية (لو فشل نرجّعها).
+      // الساحر بالسريع: تظل عنده البطاقة اللي اختارها بس، والشخص هو المختار فيها
+      const cardRole = card ? viewRef.current?.task?.cards?.find((c) => c.id === card)?.role : undefined;
+      const pick: PendingPick = { kind: "act", seq: phaseSeq, step, targetId, ...(card ? { card, cardRole } : {}) };
+      pendingPick.current = pick;
+      setView((v) => (v?.task ? { ...v, task: lockTask(v.task, targetId, card ?? undefined) } : v));
+      const res = await sendPick("act", { roomCode, token, seq: phaseSeq, targetId, ...(card ? { card } : {}) });
+      if (pendingPick.current === pick) pendingPick.current = null;
+      if (res && !res.success) {
+        actKey.current = null;
         setError(res.error);
       }
       await fetchView();
     },
-    [roomCode, token, fetchView, phaseSeq]
+    [roomCode, token, fetchView, phaseSeq, sendPick]
   );
 
   /**
    * سؤال التمويه: لازم كل الأحياء يجاوبون عشان يمشي الدور — ضغطة وحدة ويتقفل فوراً على الشاشة.
-   * ينرسل مرة وحدة بس لكل دور، ومعه رقم الدور عشان السيرفر يتجاهله لو وصل متأخر.
+   * ينرسل مرة وحدة بس لكل دور (ويتعاد تلقائياً لو ما رد)، ومعه رقم الدور عشان السيرفر يتجاهله لو وصل متأخر.
    */
   const decoySeq = useRef<number | null>(null);
   const decoy = useCallback(
@@ -708,15 +852,19 @@ export function useMafiaGame(
       if (phaseSeq === undefined || decoySeq.current === phaseSeq) return;
       decoySeq.current = phaseSeq;
       setError("");
+      const pick: PendingPick = { kind: "decoy", seq: phaseSeq, targetId };
+      pendingPick.current = pick;
       setView((v) => (v ? { ...v, decoyId: targetId } : v));
-      const res = await submitMafiaDecoy({ roomCode, token, targetId, seq: phaseSeq }).catch(() => OFFLINE);
-      if (!res.success) {
+      const res = await sendPick("decoy", { roomCode, token, seq: phaseSeq, targetId });
+      if (pendingPick.current === pick) pendingPick.current = null;
+      if (res && !res.success) {
         decoySeq.current = null;
-        setError(res.error);
+        // قرار القتل انتقل لي وأنا على سؤال التمويه: بدون رسالة خطأ — شاشتي تتبدل وتقول "انتقل لك قرار القتل"
+        if (!res.error.includes("اختر من مهمتك")) setError(res.error);
         fetchView();
       }
     },
-    [roomCode, token, fetchView, phaseSeq]
+    [roomCode, token, fetchView, phaseSeq, sendPick]
   );
 
   /** الشيخ يختار نوع نقاش اليوم — يتحدد على شاشته فوراً، ويقدر يغيّره لين يبدأ النقاش */
@@ -844,7 +992,11 @@ export function useMafiaGame(
     roleReady,
     /** كشف الأدوار: مين باقي ما شاف دوره */
     revealReady,
+    /** دور الليل: مين باقي ما اختار (الاسم اللي اختفى ما يرجع) */
+    nightReady,
     iSawRole,
+    /** ضغطة "شفت دوري" وصلت السيرفر فعلاً */
+    seenConfirmed,
     seeRole,
     nameOf,
     silencedId,

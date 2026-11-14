@@ -49,6 +49,10 @@ import type {
   MadaqeshSettings,
 } from "@/types/madaqesh";
 
+/** القراءة الاحتياطية للغرفة: البث اللحظي شغال = كل 10 ثواني، مقطوع = كل 4 */
+const SAFETY_POLL_LIVE_MS = 10_000;
+const SAFETY_POLL_OFFLINE_MS = 4_000;
+
 export interface MadaqeshSession {
   roomCode: string;
   token: string;
@@ -126,6 +130,9 @@ export function useMadaqeshGame(
     fetchHistory();
     isMadaqeshDevMode().then(setDevMode);
 
+    // البث اللحظي متصل؟ (يحدد كل كم نقرا القراءة الاحتياطية)
+    let live = false;
+    let lastSafety = Date.now();
     const channel = supabase
       .channel(`madaqesh_${roomCode}_${Math.random().toString(36).slice(2, 8)}`)
       .on(
@@ -142,7 +149,15 @@ export function useMadaqeshGame(
           if (payload.eventType === "DELETE") fetchMe();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        const wasLive = live;
+        live = status === "SUBSCRIBED";
+        // رجع الاتصال بعد انقطاع: نجيب آخر حالة على طول، ما ننتظر القراءة الاحتياطية
+        if (live && !wasLive) {
+          lastSafety = Date.now();
+          fetchPublic();
+        }
+      });
 
     const onVisible = () => {
       if (document.visibilityState === "visible") {
@@ -151,9 +166,12 @@ export function useMadaqeshGame(
       }
     };
     document.addEventListener("visibilitychange", onVisible);
+    // شبكة أمان لو البث اللحظي انقطع بصمت: كل 10 ثواني وهو متصل، وكل 4 لو انقطع
     const safety = setInterval(() => {
+      if (Date.now() - lastSafety < (live ? SAFETY_POLL_LIVE_MS : SAFETY_POLL_OFFLINE_MS)) return;
+      lastSafety = Date.now();
       if (!inFlight.current) fetchPublic();
-    }, 5000);
+    }, 1000);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisible);

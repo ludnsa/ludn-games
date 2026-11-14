@@ -28,6 +28,7 @@ import { MAFIA_CONFIG, MAFIA_GAME } from "@/constants/mafia";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import type { MafiaPhase } from "@/types";
 import {
+  ClosedCard,
   Panel,
   preloadMafiaArt,
   RoleCard,
@@ -260,9 +261,11 @@ export default function MafiaScreen({
 /**
  * كشف الأدوار: الدور يطلع بس لو وصل من هالجولة (نفس رقم المرحلة) — مثل شاشات الليل —
  * وإلا "جاري تحميل دورك...". كل لاعب يضغط "شفت دوري"، والكشف يخلص لما الكل يضغط (أو يخلص الوقت).
+ * بعد الضغطة البطاقة تنقفل على طول (ما يحتاج يخبي جواله)، ودوره يشوفه من زر "دوري" فوق.
+ * الضغطة تنعاد تلقائياً لين يأكدها السيرفر، والسطر تحت يقول له وصلت ولا لسا.
  */
 function MafiaReveal({ ctx }: { ctx: MafiaGameCtx }) {
-  const { me, view, viewFresh, iSawRole } = ctx;
+  const { me, view, viewFresh, iSawRole, seenConfirmed } = ctx;
   const role = viewFresh ? (me?.role ?? null) : null;
   if (!me || !role) {
     return (
@@ -273,21 +276,35 @@ function MafiaReveal({ ctx }: { ctx: MafiaGameCtx }) {
       </div>
     );
   }
+  if (iSawRole) {
+    return (
+      <div className="flex flex-col items-center gap-5">
+        <p className="text-center text-[15px] font-black text-ludn-muted">بطاقتك انقفلت</p>
+        <ClosedCard />
+        {seenConfirmed ? (
+          <p className="text-center text-[15px] font-black text-ludn-green animate-in fade-in">
+            <Check size={18} className="inline -mt-1 me-1" />
+            تم ✓ — ننتظر الباقين يشوفون أدوارهم
+          </p>
+        ) : (
+          <p className="text-center text-[15px] font-black text-ludn-gold-text animate-in fade-in">
+            <Loader2 size={18} className="inline -mt-1 me-1 animate-spin" />
+            جاري إرسال ضغطتك…
+          </p>
+        )}
+        <p className={`${NOTE} text-center`}>تبي تشوف دورك مرة ثانية؟ اضغط مطوّل على «دوري» فوق</p>
+        <RevealWaiting ctx={ctx} />
+      </div>
+    );
+  }
   const teammates = (view?.mafiaTeam ?? []).filter((m) => m.id !== me.id);
   return (
     <div className="flex flex-col items-center gap-5">
       <p className="text-center text-[15px] font-black text-ludn-muted">غطّ جوالك… هذا دورك</p>
       <RoleCard flip role={role} teammates={role === "mafia" ? teammates.map((m) => m.name) : []} />
-      {iSawRole ? (
-        <p className="text-center text-[15px] font-black text-ludn-green animate-in fade-in">
-          <Check size={18} className="inline -mt-1 me-1" />
-          تم — ننتظر الباقين يشوفون أدوارهم
-        </p>
-      ) : (
-        <button type="button" onClick={() => void ctx.seeRole()} className={BTN_GOLD}>
-          <Eye size={20} /> شفت دوري
-        </button>
-      )}
+      <button type="button" onClick={() => void ctx.seeRole()} className={BTN_GOLD}>
+        <Eye size={20} /> شفت دوري
+      </button>
       <RevealWaiting ctx={ctx} />
     </div>
   );

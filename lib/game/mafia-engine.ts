@@ -107,6 +107,8 @@ export interface EnginePlayer {
   suicideTarget: string | null;
   /** آخر واحد اختاره الليلة اللي قبل: الطبيب (حماه) أو المسكت (سكّته) أو المنتقم (هدفه) — ما يختارونه ليلتين ورا بعض */
   lastProtected: string | null;
+  /** مات بالليل (ذبح المافيا أو انفجار المنتقم) — مو بالتصويت ولا من المنشئ. الساحر ياخذ مكانه بس لو كذا */
+  diedAtNight?: boolean;
 }
 
 export interface EngineAction {
@@ -115,29 +117,101 @@ export interface EngineAction {
   targetId: string | null;
 }
 
-/** قائد المافيا الليلة: يتبادلون الدور كل ليلة بين الأحياء حسب ترتيب الدخول */
-export function mafiaLeaderId(players: EnginePlayer[], night: number): string | null {
-  const mafia = players
-    .filter((p) => p.alive && p.role === "mafia")
-    .sort((a, b) => a.seat - b.seat);
+/**
+ * رقم ثابت من نص (cyrb53): نفس النص يعطي نفس الرقم دايماً، على السيرفر والمتصفح.
+ * يستخدم لترتيب المافيا ترتيباً عشوائياً ثابتاً طول اللعبة من بذرة اللعبة.
+ */
+export function stableHash(str: string): number {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+
+/**
+ * ترتيب المافيا الأحياء لتبادل القرار:
+ * - مع بذرة اللعبة (leadSeed، تنحفظ بإعدادات الغرفة مع كل بداية): ترتيب عشوائي ثابت طول اللعبة،
+ *   فمين يبدأ بالليلة الأولى عشوائي، وبعدها يتبادلون بالدور — عادل بين الكل، ومو مربوط بالمقعد ولا بوقت الدخول.
+ * - بدون بذرة (غرف بدأت قبل هذا التعديل): ترتيب المقاعد مثل قبل.
+ */
+export function mafiaLeaderOrder(players: EnginePlayer[], seed?: string | null): EnginePlayer[] {
+  const mafia = players.filter((p) => p.alive && p.role === "mafia");
+  if (!seed) return mafia.sort((a, b) => a.seat - b.seat);
+  return mafia
+    .map((p) => ({ p, h: stableHash(`${seed}:${p.id}`) }))
+    .sort((a, b) => a.h - b.h || a.p.id.localeCompare(b.p.id))
+    .map((x) => x.p);
+}
+
+/** قائد المافيا الليلة: يتبادلون الدور كل ليلة بين الأحياء حسب ترتيب اللعبة (mafiaLeaderOrder) */
+export function mafiaLeaderId(players: EnginePlayer[], night: number, seed?: string | null): string | null {
+  const mafia = mafiaLeaderOrder(players, seed);
   if (mafia.length === 0) return null;
   return mafia[(Math.max(night, 1) - 1) % mafia.length].id;
 }
 
-/** هل هذا اللاعب يملك دوراً يتصرف فيه في خطوة الليل الحالية؟ */
-/** الفئات اللي يقدر الساحر ياخذ مكانها — لما يموت صاحبها */
+/**
+ * البديل لو القائد ما وصلته مهمته: اللي بعده بنفس ترتيب التبادل (ودائري)، بشرط إنه من المتاحين.
+ * null = ما فيه أحد متاح.
+ */
+export function mafiaStandIn(players: EnginePlayer[], leaderId: string, available: Set<string>, seed?: string | null): EnginePlayer | null {
+  const order = mafiaLeaderOrder(players, seed);
+  const i = order.findIndex((p) => p.id === leaderId);
+  if (order.length === 0) return null;
+  for (let k = 1; k <= order.length; k++) {
+    const cand = order[(Math.max(i, 0) + k) % order.length];
+    if (cand.id !== leaderId && available.has(cand.id)) return cand;
+  }
+  return null;
+}
+
+/** الفئات اللي يقدر الساحر ياخذ مكانها — لما يموت صاحبها بالليل */
 export const MAFIA_MAGICIAN_ROLES: readonly MafiaRole[] = ["detective", "doctor", "soldier"] as const;
 
 /**
- * الفئات الفاضية للساحر: فئة موجودة في اللعبة وكل أصحابها ماتوا.
- * يرجع لكل فئة لاعب ميت واحد كان عليها — الساحر "ياخذ مكانه".
+ * الفئات الفاضية للساحر: فئة موجودة في اللعبة، كل أصحابها ماتوا، وواحد منهم على الأقل مات بالليل
+ * (ذبح المافيا أو انفجار المنتقم). اللي طلع بالتصويت أو ذبحه المنشئ بالنهار ما يفتح الفئة.
+ * يرجع لكل فئة لاعب ميت واحد كان عليها (اللي مات بالليل) — الساحر "ياخذ مكانه".
  */
 export function magicianVacancies(players: EnginePlayer[]): EnginePlayer[] {
   return MAFIA_MAGICIAN_ROLES.flatMap((role) => {
     const holders = players.filter((p) => p.role === role);
     if (holders.length === 0 || holders.some((p) => p.alive)) return [];
-    return [holders[0]];
+    const slain = holders.find((p) => p.diedAtNight);
+    return slain ? [slain] : [];
   });
+}
+
+/**
+ * النمط السريع: الساحر يختار البطاقة والشخص بضغطة وحدة. أهداف الفئة اللي بيصيرها — بنفس قواعدها
+ * (الطبيب: أي أحد حتى نفسه؛ المحقق: غيره؛ الجندي: ما له هدف، بس "خذ الدرع").
+ */
+export function magicianCardTargets(magician: EnginePlayer, role: MafiaRole, players: EnginePlayer[]): EnginePlayer[] {
+  const step = MAFIA_NIGHT_ORDER.find((s) => s === role);
+  if (!step) return [];
+  return allowedTargets({ ...magician, role, lastProtected: null, soldierShieldUsed: false }, step, players);
+}
+
+/**
+ * الساحر اختار فئة: التغيير يصير بنفس اللحظة (مو الصباح) عشان يستخدم دوره بنفس الليلة —
+ * بقدرات الفئة كاملة: درع جديد للجندي، وقدرته كساحر انتهت.
+ */
+export function magicianSwitchPatch(role: MafiaRole): {
+  role: MafiaRole;
+  ability_used: boolean;
+  soldier_shield_used: boolean;
+  suicide_target: null;
+  last_protected: null;
+} {
+  return { role, ability_used: true, soldier_shield_used: false, suicide_target: null, last_protected: null };
 }
 
 /** هل هذا اللاعب يملك دوراً يتصرف فيه في خطوة الليل الحالية؟ */
@@ -183,8 +257,8 @@ export function allowedTargets(actor: EnginePlayer, step: MafiaNightStep, player
       // الساحر ما يختار لاعب حي — يختار فئة فاضية (ممثلة بصاحبها الميت)
       return magicianVacancies(players);
     case "silencer":
-      // المسكت: غيره، وبس مو نفس اللي سكّته الليلة اللي قبل
-      return alive.filter((p) => p.id !== actor.id && p.id !== actor.lastProtected);
+      // المسكت: أي أحد حتى نفسه، بس مو نفس اللي سكّته الليلة اللي قبل
+      return alive.filter((p) => p.id !== actor.lastProtected);
     case "suicide":
       // المنتقم: غيره، وبس مو نفس هدف الليلة اللي قبل
       return alive.filter((p) => p.id !== actor.id && p.id !== actor.lastProtected);
@@ -198,14 +272,13 @@ export function allowedTargets(actor: EnginePlayer, step: MafiaNightStep, player
 // ---------------------------------------------------------------------
 
 export interface NightResolution {
+  /** كل اللي ماتوا الليلة (ذبح المافيا وانفجار المنتقم) — الساحر يقدر ياخذ مكان المحقق/الطبيب/الجندي منهم الليلة الجاية */
   deaths: string[];
   announcements: MafiaAnnouncement[];
   shieldUsedBy: string[];
   abilityUsedBy: string[];
-  roleChanges: { playerId: string; role: MafiaRole }[];
   /** آخر اختيار للطبيب والمسكت والمنتقم — ينحفظ عشان ما يكررونه الليلة الجاية */
   lastProtected: { actorId: string; targetId: string | null }[];
-  notes: { playerId: string; text: string }[];
 }
 
 /** مصير ضحية المافيا الليلة — ينعرف أول ما يخلص دور المافيا، لأن الطبيب قبلهم */
@@ -224,6 +297,9 @@ export function doctorProtectedIds(players: EnginePlayer[], actions: EngineActio
 }
 
 export type MafiaHitFate = "killed" | "saved" | "shield";
+
+/** إعلان الصباح لما يختار الساحر فئة — بدون ذكر أي فئة */
+export const MAGICIAN_ANNOUNCEMENT = "الساحر اختار فئة";
 
 /**
  * مصير اللي انضرب (ذبح المافيا أو انفجار المنتقم): يموت، إلا لو الطبيب حماه (saved)،
@@ -265,9 +341,7 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     announcements: [],
     shieldUsedBy: [],
     abilityUsedBy: [],
-    roleChanges: [],
     lastProtected: [],
-    notes: [],
   };
 
   // الطبيب (ممكن يكونون أكثر من واحد لو الساحر أخذ فئة الطبيب) — نحفظ مين حمى عشان الليلة الجاية
@@ -362,23 +436,16 @@ export function resolveNight(players: EnginePlayer[], actions: EngineAction[]): 
     });
   });
 
-  // الساحر — ياخذ مكان المحقق أو الطبيب أو الجندي اللي مات، بشرط إنه نجا من الليلة.
-  // الإعلان يقول إنه اختار بس، بدون الفئة: يربك المافيا، وهو يحاول يقنعهم بدوره وقت النقاش.
+  // الساحر — أخذ مكان المحقق أو الطبيب أو الجندي اللي مات بالليل. الفئة انتقلت له لحظة اختياره
+  // (أول دور بالليل)، فاستخدمها بنفس الليلة. هنا بس الإعلان العام، مرة وحدة بصباح ليلة اختياره
+  // (الفعل مسجّل بتلك الليلة بس): يقول إنه اختار، بدون الفئة — يربك المافيا، وهو يحاول يقنعهم بدوره
+  // وقت النقاش. يطلع حتى لو مات الساحر بنفس الليلة (aliveActor = حالته قبل تطبيق نتائج الليلة).
   acts("magician").forEach((a) => {
     const magician = byId.get(a.actorId);
     const target = byId.get(a.targetId!);
     if (!magician || !target || !MAFIA_MAGICIAN_ROLES.includes(target.role) || target.alive) return;
     out.abilityUsedBy.push(magician.id);
-    out.announcements.push({ kind: "magic", emoji: "", text: "الساحر اختار فئة" });
-    if (out.deaths.includes(magician.id)) return;
-
-    const newRole = target.role;
-    const def = MAFIA_ROLES[newRole];
-    out.roleChanges.push({ playerId: magician.id, role: newRole });
-    out.notes.push({
-      playerId: magician.id,
-      text: `جاء دورك! صرت ${def.label} — ${def.label} الأصلي ودّع الملاعب`,
-    });
+    out.announcements.push({ kind: "magic", emoji: "", text: MAGICIAN_ANNOUNCEMENT });
   });
 
   // المسكت — اللي اختاره ممنوع من الكلام اليوم. يُعلن دايماً، حتى لو مات الليلة
@@ -482,12 +549,9 @@ export function checkWinner(players: { alive: boolean; role: MafiaRole }[]): Maf
   return null;
 }
 
-/** حالة اللاعبين لو انطبقت نتائج الليل الحين (الموتى + الساحر اللي أخذ فئة) */
+/** حالة اللاعبين لو انطبقت نتائج الليل الحين (الموتى). الساحر اللي أخذ فئة فئته متغيّرة أصلاً من لحظة اختياره */
 export function playersAfterNight(players: EnginePlayer[], res: NightResolution): { alive: boolean; role: MafiaRole }[] {
-  return players.map((p) => ({
-    alive: p.alive && !res.deaths.includes(p.id),
-    role: res.roleChanges.find((c) => c.playerId === p.id)?.role ?? p.role,
-  }));
+  return players.map((p) => ({ alive: p.alive && !res.deaths.includes(p.id), role: p.role }));
 }
 
 export type MafiaNightShortcut = { kind: "end"; winner: MafiaTeam; resolution: NightResolution } | null;
@@ -498,7 +562,7 @@ export type MafiaNightShortcut = { kind: "end"; winner: MafiaTeam; resolution: N
  * إلا لو فيه دور باقي ممكن يغيّر النتيجة — نكمل الليل بترتيبه العادي (ولا نتخطى أي دور،
  * حتى أدوار الموتى، عشان محد يعرف مين حي)، ونفحص من جديد بعد كل دور:
  * - المنتقم المذبوح: يختار هدفه الليلة (الضحية يكمل دوره)، وانفجاره ممكن يطلّع آخر مافيا.
- * - الساحر: لو المافيا فايزين بالتعادل، ممكن يصير طبيب ويكسره.
+ * (الساحر دوره أول الليل، قبل الطبيب والمافيا، فما يغيّر شي بعد دور المافيا.)
  */
 export function mafiaNightShortcut(
   players: EnginePlayer[],
@@ -513,13 +577,6 @@ export function mafiaNightShortcut(
   const outcome = mafiaKillOutcome(players, actions);
   const victim = players.find((p) => p.id === outcome.victimId);
   if (outcome.fate === "killed" && victim?.role === "suicide") pending.add("suicide");
-  if (
-    winner === "mafia" &&
-    players.some((p) => p.alive && p.role === "magician" && !p.abilityUsed && !resolution.deaths.includes(p.id)) &&
-    magicianVacancies(players).some((v) => v.role === "doctor")
-  ) {
-    pending.add("magician");
-  }
 
   return remaining.some((s) => pending.has(s)) ? null : { kind: "end", winner, resolution };
 }

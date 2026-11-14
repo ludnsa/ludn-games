@@ -1,14 +1,14 @@
 "use client";
 
-import React from "react";
-import { Loader2, Check, SkipForward, Hourglass, Crown, Moon } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Loader2, Check, SkipForward, Hourglass, Crown, Moon, Shield } from "lucide-react";
 import { MAFIA_CONFIG, MAFIA_NIGHT_STEPS, MAFIA_ROLES } from "@/constants/mafia";
 import { isFastMafia } from "@/lib/game/mafia-engine";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import type { MafiaTask } from "@/actions/mafia";
 import type { MafiaNightStep } from "@/types";
 import { Panel, PlayerPicker, RoleIcon } from "./MafiaParts";
-import { BTN_SOFT, H_PROMPT, INFO, LABEL, NOTE } from "./mafiaUi";
+import { BTN_GOLD, BTN_SOFT, H_PROMPT, INFO, LABEL, NOTE } from "./mafiaUi";
 
 const STEP_ACCENT: Record<MafiaNightStep, "red" | "emerald" | "sky" | "purple" | "amber" | "orange"> = {
   doctor: "emerald",
@@ -22,6 +22,23 @@ const STEP_ACCENT: Record<MafiaNightStep, "red" | "emerald" | "sky" | "purple" |
 
 /** قدرة مرة وحدة طول اللعبة — يقدر يعدّي الليلة ويحتفظ بقدرته */
 const OPTIONAL_STEPS: MafiaNightStep[] = ["magician", "journalist"];
+
+/** انتقل لي قرار القتل وشاشتي كانت على سؤال التمويه: نتجاهل الضغط هالمدة بعد ما تتبدل القائمة */
+const HANDOVER_GUARD_MS = 1500;
+
+/**
+ * يتجاهل الضغط لمدة بعد ما يتغير المفتاح (القائمة تبدلت) — ضغطة نيتها التمويه وصلت بلحظة التبديل ما تنزل قتل.
+ * key = null: ما فيه انتظار.
+ */
+function useTapGuard(key: string | null, ms: number): boolean {
+  const [ready, setReady] = useState<string | null>(null);
+  useEffect(() => {
+    if (key === null) return;
+    const t = setTimeout(() => setReady(key), ms);
+    return () => clearTimeout(t);
+  }, [key, ms]);
+  return key === null || ready === key;
+}
 
 export function MafiaNightAct({ ctx }: { ctx: MafiaGameCtx }) {
   const { room, view } = ctx;
@@ -107,7 +124,8 @@ function FastNightCount({ ctx }: { ctx: MafiaGameCtx }) {
 export function NightWaiting({ ctx }: { ctx: MafiaGameCtx }) {
   const { room, view, players } = ctx;
   if (room && isFastMafia(room.settings)) return <FastNightCount ctx={ctx} />;
-  const r = room?.night_ready;
+  // القائمة من الهوك: الاسم اللي اختفى منها ما يرجع (لو وصلت نسخة قديمة متأخرة)
+  const r = ctx.nightReady;
   if (!room || !r || r.night !== room.night_number || r.step !== room.night_step) return null;
 
   const task = view?.task && view.task.step === room.night_step ? view.task : null;
@@ -155,6 +173,17 @@ function DetectiveResult({ result }: { result: { targetName: string; isMafia: bo
  * لما كل الأحياء يختارون (صاحب الدور + سؤال التمويه للباقين).
  */
 function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
+  // قرار القتل انتقل لي (القائد ما وصلته مهمته) وشاشتي كانت على سؤال التمويه: تتبدل بشكل واضح
+  // (سطر أحمر وقائمة حمراء) والضغط ما يشتغل ثانية ونص — عشان ضغطة نيتها التمويه ما تنزل قتل
+  const handover = task.step === "mafia" && Boolean(task.handover) && !task.locked;
+  const armed = useTapGuard(handover ? `handover:${ctx.room?.phase_seq ?? ""}` : null, HANDOVER_GUARD_MS);
+  // لو كان نازل بقائمة التمويه: الشاشة تطلع للسطر الأحمر (وقت تجاهل الضغط، فما تأثر على ضغطة)
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (handover) bannerRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [handover]);
+  // السريع، الساحر: شاشة وحدة للبطاقة والشخص
+  if (task.step === "magician" && task.cards) return <MagicianFastCard ctx={ctx} task={task} />;
   const def = MAFIA_NIGHT_STEPS[task.step];
   const optional = OPTIONAL_STEPS.includes(task.step);
   const chosenName = task.options.find((o) => o.id === task.selectedId)?.name;
@@ -166,7 +195,17 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
       : def.prompt;
 
   return (
-    <Panel>
+    <Panel className={handover ? "ring-2 ring-red-500/80" : ""}>
+      {handover && (
+        <div
+          ref={bannerRef}
+          role="alert"
+          className="mb-3 flex scroll-mt-36 items-center justify-center gap-2 rounded-2xl bg-red-600 px-3 py-2.5 text-center text-[16px] font-black text-white animate-in zoom-in-95"
+        >
+          <Crown size={18} className="shrink-0 text-amber-200" />
+          انتقل لك قرار القتل
+        </div>
+      )}
       <h2 className={`${H_PROMPT} mb-2`}>{prompt}</h2>
 
       {detectiveResult && <DetectiveResult result={detectiveResult} />}
@@ -176,7 +215,7 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
           {task.step === "mafia" && (
             <p className="text-center text-[13px] font-black text-rose-300 -mt-1 mb-2.5">
               <Crown size={15} className="inline -mt-1 me-1 text-ludn-gold" />
-              أنت قائد المافيا الليلة — اختيارك هو المعتمد
+              {handover ? "القائد ما وصلته الشاشة — اختيارك هو المعتمد" : "أنت قائد المافيا الليلة — اختيارك هو المعتمد"}
             </p>
           )}
           {task.step === "doctor" && (
@@ -186,7 +225,7 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
           )}
           {task.step === "silencer" && (
             <p className={`${NOTE} -mt-1 mb-2.5`}>
-              ما تقدر تختار نفس الشخص اللي سكّته الليلة اللي قبل
+              تقدر تختار نفسك، بس مو نفس الشخص اللي سكّته الليلة اللي قبل
             </p>
           )}
           {task.step === "suicide" && (
@@ -200,16 +239,23 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
       <PlayerPicker
         options={task.options}
         selectedId={task.selectedId}
-        disabled={task.locked || ctx.busy}
+        disabled={task.locked || ctx.busy || !armed}
         accent={STEP_ACCENT[task.step]}
-        onPick={(id) => ctx.act(id)}
+        tint={handover ? "red" : undefined}
+        onPick={(id) => {
+          if (armed) ctx.act(id);
+        }}
       />
 
       {task.locked ? (
         <p className="mt-3 text-center text-[15px] font-black text-ludn-green">
           <Check size={18} className="inline -mt-1 me-1" />
           تم{chosenName ? `: ${chosenName}` : " — عدّيت الليلة"}
-          {task.step === "magician" && chosenName && " — من الليلة الجاية هذا دورك"}
+          {task.step === "magician" &&
+            chosenName &&
+            (chosenName === MAFIA_ROLES.soldier.label
+              ? " — صرت الجندي من الحين، ومعك درع جديد"
+              : " — صرت " + chosenName + " من الحين، ومهمتك تجيك هذي الليلة")}
           {task.step === "journalist" && chosenName && " — النتيجة تطلع مع الصباح"}
           {task.step === "silencer" && chosenName && " — يُعلن في الصباح"}
         </p>
@@ -233,6 +279,103 @@ function MafiaTaskCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
               إذا عدّيت، قدرتك تظل لليلة الجاية
             </p>
           )}
+        </>
+      )}
+    </Panel>
+  );
+}
+
+/** سؤال الفئة لما ياخذها الساحر بالسريع — قصير عشان يركب بسطر العنوان على الجوال الصغير */
+const CARD_PROMPT: Partial<Record<MafiaNightStep, string>> = {
+  detective: "تشك بمين؟",
+  doctor: "مين تحمي الليلة؟",
+};
+
+/**
+ * النمط السريع، الساحر: شاشة وحدة بدون خطوة ثانية — يختار البطاقة والشخص بضغطة وحدة وطلب واحد.
+ * - بطاقة وحدة: مهمتها مباشرة ("صرت المحقق، تشك بمين؟") بنفس شكل شاشة الفئة الأصلية.
+ * - أكثر من بطاقة: أزرار صغيرة فوق، والتنقل بينها على الجهاز بس (بدون طلب)، وتحتها قائمة البطاقة المختارة.
+ * - الجندي: زر "خذ الدرع" بدل القائمة.
+ * بعد الاختيار الشاشة تتقفل على طول، وبعدها توصل شاشة الفئة الجديدة من السيرفر (مثل صاحبها الأصلي).
+ */
+function MagicianFastCard({ ctx, task }: { ctx: MafiaGameCtx; task: MafiaTask }) {
+  const cards = task.cards ?? [];
+  const single = cards.length === 1;
+  const [pickedCard, setPickedCard] = useState<string | null>(single ? cards[0].id : null);
+  const card = cards.find((c) => c.id === pickedCard) ?? (single ? cards[0] : null) ?? (task.locked ? cards[0] : null);
+  const soldier = card?.role === "soldier";
+  const roleStep = card && !soldier ? (card.role as MafiaNightStep) : null;
+  const chosen = task.locked && card ? card.options.find((o) => o.id === task.selectedId) : undefined;
+
+  const cardLine = (c: { label: string; role: string }) =>
+    c.role === "soldier" ? `صرت ${c.label}؟ خذ درعك` : `صرت ${c.label}، ${CARD_PROMPT[c.role as MafiaNightStep]}`;
+  // بعد ما ياخذ درع الجندي: العنوان يصير خبر مو سؤال
+  const prompt = single && card ? (task.locked && soldier ? `صرت ${card.label}` : cardLine(card)) : "وش تبي تصير؟";
+
+  return (
+    <Panel>
+      <h2 className={`${H_PROMPT} mb-2`}>{prompt}</h2>
+
+      {!single && !task.locked && (
+        <div className={`grid gap-2 mb-3 ${cards.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`} role="radiogroup" aria-label="البطاقات المتاحة">
+          {cards.map((c) => {
+            const on = c.id === pickedCard;
+            return (
+              // الأيقونة فوق والاسم تحت: الاسم ياخذ عرض الزر كامل فما ينقص حتى بثلاث بطاقات على جوال صغير
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                disabled={ctx.busy}
+                onClick={() => setPickedCard(c.id)}
+                className={`min-h-16 flex flex-col items-center justify-center gap-1 px-1.5 py-2 rounded-[14px] border border-b-[3px] font-black text-[14px] leading-tight transition-colors ${
+                  on ? "bg-purple-600 border-purple-800 text-white" : "bg-ludn-surface-2 border-ludn-line border-b-black/40 text-ludn-fg"
+                }`}
+              >
+                <RoleIcon role={c.role} className="w-7 h-7" />
+                <span>{c.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {!single && !card && <p className={`${NOTE} mb-2`}>اضغط على بطاقة تشوف مهمتها — وما تصيرها إلا لما تختار الاسم أو الدرع</p>}
+
+      {card && !single && !task.locked && <p className="text-center text-[15px] font-black mb-2">{cardLine(card)}</p>}
+
+      {card && soldier && (
+        <button type="button" disabled={task.locked || ctx.busy} onClick={() => ctx.act(null, card.id)} className={`${BTN_GOLD} mt-1`}>
+          <Shield size={20} /> خذ الدرع
+        </button>
+      )}
+      {card && roleStep && (
+        <PlayerPicker
+          options={card.options}
+          selectedId={task.locked ? task.selectedId : null}
+          disabled={task.locked || ctx.busy}
+          accent={STEP_ACCENT[roleStep]}
+          onPick={(id) => ctx.act(id, card.id)}
+        />
+      )}
+
+      {task.locked ? (
+        <p className="mt-3 text-center text-[15px] font-black text-ludn-green">
+          <Check size={18} className="inline -mt-1 me-1" />
+          تم{chosen ? `: ${chosen.name}` : ""}
+          {card && ` — صرت ${card.label} من الحين${soldier ? "، ومعك درع جديد" : ""}`}
+        </p>
+      ) : (
+        <>
+          {card && !soldier && <OneTapNote />}
+          <p className={`${NOTE} mt-2`}>
+            مرة وحدة طول اللعبة — تصير {card ? card.label : "الفئة"} من لحظة اختيارك وتلعب بها الليلة
+          </p>
+          <button type="button" disabled={ctx.busy} onClick={() => ctx.act(null)} className={`${BTN_SOFT} w-full mt-3`}>
+            <SkipForward size={18} /> عدّي الليلة واحتفظ بقدرتي
+          </button>
+          <p className={`${NOTE} mt-2`}>إذا عدّيت، قدرتك تظل لليلة الجاية</p>
         </>
       )}
     </Panel>

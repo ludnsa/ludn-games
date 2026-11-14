@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "plugins": [],
+    "paths": {
+      "@/lib/supabase/server": ["./fakes/supabase-server.ts"],
+      "@/app/actions/gameAccess": ["./fakes/game-access.ts"],
+      "@/lib/game-sessions": ["./fakes/game-sessions.ts"],
+      "@/*": ["../../*"]
+    }
+  },
+  "include": ["./**/*.ts", "../../actions/mafia.ts", "../../types/index.ts"],
+  "exclude": []
+}
