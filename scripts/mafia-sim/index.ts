@@ -21,8 +21,6 @@ import { mafiaLeaderId, mafiaMaxMafia, validateMafiaSettings } from "@/lib/game/
 import type { MafiaOptionalRole, MafiaRole, MafiaSettings } from "@/types";
 import { CALM, MESSY, MafiaSim, ROLE_LABELS, clock, installClock, randomUUID, seededRandom, type GameResult, type Scenario, type Truth } from "./sim";
 import { deckFairness, fmtSeats, leaderFairness } from "./fairness";
-import * as mafia from "@/actions/mafia";
-import { asUser } from "./fakes/supabase-server";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => args.includes(`--${name}`);
@@ -112,8 +110,9 @@ async function sameRoomGames(sim: MafiaSim, settings: MafiaSettings, n: number, 
   const { code, players } = await sim.setup(settings, HOST_USER);
   for (let i = 0; i < n; i++) {
     if (i > 0) {
-      const again = await asUser(HOST_USER, () => mafia.playMafiaAgain(code));
-      if (!again.success) throw new Error("again: " + again.error);
+      // "جولة جديدة" ضغطة منشئ مثل الباقي (معها رقم المرحلة، وممكن تنعاد) — مخالفاتها تنحسب مع الجولة
+      const again = await sim.playAgain(code, HOST_USER);
+      agg.violations.push(...again.violations);
     }
     add(agg, await sim.playRound(code, players, HOST_USER, undefined, label(settings) + " again"));
     clock.advance(60_000);
@@ -708,8 +707,9 @@ async function handoverScenarios() {
 }
 
 /**
- * إعادة إرسال الاختيار: كل اختيار ليل وكل جواب تمويه ينرسل مرتين — نصها بنفس اللحظة (السيرفر بطيء والأول
- * للحين يكتب)، ونصها بعد المهلة (4 ثواني). لازم الإعادة تنجح مثل الأول وبنفس النتيجة، وما يتغير شي باللعبة.
+ * إعادة الإرسال: كل اختيار ليل وكل جواب تمويه وكل صوت وكل ضغطة منشئ (ابدأ، تخطي، ابدأ النقاش، ذبح الغشاش/الممنوع،
+ * جولة جديدة) ينرسل مرتين — نصها بنفس اللحظة (السيرفر بطيء والأول للحين يكتب)، ونصها بعد ما رد الأول
+ * (المرحلة ممكن تغيّرت). لازم الإعادة ترجع نفس الرد، وما يتغير شي: الصوت ينحسب مرة، والغرفة ما تتخطى مرحلة.
  */
 async function resendGames() {
   const n = QUICK ? 60 : 300;
@@ -719,15 +719,37 @@ async function resendGames() {
   ];
   for (const settings of configs) {
     const agg = newAgg();
-    const resends = { together: 0, later: 0 };
-    const sim = new MafiaSim({ ...CALM, resend: 1 }, rnd, 0, 4);
+    const resends = { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0 };
+    const sim = new MafiaSim({ ...CALM, resend: 1, hostKill: 0.2 }, rnd, 0, 4);
+    const sum = (r: GameResult) => {
+      for (const k of Object.keys(resends) as (keyof typeof resends)[]) resends[k] += r.resends[k];
+    };
     for (let i = 0; i < n; i++) {
       const r = await oneGame(sim, settings);
       add(agg, r);
-      resends.together += r.resends.together;
-      resends.later += r.resends.later;
+      sum(r);
     }
-    const line = `${label(settings)}: ${agg.games} جولة كل اختيار فيها ينرسل مرتين | بنفس اللحظة ${resends.together} | بعد المهلة ${resends.later} | فائز ${JSON.stringify(agg.winners)}`;
+    // "جولة جديدة" بنفس الغرفة (بإعادتها): 3 جولات ورا بعض
+    const rooms = QUICK ? 5 : 20;
+    for (let i = 0; i < rooms; i++) {
+      const { code, players } = await sim.setup(settings, HOST_USER);
+      for (let k = 0; k < 3; k++) {
+        if (k > 0) {
+          const again = await sim.playAgain(code, HOST_USER);
+          agg.violations.push(...again.violations);
+          resends.hostTogether += again.hostTogether;
+          resends.hostLater += again.hostLater;
+        }
+        const r = await sim.playRound(code, players, HOST_USER, undefined, label(settings) + " again");
+        add(agg, r);
+        sum(r);
+        clock.advance(60_000);
+      }
+      for (const t of Object.keys(sim.db.tables)) sim.db.tables[t] = sim.db.tables[t].filter((row) => row.room_code !== code);
+    }
+    const line =
+      `${label(settings)}: ${agg.games} جولة كل طلب فيها ينرسل مرتين | الليل: بنفس اللحظة ${resends.together}، بعد الرد ${resends.later}` +
+      ` | المنشئ: ${resends.hostTogether} / ${resends.hostLater} | الأصوات: ${resends.voteTogether} / ${resends.voteLater} | فائز ${JSON.stringify(agg.winners)}`;
     const problems = [
       ...(agg.hangs.length ? [`تعليق ${agg.hangs.length}: ${agg.hangs.slice(0, 3).join("; ")}`] : []),
       ...(agg.winners.none ? [`${agg.winners.none} جولة بدون فائز`] : []),

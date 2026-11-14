@@ -84,8 +84,10 @@ export default function MafiaApp({ mode }: { mode: "host" | "join" }) {
 
   return (
     // dark: اللعبة ليلية دايماً — ألوان لدن الليلية حتى لو الموقع على الوضع النهاري
+    // overflow-x-clip: توهج بطاقة الدور أعرض من الشاشة الصغيرة (360) — ينقص عند حافتها بدل سحب جانبي
+    // (clip مو hidden: الشريط العلوي الثابت يظل شغال)
     <main
-      className={`dark min-h-[100dvh] bg-ludn-bg text-ludn-fg p-4 md:p-6 flex flex-col relative z-10 ${cairo.className}`}
+      className={`dark min-h-[100dvh] overflow-x-clip bg-ludn-bg text-ludn-fg p-4 md:p-6 flex flex-col relative z-10 ${cairo.className}`}
       dir="rtl"
     >
       {/* شاشات الدخول: خلفية الليل (داخل اللعبة MafiaInGame يحط خلفيته حسب المرحلة) */}

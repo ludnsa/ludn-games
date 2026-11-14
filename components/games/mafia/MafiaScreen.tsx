@@ -21,7 +21,6 @@ import {
   FlaskConical,
   Check,
   Eye,
-  Hourglass,
   type LucideIcon,
 } from "lucide-react";
 import { MAFIA_CONFIG, MAFIA_GAME } from "@/constants/mafia";
@@ -46,9 +45,10 @@ import {
   MafiaVoting,
 } from "./MafiaDay";
 import MafiaGameOver from "./MafiaGameOver";
+import RevealWaiting from "./RevealWaiting";
 import MafiaHostMenu, { MafiaHostHush, MafiaHostSkip } from "./MafiaHostMenu";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
-import { BAR_BTN, BTN_GOLD, BTN_SOFT, ERROR, H_CARD, INFO, LABEL, NOTE } from "./mafiaUi";
+import { BAR_BTN, BTN_GOLD, BTN_SOFT, ERROR, H_CARD, LABEL, NOTE } from "./mafiaUi";
 import { unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 
 const NIGHT_PHASES: MafiaPhase[] = ["night_act", "night_done"];
@@ -265,14 +265,24 @@ export default function MafiaScreen({
  * الضغطة تنعاد تلقائياً لين يأكدها السيرفر، والسطر تحت يقول له وصلت ولا لسا.
  */
 function MafiaReveal({ ctx }: { ctx: MafiaGameCtx }) {
+  // قائمة "باقي ما شافوا" بنفس المكان بكل الحالات (تحميل، الدور، البطاقة انقفلت) — عشان لما يضغط
+  // "شفت دوري" تختفي كبسولته بحركة على جواله هو بعد، مو تنرسم القائمة من جديد
+  return (
+    <div className="flex w-full flex-col items-center gap-5">
+      <RevealBody ctx={ctx} />
+      <RevealWaiting ctx={ctx} />
+    </div>
+  );
+}
+
+function RevealBody({ ctx }: { ctx: MafiaGameCtx }) {
   const { me, view, viewFresh, iSawRole, seenConfirmed } = ctx;
   const role = viewFresh ? (me?.role ?? null) : null;
   if (!me || !role) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16">
+      <div className="flex flex-col items-center gap-4 pt-16 pb-6">
         <Loader2 size={40} className="animate-spin text-ludn-gold" />
         <p className="font-black text-ludn-muted">جاري تحميل دورك...</p>
-        <RevealWaiting ctx={ctx} />
       </div>
     );
   }
@@ -293,41 +303,18 @@ function MafiaReveal({ ctx }: { ctx: MafiaGameCtx }) {
           </p>
         )}
         <p className={`${NOTE} text-center`}>تبي تشوف دورك مرة ثانية؟ اضغط مطوّل على «دوري» فوق</p>
-        <RevealWaiting ctx={ctx} />
       </div>
     );
   }
   const teammates = (view?.mafiaTeam ?? []).filter((m) => m.id !== me.id);
   return (
-    <div className="flex flex-col items-center gap-5">
+    <div className="flex w-full flex-col items-center gap-5">
       <p className="text-center text-[15px] font-black text-ludn-muted">غطّ جوالك… هذا دورك</p>
       <RoleCard flip role={role} teammates={role === "mafia" ? teammates.map((m) => m.name) : []} />
       <button type="button" onClick={() => void ctx.seeRole()} className={BTN_GOLD}>
         <Eye size={20} /> شفت دوري
       </button>
-      <RevealWaiting ctx={ctx} />
     </div>
-  );
-}
-
-/** مين باقي ما شاف دوره: المنشئ يشوف الأسماء، والباقين العدد بس */
-function RevealWaiting({ ctx }: { ctx: MafiaGameCtx }) {
-  const r = ctx.revealReady;
-  if (!r) return null;
-  const myId = ctx.me?.id;
-  const waiting = (r.waiting ?? []).filter((id) => !(ctx.iSawRole && id === myId));
-  const left = r.waiting ? waiting.length : Math.max(0, r.total - r.done);
-  if (left === 0) return null;
-  const names = ctx.isHost ? waiting.map((id) => ctx.nameOf(id)).filter(Boolean) : [];
-  return (
-    <p className={`${INFO} w-full animate-in fade-in break-words`}>
-      <Hourglass size={16} className="inline -mt-1 me-1" />
-      {names.length > 0
-        ? `${names.length === 1 ? "باقي ما شاف دوره" : "باقي ما شافوا أدوارهم"}: ${names.join("، ")}`
-        : left === 1
-          ? "باقي واحد ما شاف دوره"
-          : `باقي ${left} ما شافوا أدوارهم`}
-    </p>
   );
 }
 

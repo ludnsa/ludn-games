@@ -15,7 +15,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { MAFIA_CONFIG, MAFIA_NIGHT_ORDER } from "@/constants/mafia";
-import { checkWinner, isFastMafia, mafiaLeaderId, mafiaNightSteps, type EnginePlayer } from "@/lib/game/mafia-engine";
+import { buildRoleDeck, checkWinner, countVotes, isFastMafia, mafiaLeaderId, mafiaNightSteps, type EnginePlayer } from "@/lib/game/mafia-engine";
 import type { MafiaNightStep, MafiaRole, MafiaRoom, MafiaSettings } from "@/types";
 import * as mafia from "@/actions/mafia";
 import { FakeSupabase } from "./fakes/fake-supabase";
@@ -76,10 +76,12 @@ export type Behavior = {
    * نصها بنفس اللحظة (السيرفر بطيء والأول للحين يكتب)، ونصها بعد المهلة. الإعادة لازم تنجح مثل الأول.
    */
   resend: number;
+  /** احتمال إن المنشئ يذبح لاعب وسط النقاش (غشاش، أو الممنوع من الكلام تكلم) — بضغطة ممكن تنعاد */
+  hostKill: number;
 };
 
-export const CALM: Behavior = { lateAck: 0, offline: 0, noPick: 0, hostSkip: 0, noSeen: 0, resend: 0 };
-export const MESSY: Behavior = { lateAck: 0.15, offline: 0.08, noPick: 0.12, hostSkip: 0.1, noSeen: 0.1, resend: 0.15 };
+export const CALM: Behavior = { lateAck: 0, offline: 0, noPick: 0, hostSkip: 0, noSeen: 0, resend: 0, hostKill: 0 };
+export const MESSY: Behavior = { lateAck: 0.15, offline: 0.08, noPick: 0.12, hostSkip: 0.1, noSeen: 0.1, resend: 0.15, hostKill: 0.04 };
 
 export interface Truth {
   id: string;
@@ -137,8 +139,11 @@ export interface GameResult {
   magician: MagicianStat | null;
   /** ضغطات التمويه بلحظة انتقال القرار: انحفظت تمويه أو رفضها السيرفر ("اختر من مهمتك") */
   decoyAtClaim: { night: number; playerId: string; target: string; outcome: "saved" | "rejected" }[];
-  /** إعادات الإرسال اللي صارت (بنفس اللحظة / بعد المهلة) — كلها لازم تنجح مثل الأول */
-  resends: { together: number; later: number };
+  /**
+   * إعادات الإرسال اللي صارت (بنفس اللحظة / بعد المهلة) — كلها لازم تنجح مثل الأول:
+   * اختيار الليل والتمويه، وضغطات المنشئ (host*)، والأصوات (vote*)
+   */
+  resends: { together: number; later: number; hostTogether: number; hostLater: number; voteTogether: number; voteLater: number };
   /** إعلانات كل صباح (رقم الليلة اللي قبله) — لفحص إعلان الساحر */
   /** shieldUsed: لكل جندي (حتى الساحر اللي صار جندي) وقت الصباح — true = درعه راح، false = درعه باقي */
   mornings: { night: number; kinds: string[]; texts: string[]; targets: (string | undefined)[]; shieldUsed: Record<string, boolean> }[];
@@ -166,6 +171,20 @@ export interface MagicianStat {
 }
 
 const ALL_ROLES: MafiaRole[] = ["mafia", "detective", "doctor", "citizen", "magician", "journalist", "soldier", "suicide", "silencer", "sheikh"];
+
+/** المراحل اللي ممكن تجي بعد كل مرحلة مباشرة (بانتقال واحد) — ضغطة منشئ ما تتخطاها */
+const NEXT_PHASES: Record<string, string[]> = {
+  lobby: ["reveal"],
+  reveal: ["night_act"],
+  night_act: ["night_done"],
+  night_done: ["night_act", "morning", "ended"],
+  morning: ["discussion", "ended"],
+  // ذبح المنشئ وسط النهار ممكن ينهي اللعبة
+  discussion: ["voting", "ended"],
+  voting: ["vote_result", "ended"],
+  vote_result: ["night_act", "ended"],
+  ended: ["lobby"],
+};
 
 // ---------------------------------------------------------------------
 // المشغّل
@@ -225,6 +244,59 @@ export class MafiaSim {
       }));
   }
 
+  /**
+   * ضغطة منشئ مثل الجوال: معها رقم المرحلة اللي ضغط فيها. لو صارت إعادة (احتمال behavior.resend):
+   * - بنفس اللحظة: الأولى للحين شغالة بالسيرفر والثانية توصل معها.
+   * - بعد ما ردت الأولى: المرحلة تغيّرت، والإعادة توصل متأخرة — لازم ما تغيّر شي.
+   * بكل الحالات: كل الردود نجاح مثل الأولى، والغرفة تنتقل مرحلة وحدة بالكثير (رقم المرحلة يزيد واحد،
+   * والمرحلة الجديدة من اللي بعد القديمة مباشرة) — ما تتخطى مرحلة.
+   */
+  async hostPress(
+    code: string,
+    result: GameResult,
+    v: (m: string) => void,
+    label: string,
+    fn: (seq: number) => Promise<{ success: boolean; error?: string }>
+  ): Promise<{ success: boolean; error?: string }> {
+    // نسخة (صف القاعدة الوهمية يتعدّل مكانه)
+    const before = { ...this.room(code) };
+    const seq = before.phase_seq;
+    const mode = this.chance(this.behavior.resend) ? (this.chance(0.5) ? "together" : "later") : null;
+    let r: { success: boolean; error?: string };
+    if (mode === "together") {
+      result.resends.hostTogether++;
+      const [a, b] = await Promise.all([fn(seq), fn(seq)]);
+      if (a.success !== b.success) v(`${label}: الضغطة المكررة بنفس اللحظة ما رجعت نفس الرد: ${a.success ? "نجح" : a.error} / ${b.success ? "نجح" : b.error}`);
+      r = a.success ? b : a;
+    } else r = await fn(seq);
+    if (mode === "later") {
+      result.resends.hostLater++;
+      const mid = { ...this.room(code) };
+      const again = await fn(seq);
+      if (r.success && !again.success) v(`${label}: إعادة الضغطة بعد ما ردت الأولى رُفضت: ${again.error}`);
+      const now = this.room(code);
+      if (now.phase_seq !== mid.phase_seq) v(`${label}: إعادة الضغطة نقلت الغرفة مرة ثانية (${mid.phase} ← ${now.phase})`);
+    }
+    const after = this.room(code);
+    if (after.phase_seq > seq + 1) v(`${label}: ضغطة وحدة نقلت الغرفة ${after.phase_seq - seq} مراحل (${before.phase} ← ${after.phase})`);
+    else if (after.phase_seq === seq + 1 && !NEXT_PHASES[before.phase]?.includes(after.phase)) v(`${label}: الغرفة تخطّت مرحلة (${before.phase} ← ${after.phase})`);
+    return r;
+  }
+
+  /** "جولة جديدة بنفس اللاعبين" (ضغطة منشئ، بإعادتها) — يرجّع المخالفات */
+  async playAgain(code: string, hostUser: string): Promise<{ violations: string[]; hostTogether: number; hostLater: number }> {
+    const violations: string[] = [];
+    const result = { resends: { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0 } } as GameResult;
+    const r = await this.hostPress(code, result, (m) => violations.push(m), "جولة جديدة", (seq) => asUser(hostUser, () => mafia.playMafiaAgain(code, seq)));
+    if (!r.success) throw new Error("again: " + r.error);
+    if (this.room(code).phase !== "lobby") violations.push(`جولة جديدة: الغرفة ما رجعت للانتظار (${this.room(code).phase})`);
+    // كل شي تصفّر (ما عدا حجوزات ضغطات المنشئ — ليلة -1)
+    const leftovers = this.db.rows("mafia_actions").filter((a) => a.room_code === code && a.night !== -1);
+    if (leftovers.length) violations.push(`جولة جديدة: باقي ${leftovers.length} فعل من الجولة اللي قبل`);
+    if (this.db.rows("mafia_secrets").some((s) => s.room_code === code && s.role)) violations.push("جولة جديدة: باقي أدوار من الجولة اللي قبل");
+    return { violations, hostTogether: result.resends.hostTogether, hostLater: result.resends.hostLater };
+  }
+
   /** ينشئ الغرفة ويدخل اللاعبين */
   async setup(settings: MafiaSettings, hostUser: string): Promise<{ code: string; players: Truth[] }> {
     const created = await asUser(hostUser, () => mafia.createMafiaRoom({ displayName: "المنشئ", settings }));
@@ -273,7 +345,7 @@ export class MafiaSim {
       leadMoves: 0,
       magician: null,
       decoyAtClaim: [],
-      resends: { together: 0, later: 0 },
+      resends: { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0 },
       mornings: [],
       dbOps: 0,
       notes,
@@ -283,8 +355,16 @@ export class MafiaSim {
     };
 
     const sessionsBefore = sessionLog.filter((s) => s.room === code && s.op === "count").length;
-    const started = await asUser(hostUser, () => mafia.startMafiaGame(code, scenario.hostRole ?? null));
+    const beginsBefore = sessionLog.filter((s) => s.room === code && s.op === "begin").length;
+    const started = await this.hostPress(code, result, v, "ابدأ", (seq) =>
+      asUser(hostUser, () => mafia.startMafiaGame(code, scenario.hostRole ?? null, seq))
+    );
     if (!started.success) throw new Error("start: " + started.error);
+    // "ابدأ" وصلت مرتين: لعبة وحدة انحجزت، وتوزيع واحد كامل (ما انكتب توزيعين فوق بعض)
+    const begins = sessionLog.filter((s) => s.room === code && s.op === "begin").length - beginsBefore;
+    if (begins !== 1) v(`ابدأ: انحجزت ${begins} لعبة بدل وحدة`);
+    const dealt = Object.values(this.roles(code)).sort().join(",");
+    if (dealt !== [...buildRoleDeck(settings)].sort().join(",")) v(`ابدأ: التوزيع ما يطابق فئات الإعداد (${dealt})`);
 
     const roles = this.roles(code);
     const originalRoles = this.originalRoles(code);
@@ -337,7 +417,8 @@ export class MafiaSim {
       const room = this.room(code);
       await mafia.advanceMafiaPhase({ roomCode: code, token: p.token, seq: room.phase_seq });
     };
-    const skipByHost = () => asUser(hostUser, () => mafia.skipMafiaPhase(code));
+    const skipByHost = () =>
+      this.hostPress(code, result, v, "تخطي", (seq) => asUser(hostUser, () => mafia.skipMafiaPhase(code, seq)));
 
     let guard = 0;
     let lastSeq = -1;
@@ -426,11 +507,36 @@ export class MafiaSim {
           if (result.magician?.picked && magicianId && !this.aliveIds(code).has(magicianId) && result.magician.pickedNight === room.night_number) {
             result.magician.diedSameNight = true;
           }
-          await asUser(hostUser, () => mafia.startMafiaDiscussion({ roomCode: code, seconds: 120 }));
+          await this.hostPress(code, result, v, "ابدأ النقاش", (seq) =>
+            asUser(hostUser, () => mafia.startMafiaDiscussion({ roomCode: code, seconds: 120, seq }))
+          );
           break;
         }
 
         case "discussion": {
+          // المنشئ يذبح وسط النقاش (الممنوع تكلم، أو غشاش) — والضغطة ممكن تنعاد: ينذبح مرة وحدة وإعلان واحد
+          if (this.chance(this.behavior.hostKill)) {
+            const silenced = (room.announcements ?? []).find((a) => a.kind === "silence")?.targetId;
+            const aliveNow = this.aliveIds(code);
+            const hush = Boolean(silenced && aliveNow.has(silenced) && this.chance(0.5));
+            const victims = alivePlayers().filter((p) => !p.isHost);
+            const target = hush ? silenced! : victims.length ? this.pickOne(victims).id : null;
+            if (target) {
+              const kind = hush ? "hushed_kill" : "cheat_kill";
+              const res = await this.hostPress(code, result, v, hush ? "ذبح الممنوع" : "ذبح الغشاش", (seq) =>
+                asUser(hostUser, () =>
+                  hush ? mafia.killSilencedMafiaPlayer(code, seq) : mafia.killCheaterMafiaPlayer({ roomCode: code, playerId: target, seq })
+                )
+              );
+              if (!res.success) v(`${kind}: رُفض: ${res.error}`);
+              const cur = this.room(code);
+              const n = (cur.announcements ?? []).filter((a) => a.kind === kind && a.targetId === target).length;
+              if (this.aliveIds(code).has(target)) v(`${kind}: اللاعب ما مات`);
+              if (cur.phase !== "ended" && n !== 1) v(`${kind}: الإعلان طلع ${n} مرة`);
+              result.notes.push(`المنشئ ذبح (${kind})`);
+              if (cur.phase === "ended") break;
+            }
+          }
           if (this.chance(0.5)) await skipByHost();
           else {
             clock.to(Date.parse(room.phase_ends_at!) + 500);
@@ -441,6 +547,7 @@ export class MafiaSim {
 
         case "voting": {
           const alive = alivePlayers();
+          const lateVotes: { p: Truth; send: () => ReturnType<typeof mafia.castMafiaVote> }[] = [];
           const liveRoles = this.roles(code);
           for (const p of alive) {
             await checkView(p);
@@ -456,11 +563,42 @@ export class MafiaSim {
               else target = this.chance(0.4) && mafiaIds.length ? this.pickOne(mafiaIds).id : this.pickOne(others).id;
             }
             if (this.chance(0.1)) continue; // ما صوّت
-            const res = await mafia.castMafiaVote({ roomCode: code, token: p.token, targetId: target });
+            // مثل الجوال: الصوت معه رقم مرحلة التصويت، ولو رده ما وصل ينعاد (بنفس اللحظة، أو بعد ما يخلص التصويت)
+            const send = () => mafia.castMafiaVote({ roomCode: code, token: p.token, targetId: target ?? null, seq: room.phase_seq });
+            const mode = this.chance(this.behavior.resend) ? (this.chance(0.5) ? "together" : "later") : null;
+            let res: Awaited<ReturnType<typeof send>>;
+            if (mode === "together") {
+              result.resends.voteTogether++;
+              const [a, b] = await Promise.all([send(), send()]);
+              if (a.success !== b.success) v(`${p.name}: الصوت المكرر بنفس اللحظة ما رجع نفس الرد`);
+              res = a.success ? b : a;
+            } else res = await send();
             if (!res.success) v(`تصويت مرفوض: ${res.error}`);
+            else if (mode === "later") lateVotes.push({ p, send });
+          }
+          // كل مصوّت صوته ينحسب مرة وحدة: العداد اللي تشوفه الجوالات = الأصوات نفسها
+          const voteRows = this.db.rows("mafia_votes").filter((x) => x.room_code === code && x.round === room.night_number);
+          const voters = voteRows.map((x) => x.voter_id as string);
+          if (new Set(voters).size !== voters.length) v("مصوّت له أكثر من صوت");
+          const tally = this.room(code).vote_counts ?? {};
+          const truth = countVotes(voteRows.map((x) => ({ targetId: (x.target_id as string | null) ?? null })));
+          const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
+          if (sum(tally) !== voters.length || JSON.stringify(Object.entries(tally).sort()) !== JSON.stringify(Object.entries(truth).sort())) {
+            v(`عداد الأصوات ${JSON.stringify(tally)} ما يطابق الأصوات ${JSON.stringify(truth)}`);
           }
           clock.to(Date.parse(room.phase_ends_at!) + 500);
           await advanceBy(this.pickOne(alive));
+          // إعادات الأصوات اللي وصلت بعد ما خلص التصويت: نفس الرد (نجاح)، وما تغيّر النتيجة
+          if (lateVotes.length) {
+            const resultBefore = JSON.stringify(this.room(code).vote_result);
+            for (const lv of lateVotes) {
+              result.resends.voteLater++;
+              const again = await lv.send();
+              if (!again.success) v(`${lv.p.name}: إعادة الصوت بعد التصويت رُفضت: ${again.error}`);
+            }
+            if (JSON.stringify(this.room(code).vote_result) !== resultBefore) v("إعادة صوت متأخرة غيّرت نتيجة التصويت");
+            lateVotes.length = 0;
+          }
           break;
         }
 

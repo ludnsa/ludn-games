@@ -33,7 +33,6 @@ import {
   pickRandom,
   resolveNight,
   resolveVotes,
-  silencedPlayerId,
   validateMafiaSettings,
   voteBlast,
   MAFIA_MAGICIAN_ROLES,
@@ -1466,40 +1465,95 @@ export async function claimMafiaLead(input: {
 // التصويت
 // ---------------------------------------------------------------------
 
-async function recountVotes(admin: Admin, room: MafiaRoom): Promise<Record<string, number>> {
+type VoteRow = { voterId: string; targetId: string | null };
+
+async function readVotes(admin: Admin, room: MafiaRoom): Promise<VoteRow[]> {
   const { data } = await admin
     .from("mafia_votes")
     .select("voter_id, target_id")
     .eq("room_code", room.room_code)
     .eq("round", room.night_number);
-  const votes = (data ?? []).map((v: { voter_id: string; target_id: string | null }) => ({
+  return (data ?? []).map((v: { voter_id: string; target_id: string | null }) => ({
     voterId: v.voter_id,
     targetId: v.target_id,
   }));
+}
 
-  // مين صوّت على مين — في تحديث مستقل، عشان لو عمود vote_voters مو موجود
-  // (ملف 0005 ما انشغّل) يظل العداد والتصويت شغّالين عادي
+const votesKey = (votes: VoteRow[]) =>
+  votes
+    .map((v) => `${v.voterId}>${v.targetId ?? ""}`)
+    .sort()
+    .join(",");
+
+/** مين صوّت على مين — في تحديث مستقل، عشان لو عمود vote_voters مو موجود (ملف 0005 ما انشغّل) يظل العداد والتصويت شغّالين عادي */
+async function writeVoteVoters(admin: Admin, room: MafiaRoom, votes: VoteRow[]): Promise<void> {
   const { error } = await admin
     .from("mafia_rooms")
     .update({ vote_voters: groupVoters(votes) })
     .eq("room_code", room.room_code);
   if (error) console.warn("mafia vote_voters (شغّل supabase/migrations/0005_mafia_vote_voters.sql):", error.message);
+}
 
+async function recountVotes(admin: Admin, room: MafiaRoom): Promise<Record<string, number>> {
+  const votes = await readVotes(admin, room);
+  await writeVoteVoters(admin, room, votes);
   return countVotes(votes);
 }
 
+/**
+ * العداد ومين صوّت على مين، اللي تشوفه كل الجوالات. لو صوّت كذا واحد بنفس اللحظة ممكن ينكتب عداد قديم
+ * بعد الجديد (كل واحد حسب قبل ما يوصل صوت الثاني): نعيد القراءة بعد الكتابة ونكتب الأحدث لين يثبت.
+ * (النتيجة نفسها بنهاية التصويت تنحسب من الأصوات مباشرة، مو من هالعداد.)
+ */
+async function syncVoteTally(admin: Admin, room: MafiaRoom): Promise<void> {
+  let votes = await readVotes(admin, room);
+  for (let i = 0; i < 4; i++) {
+    await Promise.all([
+      writeVoteVoters(admin, room, votes),
+      admin
+        .from("mafia_rooms")
+        .update({ vote_counts: countVotes(votes) })
+        .eq("room_code", room.room_code)
+        .eq("phase_seq", room.phase_seq),
+    ]);
+    const again = await readVotes(admin, room);
+    if (votesKey(again) === votesKey(votes)) return;
+    votes = again;
+  }
+}
+
+/**
+ * التصويت (من الجوال بطلب عادي يتعاد لو ما رد — app/api/mafia/[op]). كل لاعب له صوت واحد بالجولة
+ * (صف واحد لكل مصوّت)، فالصوت المكرر ينحسب مرة وحدة. seq = رقم مرحلة التصويت اللي صوّت فيها:
+ * لو وصل بعد ما خلص التصويت وصوته نفسه مسجّل (الأول وصل وضاع رده) يرجع نجاح مثل الأول.
+ */
 export async function castMafiaVote(input: {
   roomCode: string;
   token: string;
   /** null = تخطي */
   targetId: string | null;
+  seq?: number;
 }): Promise<ActionResult> {
   const ctx = await requirePlayer(input);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room, player } = ctx;
 
-  if (room.phase !== "voting") return fail("التصويت مو مفتوح الحين.");
-  if (room.phase_ends_at && Date.now() > Date.parse(room.phase_ends_at) + 1000) return fail("انتهى وقت التصويت.");
+  // إعادة لصوت انحفظ قبل (والتصويت خلص بعده، أو المرحلة تغيّرت): نفس الرد الأول
+  const resentOr = async (error: string): Promise<ActionResult> => {
+    const { data } = await admin
+      .from("mafia_votes")
+      .select("target_id")
+      .eq("room_code", room.room_code)
+      .eq("round", room.night_number)
+      .eq("voter_id", player.id)
+      .maybeSingle();
+    const stored = data as { target_id: string | null } | null;
+    return stored && stored.target_id === (input.targetId ?? null) ? { success: true } : fail(error);
+  };
+
+  if (input.seq !== undefined && input.seq !== room.phase_seq) return resentOr("انتهى وقت التصويت.");
+  if (room.phase !== "voting") return resentOr("التصويت مو مفتوح الحين.");
+  if (room.phase_ends_at && Date.now() > Date.parse(room.phase_ends_at) + 1000) return resentOr("انتهى وقت التصويت.");
   if (!player.is_alive) return fail("الموتى ما يصوّتون");
 
   if (input.targetId) {
@@ -1522,13 +1576,7 @@ export async function castMafiaVote(input: {
     return fail("تعذّر حفظ صوتك.");
   }
 
-  const counts = await recountVotes(admin, room);
-  await admin
-    .from("mafia_rooms")
-    .update({ vote_counts: counts })
-    .eq("room_code", room.room_code)
-    .eq("phase_seq", room.phase_seq);
-
+  await syncVoteTally(admin, room);
   return { success: true };
 }
 
@@ -1953,11 +2001,16 @@ async function fillMissingActions(admin: Admin, room: MafiaRoom, step: MafiaNigh
     const targetId = pickRandom(autoTargets(step, actor, engine))?.id ?? null;
     if (!targetId) continue;
 
-    await admin.from("mafia_actions").upsert(
-      { room_code: room.room_code, night: room.night_number, step, actor_id: actor.id, target_id: targetId },
-      { onConflict: "room_code,night,step,actor_id", ignoreDuplicates: true }
-    );
-    if (step === "suicide") {
+    const { data: inserted } = await admin
+      .from("mafia_actions")
+      .upsert(
+        { room_code: room.room_code, night: room.night_number, step, actor_id: actor.id, target_id: targetId },
+        { onConflict: "room_code,night,step,actor_id", ignoreDuplicates: true }
+      )
+      .select("id");
+    // هدف المنتقم: بس الطلب اللي انسجّل اختياره يكتبه — لو انتهى الدور من جهازين بنفس اللحظة (تخطي المنشئ
+    // ومعه إعادته، أو انتقال المؤقت)، كل واحد يختار عشوائي، والمسجّل هو الأول فقط
+    if (step === "suicide" && inserted && inserted.length > 0) {
       await admin.from("mafia_secrets").update({ suicide_target: targetId }).eq("player_id", p.id);
     }
   }
@@ -2037,13 +2090,7 @@ async function castBotVotes(admin: Admin, room: MafiaRoom): Promise<void> {
     return { room_code: room.room_code, round: room.night_number, voter_id: bot.id, target_id: target?.id ?? null };
   });
   await admin.from("mafia_votes").upsert(rows, { onConflict: "room_code,round,voter_id" });
-
-  const counts = await recountVotes(admin, room);
-  await admin
-    .from("mafia_rooms")
-    .update({ vote_counts: counts })
-    .eq("room_code", room.room_code)
-    .eq("phase_seq", room.phase_seq);
+  await syncVoteTally(admin, room);
 }
 
 // ---------------------------------------------------------------------
@@ -2077,18 +2124,29 @@ export async function updateMafiaSettings(input: {
  * devHostRole: وضع التجربة (localhost بس) — المنشئ يختار فئته عشان يجربها.
  * لازم تكون من فئات اللعبة، وإلا تنتجاهل والتوزيع عشوائي.
  */
-export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole | null): Promise<ActionResult> {
+export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole | null, seq?: number): Promise<ActionResult> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
+  if (staleHostPress(room, seq)) return { success: true };
   if (room.phase !== "lobby") return fail("اللعبة بدأت أصلاً.");
 
   const settingsError = validateMafiaSettings(room.settings);
   if (settingsError) return fail(settingsError);
 
+  // التوزيع والحجز قبل الانتقال: لو وصلت "ابدأ" مرتين بنفس اللحظة، وحدة بس توزّع وتحجز
+  // (وإلا ممكن ينكتب توزيعين فوق بعض، أو تنحجز لعبتين)
+  const claimed = await claimHostOp(admin, room, "start");
+  if (claimed === null) return fail("تعذّر بدء اللعبة، حاول مرة ثانية.");
+  if (!claimed) return { success: true };
+  const refuse = async (error: string): Promise<ActionResult> => {
+    await releaseHostOp(admin, room, "start");
+    return fail(error);
+  };
+
   const loaded = await loadPlayers(admin, room.room_code);
   if (loaded.length !== room.settings.maxPlayers) {
-    return fail(`لازم يكتمل العدد: ${loaded.length} من ${room.settings.maxPlayers}.`);
+    return refuse(`لازم يكتمل العدد: ${loaded.length} من ${room.settings.maxPlayers}.`);
   }
   const players = await renumberDuplicateSeats(admin, loaded);
 
@@ -2099,7 +2157,7 @@ export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole |
     const session = await beginGameSession(admin, ctx.userId, MAFIA_GAME.id, room.room_code);
     if (session.releasedRooms.length > 0) await closeAbandonedRooms(admin, session.releasedRooms);
     if (!session.ok) {
-      return fail(
+      return refuse(
         session.reason === "no_access"
           ? MAFIA_CONFIG.NO_ACCESS_MESSAGE
           : session.reason === "busy"
@@ -2150,9 +2208,10 @@ export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole |
   });
   // البدء ما صار (جهاز ثاني سبقه أو خطأ): الحجز ينلغى كأنه ما صار
   if (!ok && sessionId) await cancelGameSession(admin, sessionId);
+  if (!ok) return refuse("تعذّر بدء اللعبة، حاول مرة ثانية.");
   // مين باقي ما شاف دوره (المنشئ يشوف القائمة من أول لحظة)
-  if (ok) await finishRevealIfAllSeen(admin, room.room_code, room.phase_seq + 1);
-  return ok ? { success: true } : fail("تعذّر بدء اللعبة، حاول مرة ثانية.");
+  await finishRevealIfAllSeen(admin, room.room_code, room.phase_seq + 1);
+  return { success: true };
 }
 
 /**
@@ -2167,11 +2226,12 @@ export async function pingMafiaSession(roomCode: string): Promise<ActionResult> 
 }
 
 /** المنشئ اختار وقت النقاش وضغط "ابدأ النقاش" (الصباح ما له مؤقت — يظل لين يضغط) */
-export async function startMafiaDiscussion(input: { roomCode: string; seconds: number }): Promise<ActionResult> {
+export async function startMafiaDiscussion(input: { roomCode: string; seconds: number; seq?: number }): Promise<ActionResult> {
   const ctx = await requireHost(input.roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
   if (!MAFIA_CONFIG.DISCUSSION_OPTIONS.includes(input.seconds)) return fail("وقت النقاش غير صحيح.");
+  if (staleHostPress(room, input.seq)) return { success: true };
   if (room.phase !== "morning") return { success: true };
 
   const settings = { ...room.settings, discussionSeconds: input.seconds };
@@ -2189,7 +2249,15 @@ export async function setMafiaDiscussionTime(input: { roomCode: string; seconds:
   if (room.phase === "ended" || room.phase === "closed") return fail("اللعبة خلصت.");
 
   const patch: Partial<MafiaRoom> = { settings: { ...room.settings, discussionSeconds: input.seconds } };
-  if (room.phase === "discussion") patch.phase_ends_at = mafiaDeadline("discussion", Date.now(), patch.settings);
+  if (room.phase === "discussion") {
+    const deadline = mafiaDeadline("discussion", Date.now(), patch.settings);
+    // إعادة لنفس الضغطة (نفس الوقت، والمؤقت توه انضبط عليه قبل أقل من 15 ثانية): ما نرجّع المؤقت من جديد
+    const resent =
+      room.settings.discussionSeconds === input.seconds &&
+      Boolean(room.phase_ends_at && deadline && Date.parse(deadline) - Date.parse(room.phase_ends_at) < 15_000);
+    if (resent) return { success: true };
+    patch.phase_ends_at = deadline;
+  }
 
   await admin.from("mafia_rooms").update(patch).eq("room_code", room.room_code);
   return { success: true };
@@ -2199,11 +2267,40 @@ export async function setMafiaDiscussionTime(input: { roomCode: string; seconds:
  * "غرفة جديدة": كود جديد بنفس الإعدادات والمنشئ لحاله فيها.
  * الغرفة القديمة تنقفل وتدل اللاعبين على الكود الجديد عشان يدخلونه من جديد.
  */
+/** الغرفة الجديدة اللي انتقل لها المنشئ من هالغرفة (لو هي له): كودها ومفتاحه فيها — رد الضغطة الأولى نفسه */
+async function movedRoomFor(admin: Admin, room: MafiaRoom, userId: string): Promise<{ roomCode: string; token: string } | null> {
+  const code = room.settings.movedTo;
+  if (!code) return null;
+  const next = await loadRoom(admin, code);
+  if (!next || next.host_user_id !== userId || !next.host_player_id) return null;
+  const { data } = await admin.from("mafia_secrets").select("token").eq("player_id", next.host_player_id).maybeSingle();
+  const token = (data as { token: string } | null)?.token;
+  return token ? { roomCode: code, token } : null;
+}
+
 export async function newMafiaRoom(roomCode: string): Promise<ActionResult<{ roomCode: string; token: string }>> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room, userId } = ctx;
-  if (room.phase === "closed") return fail("هذي الغرفة انقفلت أصلاً.");
+  // الضغطة انعادت بعد ما فتحت الأولى الغرفة الجديدة: نرجّع نفس الغرفة، ما نفتح ثانية
+  if (room.phase === "closed") {
+    const moved = await movedRoomFor(admin, room, userId);
+    return moved ? { success: true, data: moved } : fail("هذي الغرفة انقفلت أصلاً.");
+  }
+  // وصلت مرتين بنفس اللحظة: وحدة بس تفتح غرفة، والثانية تنتظرها وترجّع نفس الغرفة
+  const claimed = await claimHostOp(admin, room, "newroom");
+  if (claimed === null) return fail("تعذّر إنشاء الغرفة، حاول مرة ثانية.");
+  if (!claimed) {
+    for (let i = 0; i < 20; i++) {
+      await sleep(400);
+      const now = await loadRoom(admin, room.room_code);
+      if (now?.phase === "closed") {
+        const moved = await movedRoomFor(admin, now, userId);
+        if (moved) return { success: true, data: moved };
+      }
+    }
+    return fail("تعذّر إنشاء الغرفة، حاول مرة ثانية.");
+  }
 
   const { data: hostPlayer } = await admin
     .from("mafia_players")
@@ -2214,7 +2311,10 @@ export async function newMafiaRoom(roomCode: string): Promise<ActionResult<{ roo
   const { movedTo, ...settings } = room.settings;
 
   const created = await createRoomInternal(admin, userId, hostPlayer?.display_name ?? "المنشئ", settings);
-  if ("error" in created) return fail(created.error);
+  if ("error" in created) {
+    await releaseHostOp(admin, room, "newroom");
+    return fail(created.error);
+  }
 
   await admin
     .from("mafia_rooms")
@@ -2231,13 +2331,79 @@ export async function newMafiaRoom(roomCode: string): Promise<ActionResult<{ roo
   return { success: true, data: created };
 }
 
+/**
+ * ضغطة منشئ وصلت بعد ما تغيّرت المرحلة (seq = رقم المرحلة اللي ضغط فيها): نتجاهلها ونرجع نجاح.
+ * الضغطة نفسها تنعاد تلقائياً لو ما رد السيرفر بالمهلة، فلو الأولى وصلت ونقلت المرحلة، الإعادة
+ * ما تنقلها مرة ثانية. بدون seq (جوال بالنسخة القديمة وقت التحديث): مثل قبل.
+ */
+const staleHostPress = (room: MafiaRoom, seq: number | undefined) => seq !== undefined && room.phase_seq !== seq;
+
+/**
+ * ضغطات المنشئ اللي فيها شغل قبل الانتقال نفسه (ابدأ: توزيع الأدوار، جولة جديدة: تصفير، غرفة جديدة: إنشاء):
+ * لو وصلت نفس الضغطة مرتين بنفس اللحظة (الأولى بطّت فانعادت)، وحدة بس تنفّذ. الحجز صف بجدول الأفعال
+ * (ليلة -1، ما تمسحه "جولة جديدة") مفتاحه نوع الضغطة ورقم المرحلة — زي باقي العلامات، بدون تعديل بالقاعدة.
+ * حجز أقدم من 30 ثانية = الطلب اللي حجزه طاح بالنص: ينشال وينحجز من جديد.
+ * true = هذا الطلب ينفّذ، false = نفس الضغطة شغالة أو خلصت، null = القاعدة ما ردت.
+ */
+const HOST_OP_NIGHT = -1;
+const HOST_OP_STALE_MS = 30_000;
+const hostOpRow = (room: MafiaRoom, key: string) => ({
+  room_code: room.room_code,
+  night: HOST_OP_NIGHT,
+  step: `host:${key}:${room.phase_seq}`,
+  actor_id: room.host_player_id ?? "",
+  target_id: null,
+});
+async function claimHostOp(admin: Admin, room: MafiaRoom, key: string): Promise<boolean | null> {
+  if (!room.host_player_id) return true;
+  const row = hostOpRow(room, key);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await admin
+      .from("mafia_actions")
+      .upsert(row, { onConflict: "room_code,night,step,actor_id", ignoreDuplicates: true })
+      .select("id");
+    if (error) {
+      console.error("mafia claimHostOp error:", error);
+      return null;
+    }
+    if (data && data.length > 0) return true;
+    const { data: held } = await admin
+      .from("mafia_actions")
+      .select("id, created_at")
+      .eq("room_code", row.room_code)
+      .eq("night", HOST_OP_NIGHT)
+      .eq("step", row.step)
+      .eq("actor_id", row.actor_id)
+      .maybeSingle();
+    const h = held as { id: string; created_at: string } | null;
+    if (!h) continue;
+    if (Date.now() - Date.parse(h.created_at) < HOST_OP_STALE_MS) return false;
+    await admin.from("mafia_actions").delete().eq("id", h.id).eq("created_at", h.created_at);
+  }
+  return false;
+}
+/** الضغطة ما نفّذت (رفض أو خطأ): نشيل الحجز عشان ضغطته الجاية تنفّذ */
+async function releaseHostOp(admin: Admin, room: MafiaRoom, key: string): Promise<void> {
+  if (!room.host_player_id) return;
+  const row = hostOpRow(room, key);
+  await admin
+    .from("mafia_actions")
+    .delete()
+    .eq("room_code", row.room_code)
+    .eq("night", HOST_OP_NIGHT)
+    .eq("step", row.step)
+    .eq("actor_id", row.actor_id);
+}
+
 /** المنشئ ينهي المرحلة الحالية فوراً (مثل: إنهاء النقاش والتصويت الحين) */
-export async function skipMafiaPhase(roomCode: string): Promise<ActionResult> {
+export async function skipMafiaPhase(roomCode: string, seq?: number): Promise<ActionResult> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
+  if (staleHostPress(room, seq)) return { success: true };
   if (room.phase === "lobby" || room.phase === "ended") return fail("ما فيه مرحلة شغالة الحين.");
 
+  // الانتقال نفسه مشروط برقم المرحلة (guardedRoomUpdate): لو وصلت الضغطة مرتين بنفس اللحظة، وحدة بس تنقلها
   await runTransition(admin, room);
   return { success: true };
 }
@@ -2246,16 +2412,21 @@ const isDayPhase = (room: MafiaRoom) =>
   room.phase === "morning" || room.phase === "discussion" || room.phase === "voting";
 
 /** الممنوع من الكلام (المسكت) تكلم: المنشئ يقتله */
-export async function killSilencedMafiaPlayer(roomCode: string): Promise<ActionResult> {
+export async function killSilencedMafiaPlayer(roomCode: string, seq?: number): Promise<ActionResult> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
+  if (staleHostPress(room, seq)) return { success: true };
+  // إعادة لضغطة نفّذت: الممنوع انقتل وإعلانه طلع (ممنوع واحد بس باليوم)
+  if ((room.announcements ?? []).some((a) => a.kind === "hushed_kill")) return { success: true };
   if (!isDayPhase(room)) return fail("المنع من الكلام بس وقت النهار.");
 
   const players = await loadPlayers(admin, room.room_code);
-  const targetId = silencedPlayerId(room.announcements, players);
-  const target = players.find((p) => p.id === targetId);
+  const silencedId = (room.announcements ?? []).find((a) => a.kind === "silence")?.targetId;
+  const target = players.find((p) => p.id === silencedId);
   if (!target) return fail("ما فيه أحد ممنوع من الكلام الحين.");
+  // انقتل توه (نفس الضغطة وصلت مرتين بنفس اللحظة، والثانية قرت الغرفة قبل إعلان الأولى): نفس الرد
+  if (!target.is_alive) return { success: true };
 
   return hostDayKill(admin, room, target, {
     kind: "hushed_kill",
@@ -2268,16 +2439,21 @@ export async function killSilencedMafiaPlayer(roomCode: string): Promise<ActionR
 /**
  * لاعب غشّ: المنشئ يذبحه. مو طرد — يظل بالغرفة كميت ويكمل يتفرج.
  */
-export async function killCheaterMafiaPlayer(input: { roomCode: string; playerId: string }): Promise<ActionResult> {
+export async function killCheaterMafiaPlayer(input: { roomCode: string; playerId: string; seq?: number }): Promise<ActionResult> {
   const ctx = await requireHost(input.roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
+  if (staleHostPress(room, input.seq)) return { success: true };
+  // إعادة لضغطة نفّذت: نفس اللاعب انذبح وإعلانه طلع
+  if ((room.announcements ?? []).some((a) => a.kind === "cheat_kill" && a.targetId === input.playerId)) return { success: true };
   if (!isDayPhase(room)) return fail("ذبح الغشاش بس وقت النهار.");
   if (input.playerId === room.host_player_id) return fail("ما تقدر تذبح نفسك");
 
   const players = await loadPlayers(admin, room.room_code);
-  const target = players.find((p) => p.id === input.playerId && p.is_alive);
-  if (!target) return fail("اللاعب مو موجود أو ميت أصلاً.");
+  const target = players.find((p) => p.id === input.playerId);
+  if (!target) return fail("اللاعب مو موجود في الغرفة.");
+  // انذبح توه (نفس الضغطة وصلت مرتين بنفس اللحظة، والثانية قرت الغرفة قبل إعلان الأولى): نفس الرد
+  if (!target.is_alive) return { success: true };
 
   return hostDayKill(admin, room, target, {
     kind: "cheat_kill",
@@ -2298,11 +2474,19 @@ async function hostDayKill(
   target: MafiaPlayer,
   announcement: MafiaAnnouncement
 ): Promise<ActionResult> {
-  const { error } = await admin.from("mafia_players").update({ is_alive: false }).eq("id", target.id).eq("is_alive", true);
+  // "بشرط إنه حي": لو الضغطة انعادت (أو وصلت مرتين بنفس اللحظة)، وحدة بس تقتله وتكتب الإعلان،
+  // والثانية تلقاه ميت فترجع نجاح بدون ما تعيد شي
+  const { data: killed, error } = await admin
+    .from("mafia_players")
+    .update({ is_alive: false })
+    .eq("id", target.id)
+    .eq("is_alive", true)
+    .select("id");
   if (error) {
     console.error("hostDayKill error:", error);
     return fail("تعذّر تنفيذها، حاول مرة ثانية.");
   }
+  if (!killed || killed.length === 0) return { success: true };
 
   if (room.phase === "voting") {
     await admin
@@ -2311,11 +2495,12 @@ async function hostDayKill(
       .eq("room_code", room.room_code)
       .eq("round", room.night_number)
       .or(`voter_id.eq.${target.id},target_id.eq.${target.id}`);
-    const counts = await recountVotes(admin, room);
-    await admin.from("mafia_rooms").update({ vote_counts: counts }).eq("room_code", room.room_code).eq("phase_seq", room.phase_seq);
+    await syncVoteTally(admin, room);
   }
 
-  const announcements = [...(room.announcements ?? []), announcement];
+  // الإعلانات من آخر نسخة للغرفة (لو انكتب إعلان ثاني بين ما قرينا الغرفة والحين، ما يضيع)
+  const latest = (await loadRoom(admin, room.room_code)) ?? room;
+  const announcements = [...((latest.phase_seq === room.phase_seq ? latest : room).announcements ?? []), announcement];
   await admin.from("mafia_rooms").update({ announcements }).eq("room_code", room.room_code).eq("phase_seq", room.phase_seq);
 
   const winner = await currentWinner(admin, room.room_code);
@@ -2324,10 +2509,11 @@ async function hostDayKill(
 }
 
 /** المنشئ ينهي اللعبة الحين ويكشف كل الأدوار بدون فائز */
-export async function endMafiaGameNow(roomCode: string): Promise<ActionResult> {
+export async function endMafiaGameNow(roomCode: string, seq?: number): Promise<ActionResult> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
+  if (staleHostPress(room, seq)) return { success: true };
   if (room.phase === "lobby" || room.phase === "ended") return fail("ما فيه لعبة شغالة الحين.");
 
   await endGame(admin, room, null);
@@ -2339,11 +2525,13 @@ export async function endMafiaGameNow(roomCode: string): Promise<ActionResult> {
  * المنشئ طالع ويقفل الغرفة: تنتهي عند الكل، وأجهزتهم تنسى الغرفة،
  * فأي واحد منهم يقدر يسجّل دخول ويسوي غرفة جديدة.
  */
-export async function closeMafiaRoom(roomCode: string): Promise<ActionResult> {
+export async function closeMafiaRoom(roomCode: string, seq?: number): Promise<ActionResult> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
+  // انقفلت أصلاً (الضغطة الأولى وصلت): نفس الرد
   if (room.phase === "closed") return { success: true };
+  if (staleHostPress(room, seq)) return { success: true };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { movedTo, ...settings } = room.settings;
@@ -2379,7 +2567,8 @@ export async function kickMafiaPlayer(input: { roomCode: string; playerId: strin
     console.error("kickMafiaPlayer error:", error);
     return fail("تعذّر طرد اللاعب.");
   }
-  if (!removed || removed.length === 0) return fail("اللاعب مو موجود في الغرفة.");
+  // انطرد قبل (الضغطة انعادت بعد ما وصلت الأولى): نفس الرد. الطرد ما ينقل المرحلة، فما يحتاج رقمها
+  if (!removed || removed.length === 0) return { success: true };
 
   // يمكن هو اللي كان الكل ينتظرونه بدور الليل، أو بكشف الأدوار
   if (room.phase === "night_act") {
@@ -2389,27 +2578,27 @@ export async function kickMafiaPlayer(input: { roomCode: string; playerId: strin
   if (room.phase === "reveal") await finishRevealIfAllSeen(admin, room.room_code, room.phase_seq);
 
   // صوته انحذف — نحدّث العداد ومين صوّت على مين
-  if (room.phase === "voting") {
-    const counts = await recountVotes(admin, room);
-    await admin
-      .from("mafia_rooms")
-      .update({ vote_counts: counts })
-      .eq("room_code", room.room_code)
-      .eq("phase_seq", room.phase_seq);
-  }
+  if (room.phase === "voting") await syncVoteTally(admin, room);
 
   return { success: true };
 }
 
 /** يرجّع الكل لغرفة الانتظار بنفس اللاعبين — بعد نهاية اللعبة أو في نصها */
-export async function playMafiaAgain(roomCode: string): Promise<ActionResult> {
+export async function playMafiaAgain(roomCode: string, seq?: number): Promise<ActionResult> {
   const ctx = await requireHost(roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
+  if (staleHostPress(room, seq)) return { success: true };
   if (room.phase === "lobby") return fail("أنتم أصلاً في غرفة الانتظار.");
+  // التصفير قبل الانتقال: لو وصلت الضغطة مرتين بنفس اللحظة، وحدة بس تصفّر (وإلا ممكن تصفّر الثانية
+  // متأخرة بعد ما بدأت الجولة الجديدة)
+  const claimed = await claimHostOp(admin, room, "again");
+  if (claimed === null) return fail("تعذّر تنفيذها، حاول مرة ثانية.");
+  if (!claimed) return { success: true };
 
   await Promise.all([
-    admin.from("mafia_actions").delete().eq("room_code", room.room_code),
+    // حجوزات ضغطات المنشئ (ليلة -1) تظل: لو انمسحت، ضغطة متأخرة ممكن تنحجز من جديد وتنفّذ
+    admin.from("mafia_actions").delete().eq("room_code", room.room_code).neq("night", HOST_OP_NIGHT),
     admin.from("mafia_votes").delete().eq("room_code", room.room_code),
     admin.from("mafia_players").update({ is_alive: true }).eq("room_code", room.room_code),
     admin
@@ -2426,7 +2615,7 @@ export async function playMafiaAgain(roomCode: string): Promise<ActionResult> {
       .eq("room_code", room.room_code),
   ]);
 
-  await guardedRoomUpdate(admin, room, {
+  const ok = await guardedRoomUpdate(admin, room, {
     phase: "lobby",
     night_step: null,
     night_number: 0,
@@ -2437,6 +2626,7 @@ export async function playMafiaAgain(roomCode: string): Promise<ActionResult> {
     winner: null,
     final_roles: null,
   });
+  if (!ok) await releaseHostOp(admin, room, "again");
   await endSessionIfStopped(admin, room.room_code);
   return { success: true };
 }
