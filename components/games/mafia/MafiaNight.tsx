@@ -7,7 +7,7 @@ import { isFastMafia } from "@/lib/game/mafia-engine";
 import type { MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import type { MafiaTask } from "@/actions/mafia";
 import type { MafiaNightStep } from "@/types";
-import { Panel, PlayerPicker, RoleIcon } from "./MafiaParts";
+import { Panel, PlayerPicker, RoleIcon, WeakNetLine } from "./MafiaParts";
 import { BTN_GOLD, BTN_SOFT, H_PROMPT, INFO, LABEL, NOTE } from "./mafiaUi";
 
 const STEP_ACCENT: Record<MafiaNightStep, "red" | "emerald" | "sky" | "purple" | "amber" | "orange"> = {
@@ -58,9 +58,10 @@ export function MafiaNightAct({ ctx }: { ctx: MafiaGameCtx }) {
         <p className="text-[15px] font-black text-ludn-fg/85">{MAFIA_NIGHT_STEPS[step].headline}</p>
       </div>
       {!fresh ? (
-        // نفس الشكل عند الكل — ما يفضح مين صاحب الدور
-        <Panel className="flex justify-center py-12">
+        // نفس الشكل عند الكل — ما يفضح مين صاحب الدور (سطر النت الضعيف يعتمد على نت الجوال، مو على دوره)
+        <Panel className="flex flex-col items-center gap-4 py-12">
           <Loader2 size={34} className="animate-spin text-ludn-gold" />
+          <WeakNetLine show={ctx.weakNet} />
         </Panel>
       ) : task ? (
         <MafiaTaskCard ctx={ctx} task={task} />
@@ -91,8 +92,9 @@ function FastNightAct({ ctx }: { ctx: MafiaGameCtx }) {
       {/* نفس السطر عند الكل — ما يفضح مين عنده مهمة */}
       {ctx.nightArming && <p className={NOTE}>المؤقت يبدأ أول ما توصل الشاشة لكل الجوالات</p>}
       {!fresh ? (
-        <Panel className="flex justify-center py-12">
+        <Panel className="flex flex-col items-center gap-4 py-12">
           <Loader2 size={34} className="animate-spin text-ludn-gold" />
+          <WeakNetLine show={ctx.weakNet} />
         </Panel>
       ) : task ? (
         <MafiaTaskCard ctx={ctx} task={task} />

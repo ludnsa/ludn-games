@@ -2,7 +2,7 @@
 
 import React, { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Volume2, VolumeX, Eye, Users, VenetianMask, Moon } from "lucide-react";
+import { Volume2, VolumeX, Eye, Users, VenetianMask, Moon, WifiOff } from "lucide-react";
 import { MAFIA_CONFIG, MAFIA_ROLES, mafiaCardSrc, mafiaIconSrc } from "@/constants/mafia";
 import { isMafiaMuted, setMafiaMuted, subscribeMafiaMuted, unlockMafiaAudio } from "@/lib/game/mafia-sounds";
 import type { MafiaAnnouncementKind, MafiaRole } from "@/types";
@@ -16,6 +16,20 @@ export function Panel({
   className?: string;
 }) {
   return <section className={`w-full ${CARD} animate-in zoom-in-95 ${className}`}>{children}</section>;
+}
+
+/**
+ * تحت التحميل اللي ينتظر حالتي الخاصة: لو طوّل أو فشلت محاولة (ctx.weakNet) — سطر واضح بدل تحميل بدون نهاية.
+ * المحاولات تكمل لحالها، وأول ما توصل الحالة يختفي السطر مع التحميل.
+ */
+export function WeakNetLine({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <p role="status" className="flex items-center justify-center gap-2 text-center text-[14px] font-black text-ludn-gold-text animate-in fade-in">
+      <WifiOff size={17} className="shrink-0" />
+      النت ضعيف، نحاول نوصلك...
+    </p>
+  );
 }
 
 export function TimerBadge({ seconds, danger = 5 }: { seconds: number | null; danger?: number }) {

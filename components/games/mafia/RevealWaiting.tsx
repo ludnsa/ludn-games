@@ -53,15 +53,17 @@ function useLeavingPills(ids: string[]): Pill[] {
 }
 
 /**
- * مين باقي ما شاف دوره: عنوان وعدّاد "X من Y" (X = اللي شافوا) وشريط تقدم ذهبي يمتلي من اليمين.
- * المنشئ يشوف الأسماء بكبسولات تلتف على أكثر من سطر — كل ما واحد ضغط "شفت دوري" تختفي كبسولته،
- * ولما يبقى 3 أو أقل: "ننتظر هذول بس" والكبسولات تكبر وتصير ذهبية بالنص. الباقين يشوفون العدد والشريط بس.
+ * مين باقي ما شاف دوره (لكل اللاعبين — المنشئ لاعب مثلهم، ما يشوف أكثر منهم):
+ * عنوان ذهبي مع ساعة رملية، وعدّاد "X من Y" (X = اللي شافوا) بصندوق، وشريط تقدم ذهبي يمتلي من اليمين
+ * (نقطة ذهبية بالبداية)، والأسماء بكبسولات تلتف على أكثر من سطر — كل ما واحد ضغط "شفت دوري" تختفي كبسولته.
+ * لما يبقى 3 أو أقل: "ننتظر هذول بس" والكبسولات تكبر وتصير ذهبية وتنوّر بالنص.
+ * (التصميم: C:\yazeed-game-assets\mafia\wait-options.png)
  */
 export default function RevealWaiting({ ctx }: { ctx: MafiaGameCtx }) {
   const r = ctx.revealReady;
   const myId = ctx.me?.id;
   const waiting = (r?.waiting ?? []).filter((id) => !(ctx.iSawRole && id === myId) && ctx.nameOf(id));
-  const showNames = ctx.isHost && Boolean(r?.waiting);
+  const showNames = Boolean(r?.waiting);
   const pills = useLeavingPills(showNames ? waiting : []);
   if (!r) return null;
 
@@ -70,6 +72,7 @@ export default function RevealWaiting({ ctx }: { ctx: MafiaGameCtx }) {
   if (left === 0) return null;
   const seen = Math.max(0, r.total - left);
   const few = left <= FEW_LEFT;
+  // بدون أسماء (القائمة ما وصلت): العنوان يقول العدد بداله
   const title = few
     ? showNames
       ? "ننتظر هذول بس"
@@ -83,45 +86,46 @@ export default function RevealWaiting({ ctx }: { ctx: MafiaGameCtx }) {
   return (
     <section
       aria-label="مين باقي ما شاف دوره"
-      className={`w-full min-w-0 rounded-2xl border p-3 animate-in fade-in transition-colors duration-300 ${
-        few ? "border-ludn-gold/45 bg-ludn-gold/8" : "border-ludn-line bg-ludn-surface-2/70"
-      }`}
+      className="w-full min-w-0 rounded-3xl border border-ludn-gold/20 bg-ludn-surface/85 p-4 animate-in fade-in"
     >
       <div className="flex items-center justify-between gap-3">
-        <h3 className="flex min-w-0 items-center gap-1.5 text-[15px] font-black text-ludn-fg">
-          <Hourglass size={17} className={`shrink-0 ${few ? "text-ludn-gold" : "text-ludn-muted"}`} />
+        <h3 className="flex min-w-0 items-center gap-1.5 text-[16px] font-black text-ludn-gold-text">
+          <Hourglass size={18} className="shrink-0 text-ludn-gold" />
           <span className="truncate">{title}</span>
         </h3>
-        <span className="shrink-0 text-[13px] font-black tabular-nums text-ludn-gold-text" aria-live="polite">
-          {seen} من {r.total}
+        <span
+          className="shrink-0 rounded-xl border border-ludn-line bg-ludn-bg/70 px-2.5 py-1.5 text-[15px] font-black tabular-nums text-ludn-fg"
+          aria-live="polite"
+        >
+          <span className="text-ludn-gold-text">{seen}</span> من {r.total}
         </span>
       </div>
 
-      {/* شريط التقدم: يمتلي من اليمين (الصفحة من اليمين لليسار) */}
+      {/* شريط التقدم: يمتلي من اليمين (الصفحة من اليمين لليسار)، وبالبداية نقطة ذهبية */}
       <div
-        className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-white/10"
+        className="mt-3.5 h-1.5 w-full rounded-full bg-white/10"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={r.total}
         aria-valuenow={seen}
       >
         <div
-          className="h-full rounded-full bg-ludn-gold transition-[width] duration-500 ease-out"
+          className="h-full min-w-2 rounded-full bg-gradient-to-l from-ludn-gold to-ludn-gold/75 transition-[width] duration-500 ease-out"
           style={{ width: `${Math.min(100, (seen / total) * 100)}%` }}
         />
       </div>
 
       {showNames && pills.length > 0 && (
-        <ul className={`mt-3 flex flex-wrap gap-1.5 ${few ? "justify-center gap-2" : ""}`}>
+        <ul className={`mt-4 flex flex-wrap ${few ? "justify-center gap-2.5" : "gap-2"}`}>
           {pills.map(({ id, gone }) => (
             <li
               key={id}
-              className={`flex min-w-0 max-w-full items-center rounded-full font-black transition-all duration-200 ease-out ${
+              className={`flex min-w-0 max-w-full items-center rounded-full transition-all duration-200 ease-out ${
                 gone !== null ? "scale-75 opacity-0" : "scale-100 opacity-100"
               } ${
                 few
-                  ? "bg-ludn-gold px-4 py-1.5 text-[16px] text-ludn-gold-ink shadow-[0_0_14px_var(--ludn-glow)]"
-                  : "bg-white/10 px-3 py-1 text-[13px] text-ludn-fg"
+                  ? "bg-ludn-gold px-4 py-2 text-[16px] font-black text-ludn-gold-ink ring-4 ring-ludn-gold/20 shadow-[0_0_18px_rgba(226,184,74,0.35)]"
+                  : "border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[14px] font-bold text-ludn-fg"
               }`}
             >
               <span className="min-w-0 truncate whitespace-nowrap">{ctx.nameOf(id)}</span>
@@ -130,7 +134,7 @@ export default function RevealWaiting({ ctx }: { ctx: MafiaGameCtx }) {
         </ul>
       )}
 
-      {showNames && seen === 0 && <p className="mt-2.5 text-center text-xs font-bold text-ludn-muted">كل ما واحد شاف دوره، يختفي اسمه</p>}
+      {showNames && seen === 0 && <p className="mt-4 text-center text-[13px] font-bold text-ludn-muted">كل ما واحد شاف دوره، يختفي اسمه</p>}
     </section>
   );
 }

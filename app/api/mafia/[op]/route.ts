@@ -3,6 +3,7 @@ import {
   ackMafiaNightTask,
   advanceMafiaPhase,
   castMafiaVote,
+  chooseMafiaSheikhMode,
   claimMafiaLead,
   closeMafiaRoom,
   endMafiaGameNow,
@@ -12,7 +13,9 @@ import {
   killSilencedMafiaPlayer,
   markMafiaRoleSeen,
   newMafiaRoom,
+  pingMafiaSession,
   playMafiaAgain,
+  renameMafiaPlayer,
   setMafiaDiscussionTime,
   skipMafiaPhase,
   startMafiaDiscussion,
@@ -26,8 +29,9 @@ import type { MafiaRole, MafiaSettings } from "@/types";
 /**
  * طلبات اللعب من الجوال: حالتي الخاصة (view)، "شفت دوري" (seen)، وصول شاشة الليل (got)،
  * انتقال المرحلة لما يخلص المؤقت (advance)، عضو المافيا ياخذ القرار لو القائد ما وصلته مهمته (lead)،
- * اختيار الليل (act)، جواب التمويه (decoy)، التصويت (vote) — كلها بمفتاح اللاعب السري.
- * وأزرار المنشئ (host-*) — بحساب المنشئ المسجّل (نفس التحقق اللي بدوال السيرفر: requireHost).
+ * اختيار الليل (act)، جواب التمويه (decoy)، التصويت (vote)، اختيار الشيخ (sheikh)، تغيير الاسم (rename)
+ * — كلها بمفتاح اللاعب السري. وأزرار المنشئ ونبضة جلسته (host-*) — بحساب المنشئ المسجّل
+ * (نفس التحقق اللي بدوال السيرفر: requireHost).
  *
  * طلبات عادية بدل دوال السيرفر: دوال السيرفر بالمتصفح تمشي بالدور وحدة ورا الثانية، فطلب معلّق
  * يوقف كل اللي وراه (لو علقت ضغطة المنشئ، الغرفة كلها توقف). هنا الجوال يقطع الطلب المعلّق بعد مهلة
@@ -46,6 +50,8 @@ type Body = {
   seconds?: unknown;
   settings?: unknown;
   devRole?: unknown;
+  led?: unknown;
+  displayName?: unknown;
 };
 
 const BAD = { success: false as const, error: "بيانات غير صحيحة." };
@@ -88,8 +94,18 @@ async function run(op: string, b: Body) {
       if (targetId === undefined) return BAD;
       return castMafiaVote({ roomCode, token, targetId, ...withSeq });
     }
+    case "sheikh":
+      // true = منظم، false = حر
+      if (typeof b.led !== "boolean") return BAD;
+      return chooseMafiaSheikhMode({ roomCode, token, led: b.led, ...withSeq });
+    case "rename":
+      if (typeof b.displayName !== "string") return BAD;
+      return renameMafiaPlayer({ roomCode, token, displayName: b.displayName });
 
     // ----- أزرار المنشئ -----
+    case "host-ping":
+      // صفحة المنشئ مفتوحة قبل أول صباح (حساب التجربة) — ما تغيّر شي باللعبة
+      return pingMafiaSession(roomCode);
     case "host-start":
       return startMafiaGame(roomCode, typeof b.devRole === "string" ? (b.devRole as MafiaRole) : null, hostSeq);
     case "host-skip":

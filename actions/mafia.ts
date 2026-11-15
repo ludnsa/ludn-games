@@ -1637,16 +1637,21 @@ async function afterStepStart(admin: Admin, roomCode: string): Promise<void> {
 /**
  * الشيخ يختار نوع نقاش اليوم بالصباح (يقدر يغيّره لين يبدأ النقاش).
  * led = true: منظم — الكل ساكت، وهو يسأل ويعطي الإذن بالكلام، واسمه يطلع للكل.
+ * seq = رقم الصباح اللي اختار فيه: طلب وصل متأخر (بعد ما بدأ النقاش، أو بصباح يوم ثاني) ما ينحفظ.
+ * الإعادة بنفس الاختيار ما تغيّر شي (صف واحد للشيخ بكل ليلة).
  */
 export async function chooseMafiaSheikhMode(input: {
   roomCode: string;
   token: string;
   led: boolean;
+  seq?: number;
 }): Promise<ActionResult> {
   const ctx = await requirePlayer(input);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room, player, secret } = ctx;
-  if (room.phase !== "morning") return fail("الاختيار بس بالصباح قبل ما يبدأ النقاش.");
+  if (room.phase !== "morning" || (isSeq(input.seq) && room.phase_seq !== input.seq)) {
+    return fail("الاختيار بس بالصباح قبل ما يبدأ النقاش.");
+  }
   if (secret.role !== "sheikh" || !player.is_alive) return fail("مو دورك.");
 
   const { error } = await admin.from("mafia_actions").upsert(
@@ -2677,9 +2682,4 @@ export async function isMafiaRoomFromOtherAccount(rawRoomCode: string): Promise<
   if (!userId) return false;
   const room = await loadRoom(getSupabaseServiceRole(), parsed.data);
   return Boolean(room && room.host_user_id !== userId);
-}
-
-/** هل وضع التجربة متاح؟ (الواجهة تسأل السيرفر بدل ما تعتمد على متغيرات المتصفح) */
-export async function isMafiaDevMode(): Promise<boolean> {
-  return IS_DEV;
 }

@@ -143,7 +143,7 @@ export interface GameResult {
    * إعادات الإرسال اللي صارت (بنفس اللحظة / بعد المهلة) — كلها لازم تنجح مثل الأول:
    * اختيار الليل والتمويه، وضغطات المنشئ (host*)، والأصوات (vote*)
    */
-  resends: { together: number; later: number; hostTogether: number; hostLater: number; voteTogether: number; voteLater: number };
+  resends: { together: number; later: number; hostTogether: number; hostLater: number; voteTogether: number; voteLater: number; sheikhTogether: number; sheikhLater: number; sheikhStale: number };
   /** إعلانات كل صباح (رقم الليلة اللي قبله) — لفحص إعلان الساحر */
   /** shieldUsed: لكل جندي (حتى الساحر اللي صار جندي) وقت الصباح — true = درعه راح، false = درعه باقي */
   mornings: { night: number; kinds: string[]; texts: string[]; targets: (string | undefined)[]; shieldUsed: Record<string, boolean> }[];
@@ -286,7 +286,7 @@ export class MafiaSim {
   /** "جولة جديدة بنفس اللاعبين" (ضغطة منشئ، بإعادتها) — يرجّع المخالفات */
   async playAgain(code: string, hostUser: string): Promise<{ violations: string[]; hostTogether: number; hostLater: number }> {
     const violations: string[] = [];
-    const result = { resends: { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0 } } as GameResult;
+    const result = { resends: { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0, sheikhTogether: 0, sheikhLater: 0, sheikhStale: 0 } } as GameResult;
     const r = await this.hostPress(code, result, (m) => violations.push(m), "جولة جديدة", (seq) => asUser(hostUser, () => mafia.playMafiaAgain(code, seq)));
     if (!r.success) throw new Error("again: " + r.error);
     if (this.room(code).phase !== "lobby") violations.push(`جولة جديدة: الغرفة ما رجعت للانتظار (${this.room(code).phase})`);
@@ -345,7 +345,7 @@ export class MafiaSim {
       leadMoves: 0,
       magician: null,
       decoyAtClaim: [],
-      resends: { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0 },
+      resends: { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0, sheikhTogether: 0, sheikhLater: 0, sheikhStale: 0 },
       mornings: [],
       dbOps: 0,
       notes,
@@ -423,6 +423,8 @@ export class MafiaSim {
     let guard = 0;
     let lastSeq = -1;
     let sameSeq = 0;
+    /** رقم الصباح اللي قبل (لفحص اختيار شيخ متأخر من صباح أمس) */
+    let prevMorningSeq: number | null = null;
     const alivePlayers = () => {
       const alive = this.aliveIds(code);
       return players.filter((p) => alive.has(p.id));
@@ -497,12 +499,44 @@ export class MafiaSim {
                 .map((s) => [s.player_id as string, Boolean(s.soldier_shield_used)])
             ),
           });
-          // الشيخ يختار، والمنشئ يبدأ النقاش
+          // الشيخ يختار (مثل الجوال: معه رقم الصباح، وممكن ينعاد)، والمنشئ يبدأ النقاش
           const liveRoles = this.roles(code);
           for (const p of alivePlayers()) {
             await checkView(p);
-            if (liveRoles[p.id] === "sheikh") await mafia.chooseMafiaSheikhMode({ roomCode: code, token: p.token, led: this.chance(0.5) });
+            if (liveRoles[p.id] !== "sheikh") continue;
+            const led = this.chance(0.5);
+            const sheikhRows = () =>
+              this.db
+                .rows("mafia_actions")
+                .filter((x) => x.room_code === code && x.night === room.night_number && x.step === "sheikh" && x.actor_id === p.id);
+            // طلب متأخر من صباح أمس وصل اليوم: ينرفض وما ينحفظ شي
+            if (prevMorningSeq !== null && this.chance(this.behavior.resend)) {
+              result.resends.sheikhStale++;
+              const stale = await mafia.chooseMafiaSheikhMode({ roomCode: code, token: p.token, led: !led, seq: prevMorningSeq });
+              if (stale.success || sheikhRows().length) v(`${p.name}: اختيار شيخ من صباح قديم انحفظ اليوم`);
+            }
+            const send = () => mafia.chooseMafiaSheikhMode({ roomCode: code, token: p.token, led, seq: room.phase_seq });
+            const mode = this.chance(this.behavior.resend) ? (this.chance(0.5) ? "together" : "later") : null;
+            if (mode === "together") {
+              result.resends.sheikhTogether++;
+              const [a, b] = await Promise.all([send(), send()]);
+              if (!a.success || !b.success) v(`${p.name}: اختيار الشيخ المكرر بنفس اللحظة انرفض`);
+            } else {
+              const res = await send();
+              if (!res.success) v(`${p.name}: اختيار الشيخ انرفض: ${res.error}`);
+              if (mode === "later") {
+                result.resends.sheikhLater++;
+                const again = await send();
+                if (!again.success) v(`${p.name}: إعادة اختيار الشيخ انرفضت: ${again.error}`);
+              }
+            }
+            // صف واحد للشيخ بالليلة، على آخر اختيار
+            const rows = sheikhRows();
+            if (rows.length !== 1 || (rows[0].target_id ?? null) !== (led ? p.id : null)) {
+              v(`${p.name}: صفوف اختيار الشيخ ${rows.length} (المفروض 1 على ${led ? "منظم" : "حر"})`);
+            }
           }
+          prevMorningSeq = room.phase_seq;
           // الساحر: مات بنفس ليلة اختياره؟
           if (result.magician?.picked && magicianId && !this.aliveIds(code).has(magicianId) && result.magician.pickedNight === room.night_number) {
             result.magician.diedSameNight = true;

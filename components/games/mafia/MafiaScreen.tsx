@@ -35,6 +35,7 @@ import {
   RolePeek,
   SoundToggle,
   TimerBadge,
+  WeakNetLine,
 } from "./MafiaParts";
 import MafiaLobby from "./MafiaLobby";
 import { MafiaNightAct, MafiaNightDone, NightWaiting } from "./MafiaNight";
@@ -109,6 +110,7 @@ export default function MafiaScreen({
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-ludn-muted">
         <Loader2 size={40} className="animate-spin text-ludn-gold" />
         <p className="font-black">جاري الدخول للغرفة...</p>
+        <WeakNetLine show={ctx.weakNet} />
       </div>
     );
   }
@@ -283,6 +285,7 @@ function RevealBody({ ctx }: { ctx: MafiaGameCtx }) {
       <div className="flex flex-col items-center gap-4 pt-16 pb-6">
         <Loader2 size={40} className="animate-spin text-ludn-gold" />
         <p className="font-black text-ludn-muted">جاري تحميل دورك...</p>
+        <WeakNetLine show={ctx.weakNet} />
       </div>
     );
   }
@@ -292,9 +295,9 @@ function RevealBody({ ctx }: { ctx: MafiaGameCtx }) {
         <p className="text-center text-[15px] font-black text-ludn-muted">بطاقتك انقفلت</p>
         <ClosedCard />
         {seenConfirmed ? (
-          <p className="text-center text-[15px] font-black text-ludn-green animate-in fade-in">
-            <Check size={18} className="inline -mt-1 me-1" />
-            تم ✓ — ننتظر الباقين يشوفون أدوارهم
+          <p className="flex w-full items-center justify-center gap-2 rounded-2xl border border-ludn-green/35 bg-ludn-green/10 px-4 py-3 text-center text-[15px] font-black text-ludn-green animate-in fade-in">
+            تم — ننتظر الباقين يشوفون أدوارهم
+            <Check size={19} className="shrink-0" />
           </p>
         ) : (
           <p className="text-center text-[15px] font-black text-ludn-gold-text animate-in fade-in">

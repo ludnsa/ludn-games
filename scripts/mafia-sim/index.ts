@@ -719,7 +719,7 @@ async function resendGames() {
   ];
   for (const settings of configs) {
     const agg = newAgg();
-    const resends = { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0 };
+    const resends = { together: 0, later: 0, hostTogether: 0, hostLater: 0, voteTogether: 0, voteLater: 0, sheikhTogether: 0, sheikhLater: 0, sheikhStale: 0 };
     const sim = new MafiaSim({ ...CALM, resend: 1, hostKill: 0.2 }, rnd, 0, 4);
     const sum = (r: GameResult) => {
       for (const k of Object.keys(resends) as (keyof typeof resends)[]) resends[k] += r.resends[k];
@@ -749,7 +749,8 @@ async function resendGames() {
     }
     const line =
       `${label(settings)}: ${agg.games} جولة كل طلب فيها ينرسل مرتين | الليل: بنفس اللحظة ${resends.together}، بعد الرد ${resends.later}` +
-      ` | المنشئ: ${resends.hostTogether} / ${resends.hostLater} | الأصوات: ${resends.voteTogether} / ${resends.voteLater} | فائز ${JSON.stringify(agg.winners)}`;
+      ` | المنشئ: ${resends.hostTogether} / ${resends.hostLater} | الأصوات: ${resends.voteTogether} / ${resends.voteLater}` +
+      ` | الشيخ: ${resends.sheikhTogether} / ${resends.sheikhLater}، ومن صباح قديم ${resends.sheikhStale} | فائز ${JSON.stringify(agg.winners)}`;
     const problems = [
       ...(agg.hangs.length ? [`تعليق ${agg.hangs.length}: ${agg.hangs.slice(0, 3).join("; ")}`] : []),
       ...(agg.winners.none ? [`${agg.winners.none} جولة بدون فائز`] : []),
