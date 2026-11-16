@@ -159,6 +159,9 @@ export function useWorldDomination() {
 
   const [isAccessChecking, setIsAccessChecking] = useState(true);
 
+  // كود غرفة لعبة رجعت بعد تحديث الصفحة: نكمّل فيه (شاشات الجمهور مربوطة فيه) بدل كود جديد بـ initGame
+  const restoredRoomRef = useRef<string | null>(null);
+
   // دالة استرجاع اللعبة فوراً عند فتح أو تحديث الصفحة
   useEffect(() => {
     const getSession = async () => {
@@ -200,6 +203,7 @@ export function useWorldDomination() {
       try {
         const parsed = JSON.parse(savedSession);
         if (parsed.gameState && parsed.gameState !== "lobby" && parsed.gameState !== "gameOver") {
+          restoredRoomRef.current = parsed.roomCode || null;
           setRoomCode(parsed.roomCode);
           setSpiedCountryId(parsed.spiedCountryId || null);
           setGameState(parsed.gameState);
@@ -246,7 +250,9 @@ export function useWorldDomination() {
     if (isInitialized) return;
     try {
       setIsLoading(true);
-      const newCode = "W" + Math.random().toString(36).substring(2, 6).toUpperCase();
+      // لعبة رجعت بعد التحديث: نفس الغرفة (لو انفتح كود جديد كان المنشئ يكمل بغرفة ثانية وشاشات الجمهور تظل على القديمة).
+      // غير كذا (أول فتح، أو بعد النهاية والتصفير): غرفة جديدة
+      const newCode = restoredRoomRef.current ?? "W" + Math.random().toString(36).substring(2, 6).toUpperCase();
       setRoomCode(newCode);
 
       if (typeof window !== "undefined") {
