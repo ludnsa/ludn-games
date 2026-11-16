@@ -123,6 +123,18 @@ function readPath(row: Row, col: string): { value: unknown; text: boolean } {
   return { value: v, text };
 }
 
+/**
+ * يقلّد 0019_mafia_deadline_at_write: لو الطلب فيه موعد جديد ومعه لحظة حسابه (updated_at)، الموعد =
+ * لحظة الكتابة + (الموعد − لحظة الحساب). الـ trigger الحقيقي يعرف إن الطلب فيه updated_at من إنها تغيّرت
+ * عن الصف (دقة ميكرو ثانية — تطابقها صدفة مستحيل عملياً)؛ هنا الساعة الوهمية ممكن ما تتحرك بين طلبين،
+ * فنشوف الطلب نفسه.
+ */
+function deadlineAtWrite(old: Row, next: Row): void {
+  if (!next.phase_ends_at || next.phase_ends_at === old.phase_ends_at || !("updated_at" in next)) return;
+  const dur = Date.parse(next.phase_ends_at as string) - Date.parse(next.updated_at as string);
+  if (dur > 0 && dur <= 3600_000) next.phase_ends_at = new Date(Date.now() + dur).toISOString();
+}
+
 function compare(a: unknown, b: unknown): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
   const sa = String(a), sb = String(b);
@@ -144,6 +156,12 @@ export class FakeSupabase {
   /** سجل الكتابات (للفحص): الجدول والنوع وعدد الصفوف */
   writes: { table: string; op: string; rows: number }[] = [];
   private opts: Required<FakeDbOptions>;
+  /** القاعدة فيها 0019_mafia_deadline_at_write (الموعد ينحسب لحظة الكتابة). false = القاعدة بدونه */
+  deadlineAtWrite = true;
+  /** قبل كل تعديل على mafia_rooms: المحاكي يقدر يأخر الكتابة (يقدّم الساعة الوهمية) */
+  beforeRoomUpdate: ((patch: Row) => void) | null = null;
+  /** بعد ما ينكتب تعديل على mafia_rooms: الصفوف بعد الكتابة، والطلب نفسه */
+  afterRoomUpdate: ((rows: Row[], patch: Row) => void) | null = null;
 
   constructor(opts: FakeDbOptions = {}) {
     this.opts = { maxLatencyMs: opts.maxLatencyMs ?? 0, random: opts.random ?? Math.random, jitterTurns: opts.jitterTurns ?? 0 };
@@ -435,9 +453,20 @@ export class FakeQuery implements PromiseLike<FakeResult> {
         return this.finish(rows, error);
       }
       case "update": {
-        const rows = this.matching();
         const patch = this.payload[0];
-        for (const r of rows) Object.assign(r, patch, this.table === "mafia_rooms" ? { updated_at: nowIso() } : {});
+        const room = this.table === "mafia_rooms";
+        // كتابة علقت بالطريق: المحاكي يقدّم الساعة الوهمية قبل ما توصل (والصفوف تنختار لحظة الوصول)
+        if (room) this.db.beforeRoomUpdate?.(patch);
+        const rows = this.matching();
+        for (const r of rows) {
+          const next = { ...patch };
+          if (room) {
+            if (this.db.deadlineAtWrite) deadlineAtWrite(r, next);
+            next.updated_at = nowIso(); // الـ trigger القديم (mafia_rooms_set_updated_at)
+          }
+          Object.assign(r, next);
+        }
+        if (room) this.db.afterRoomUpdate?.(rows, patch);
         this.db.writes.push({ table: this.table, op: "update", rows: rows.length });
         return this.finish(rows, null);
       }

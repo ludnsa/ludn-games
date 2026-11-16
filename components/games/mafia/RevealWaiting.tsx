@@ -14,8 +14,9 @@ type Pill = { id: string; gone: number | null };
 /**
  * الأسماء اللي اختفت من القائمة تظل مكانها لحظة (PILL_LEAVE_MS) وهي تتلاشى وتصغر، وبعدها تنشال —
  * فالكبسولات اللي حولها ما تقفز قبل ما تخلص الحركة. gone = رقم الدفعة اللي اختفى فيها (كل تغيير بالقائمة دفعة).
+ * الترتيب حسب المقاعد (seatOf)، مو حسب وصول الأسماء للجوال: كل الجوالات تشوف نفس الترتيب.
  */
-function useLeavingPills(ids: string[]): Pill[] {
+function useLeavingPills(ids: string[], seatOf: (id: string) => number): Pill[] {
   const key = ids.join(",");
   const [mem, setMem] = useState<{ key: string; batch: number; items: Pill[] }>(() => ({
     key,
@@ -49,7 +50,9 @@ function useLeavingPills(ids: string[]): Pill[] {
       )
     );
   }, [leavingBatch]);
-  return mem.items;
+  // اسم وصل الجوال متأخر كان ينضاف آخر القائمة، فيختلف الترتيب من جوال لجوال. بالمقاعد: نفس الترتيب عند الكل،
+  // والاسم اللي يختفي يظل بمكانه وهو يتلاشى
+  return [...mem.items].sort((a, b) => seatOf(a.id) - seatOf(b.id));
 }
 
 /**
@@ -64,7 +67,8 @@ export default function RevealWaiting({ ctx }: { ctx: MafiaGameCtx }) {
   const myId = ctx.me?.id;
   const waiting = (r?.waiting ?? []).filter((id) => !(ctx.iSawRole && id === myId) && ctx.nameOf(id));
   const showNames = Boolean(r?.waiting);
-  const pills = useLeavingPills(showNames ? waiting : []);
+  const seats = new Map(ctx.players.map((p) => [p.id, p.seat]));
+  const pills = useLeavingPills(showNames ? waiting : [], (id) => seats.get(id) ?? Number.MAX_SAFE_INTEGER);
   if (!r) return null;
 
   const total = Math.max(r.total, 1);

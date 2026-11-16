@@ -235,6 +235,23 @@ async function loadEngine(admin: Admin, roomCode: string, settings?: MafiaSettin
 }
 
 /**
+ * موعد نهاية بعد ms، ومعه لحظة حسابه (updated_at). القاعدة (0019_mafia_deadline_at_write) تعيد الموعد
+ * = لحظة الكتابة نفسها + نفس المدة: لو تأخرت الكتابة بالطريق، المرحلة تاخذ وقتها كامل من لحظة ما تنكتب.
+ * بدون 0019: الموعد ينكتب مثل ما انحسب هنا، و updated_at ينكتب فوقه الحين (الـ trigger القديم) — مثل قبل بالضبط.
+ */
+function deadlineIn(ms: number): Pick<MafiaRoom, "phase_ends_at" | "updated_at"> {
+  const from = Date.now();
+  return { phase_ends_at: new Date(from + ms).toISOString(), updated_at: new Date(from).toISOString() };
+}
+
+/** موعد نهاية المرحلة (mafiaDeadline) على نفس الطريقة. مرحلة بدون مؤقت: phase_ends_at = null بس */
+function phaseDeadline(phase: MafiaRoom["phase"], settings?: MafiaSettings): Pick<MafiaRoom, "phase_ends_at" | "updated_at"> {
+  const from = Date.now();
+  const ends = mafiaDeadline(phase, from, settings);
+  return ends === null ? { phase_ends_at: null } : { phase_ends_at: ends, updated_at: new Date(from).toISOString() };
+}
+
+/**
  * يحدّث الغرفة بشرط إن المرحلة ما تغيرت من جهاز ثاني.
  * يرجع true إذا هذا الطلب هو اللي نفّذ الانتقال.
  */
@@ -1326,14 +1343,16 @@ async function fastNightReceivers(admin: Admin, room: MafiaRoom): Promise<Set<st
 /**
  * النمط السريع: الليل يبدأ بمهلة = أقصى انتظار + المؤقت. أول ما توصل شاشة الليل لكل الجوالات (كل لاعب حي،
  * عنده مهمة أو لا — عشان بداية المؤقت ما تكشف مين عنده دور) يبدأ المؤقت من الحين.
- * الوقت يقصر بس، ما يطول أبداً (فلو انطلبت مرتين ما يتغير شي).
+ * يبدأ مرة وحدة بس: الكتابة مشروطة إن الموعد لسا نفسه اللي انقرا (مهلة الانتظار). لو انطلبت من جوالين بنفس
+ * اللحظة، أول كتابة توصل تنكتب، والثانية ما تلقى نفس الموعد فما تغيّر شي — حتى لو وصلت بعدها بثواني
+ * (مع 0019 كل كتابة تنحسب من لحظة وصولها، فالمتأخرة كانت بتطوّل المؤقت).
  */
 async function armFastNightIfReady(admin: Admin, roomCode: string, seq: number): Promise<void> {
   const room = await loadRoom(admin, roomCode);
   if (!room || room.phase !== "night_act" || room.phase_seq !== seq || !isFastMafia(room.settings)) return;
   if (!room.phase_ends_at) return;
-  const armedEnd = new Date(Date.now() + MAFIA_CONFIG.FAST_NIGHT_SECONDS * 1000).toISOString();
-  if (Date.parse(room.phase_ends_at) <= Date.parse(armedEnd)) return; // المؤقت شغال أصلاً
+  // المؤقت شغال أصلاً (الباقي أقل من مدته)
+  if (Date.parse(room.phase_ends_at) <= Date.now() + MAFIA_CONFIG.FAST_NIGHT_SECONDS * 1000) return;
 
   const [players, received] = await Promise.all([loadPlayers(admin, roomCode), fastNightReceivers(admin, room)]);
   const pending = players.filter((p) => p.is_alive && !p.is_bot && !received.has(p.id));
@@ -1341,10 +1360,10 @@ async function armFastNightIfReady(admin: Admin, roomCode: string, seq: number):
 
   const { error } = await admin
     .from("mafia_rooms")
-    .update({ phase_ends_at: armedEnd })
+    .update(deadlineIn(MAFIA_CONFIG.FAST_NIGHT_SECONDS * 1000))
     .eq("room_code", roomCode)
     .eq("phase_seq", seq)
-    .gt("phase_ends_at", armedEnd);
+    .eq("phase_ends_at", room.phase_ends_at);
   if (error) console.error("mafia armFastNight error:", error);
 }
 
@@ -1614,11 +1633,9 @@ function enterNight(room: MafiaRoom, night: number, firstStep?: MafiaNightStep):
     night_number: night,
     // الحماسي: أدوار الليل بدون مؤقت، تمشي لما الكل يختارون. السريع: تمشي لما الكل يختارون أو يخلص المؤقت.
     // السريع يبدأ بمهلة الانتظار + المؤقت، وأول ما توصل شاشة الليل لكل الجوالات يبدأ المؤقت (armFastNightIfReady)
-    phase_ends_at: fast
-      ? new Date(
-          Date.now() + (MAFIA_CONFIG.FAST_ROLE_WAIT_SECONDS + MAFIA_CONFIG.FAST_NIGHT_SECONDS) * 1000
-        ).toISOString()
-      : null,
+    ...(fast
+      ? deadlineIn((MAFIA_CONFIG.FAST_ROLE_WAIT_SECONDS + MAFIA_CONFIG.FAST_NIGHT_SECONDS) * 1000)
+      : { phase_ends_at: null }),
     vote_counts: {},
     vote_result: null,
   };
@@ -1722,7 +1739,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
       }
       await guardedRoomUpdate(admin, room, {
         phase: "night_done",
-        phase_ends_at: mafiaDeadline("night_done"),
+        ...phaseDeadline("night_done"),
       });
       return;
     }
@@ -1774,7 +1791,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         phase: "morning",
         night_step: null,
         announcements: resolution.announcements,
-        phase_ends_at: mafiaDeadline("morning"),
+        ...phaseDeadline("morning"),
       });
       if (won) {
         await applyNight(admin, room, resolution, secretOf);
@@ -1793,7 +1810,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
       const sheikh = await sheikhAnnouncement(admin, room);
       await guardedRoomUpdate(admin, room, {
         phase: "discussion",
-        phase_ends_at: mafiaDeadline("discussion", Date.now(), room.settings),
+        ...phaseDeadline("discussion", room.settings),
         ...(sheikh ? { announcements: [...(room.announcements ?? []), sheikh] } : {}),
       });
       return;
@@ -1804,7 +1821,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         phase: "voting",
         vote_counts: {},
         vote_result: null,
-        phase_ends_at: mafiaDeadline("voting"),
+        ...phaseDeadline("voting"),
       });
       if (won) {
         // نصفّر أسماء المصوّتين من الجولة اللي قبل (تحديث مستقل — شوف recountVotes)
@@ -1828,7 +1845,7 @@ async function runTransition(admin: Admin, room: MafiaRoom): Promise<void> {
         phase: "vote_result",
         vote_counts: counts,
         vote_result: result,
-        phase_ends_at: mafiaDeadline("vote_result"),
+        ...phaseDeadline("vote_result"),
       });
       const out = [result.eliminatedId, result.bombId].filter((id): id is string => Boolean(id));
       if (won && out.length > 0) {
@@ -2207,7 +2224,7 @@ export async function startMafiaGame(roomCode: string, devHostRole?: MafiaRole |
     vote_result: null,
     winner: null,
     final_roles: null,
-    phase_ends_at: mafiaDeadline("reveal"),
+    ...phaseDeadline("reveal"),
     // بذرة جديدة كل جولة: مين من المافيا يبدأ بالقرار عشوائي، وبعدها يتبادلون بالدور (mafiaLeaderOrder)
     settings: { ...room.settings, leadSeed: randomUUID() },
   });
@@ -2255,13 +2272,14 @@ export async function setMafiaDiscussionTime(input: { roomCode: string; seconds:
 
   const patch: Partial<MafiaRoom> = { settings: { ...room.settings, discussionSeconds: input.seconds } };
   if (room.phase === "discussion") {
-    const deadline = mafiaDeadline("discussion", Date.now(), patch.settings);
+    const timed = phaseDeadline("discussion", patch.settings);
+    const deadline = timed.phase_ends_at;
     // إعادة لنفس الضغطة (نفس الوقت، والمؤقت توه انضبط عليه قبل أقل من 15 ثانية): ما نرجّع المؤقت من جديد
     const resent =
       room.settings.discussionSeconds === input.seconds &&
       Boolean(room.phase_ends_at && deadline && Date.parse(deadline) - Date.parse(room.phase_ends_at) < 15_000);
     if (resent) return { success: true };
-    patch.phase_ends_at = deadline;
+    Object.assign(patch, timed);
   }
 
   await admin.from("mafia_rooms").update(patch).eq("room_code", room.room_code);

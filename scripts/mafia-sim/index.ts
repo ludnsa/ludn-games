@@ -15,8 +15,11 @@
  *  3) الساحر: سيناريوهات موجّهة لكل حالة (ومنها الساحر اللي يصير جندي: درعه، وينجو مرة وحدة).
  *  4) انتقال قرار المافيا (ضغطة تمويه بلحظة الانتقال ما تنحسب قتل)، وإعادة إرسال الاختيار (تنجح مثل الأول).
  *  5) العدالة: التوزيع حسب المقعد عبر كل الجولات، وقائد المافيا بالليلة الأولى (نفس دوال اللعبة).
+ *  6) كتابات متأخرة: كل كتابة فيها موعد نهاية تعلق بالطريق 10–20 ثانية — كل مرحلة لازم تاخذ وقتها كامل
+ *     من لحظة ما تنكتب (0019)، والأصوات قبل نهاية الوقت الكامل بثانية تنقبل. ونفس الجولات على قاعدة بدون 0019:
+ *     لازم القسم يكشف المشكلة (مراحل توصل ناقصة وأصوات تنرفض) — وإلا الفحص ما يفحص شي.
  */
-import { MAFIA_OPTIONAL_ROLES } from "@/constants/mafia";
+import { MAFIA_CONFIG, MAFIA_OPTIONAL_ROLES } from "@/constants/mafia";
 import { mafiaLeaderId, mafiaMaxMafia, validateMafiaSettings } from "@/lib/game/mafia-engine";
 import type { MafiaOptionalRole, MafiaRole, MafiaSettings } from "@/types";
 import { CALM, MESSY, MafiaSim, ROLE_LABELS, clock, installClock, randomUUID, seededRandom, type GameResult, type Scenario, type Truth } from "./sim";
@@ -268,6 +271,14 @@ async function main() {
       if (r.biased) fail(line);
       else ok(line);
     }
+  }
+
+  if (section(6)) {
+    // ---------------------------------------------------------------
+    // 6) كتابات متأخرة (موعد النهاية لحظة الكتابة — 0019)
+    // ---------------------------------------------------------------
+    console.log("\n# 6) كتابات الغرفة تتأخر 10–20 ثانية بالطريق");
+    await lateWriteGames();
   }
 
   console.log(`\n${failed ? "فيه فشل — راجع الأسطر FAIL فوق" : "كل الفحوص نجحت"} (${((performance.now() - t0) / 1000).toFixed(0)} ثانية)`);
@@ -758,6 +769,125 @@ async function resendGames() {
     ];
     if (problems.length) fail(`${line}\n  ${problems.join("\n  ")}`);
     else ok(line);
+  }
+}
+
+/**
+ * كل كتابة على الغرفة فيها موعد نهاية (انتقال مرحلة، أو بداية مؤقت الليل السريع) تعلق بالطريق 10–20 ثانية
+ * (الساعة الوهمية تتقدم قبل ما توصل القاعدة). المتوقع مع 0019: لحظة ما تنكتب، الباقي = مدة المرحلة كاملة،
+ * والأصوات قبل نهاية الوقت الكامل بثانية تنقبل. وعلى قاعدة بدون 0019 نفس الجولات لازم تطلع المشكلة.
+ */
+async function lateWriteGames() {
+  const n = QUICK ? 30 : 150;
+  /** المدة المتوقعة لكل نوع كتابة (من الإعدادات نفسها) */
+  const expected = (kind: string, settings: MafiaSettings): number | null => {
+    const sec: Record<string, number> = {
+      reveal: MAFIA_CONFIG.ROLE_REVEAL_MAX_SECONDS,
+      night_done: MAFIA_CONFIG.NIGHT_DONE_SECONDS,
+      discussion: settings.discussionSeconds ?? MAFIA_CONFIG.DISCUSSION_SECONDS,
+      voting: MAFIA_CONFIG.VOTING_SECONDS,
+      vote_result: MAFIA_CONFIG.VOTE_RESULT_SECONDS,
+      night_act: MAFIA_CONFIG.FAST_ROLE_WAIT_SECONDS + MAFIA_CONFIG.FAST_NIGHT_SECONDS,
+      "night_act:armed": MAFIA_CONFIG.FAST_NIGHT_SECONDS,
+    };
+    return kind in sec ? sec[kind] * 1000 : null;
+  };
+  const run = async (withTrigger: boolean, settings: MafiaSettings) => {
+    const st = {
+      delayed: 0,
+      delayMs: 0,
+      timed: 0,
+      full: 0,
+      short: 0,
+      worstShortMs: 0,
+      noFrom: [] as string[],
+      durWrong: [] as string[],
+      byKind: {} as Record<string, number>,
+      rejectedVotes: 0,
+      /** مؤقت الليل السريع انكتب أكثر من مرة بنفس الليلة (لازم يبدأ مرة وحدة) */
+      doubleArm: 0,
+    };
+    const armedSeen = new Set<string>();
+    const agg = newAgg();
+    const sim = new MafiaSim(CALM, rnd);
+    sim.voteLate = true;
+    sim.db.deadlineAtWrite = withTrigger;
+    sim.db.beforeRoomUpdate = (patch) => {
+      if (!("phase_ends_at" in patch)) return;
+      const ms = 10_000 + Math.floor(rnd() * 10_000);
+      // توصل عند لحظة حسابها + تأخيرها: كتابات طلعت بنفس اللحظة تتأخر مع بعض (مو ورا بعض) مثل الواقع
+      const from = typeof patch.updated_at === "string" ? Date.parse(patch.updated_at) : Date.now();
+      clock.to(from + ms);
+      st.delayed++;
+      st.delayMs += ms;
+    };
+    sim.db.afterRoomUpdate = (rows, patch) => {
+      for (const r of rows) {
+        if ("phase_seq" in patch) sim.landedAt.set(`${r.room_code}:${r.phase_seq}`, Date.now());
+        if (!patch.phase_ends_at) continue;
+        const kind = "phase_seq" in patch ? String(r.phase) : `${r.phase}:armed`;
+        st.timed++;
+        st.byKind[kind] = (st.byKind[kind] ?? 0) + 1;
+        if (kind.endsWith(":armed")) {
+          const key = `${r.room_code}:${r.phase_seq}`;
+          if (armedSeen.has(key)) st.doubleArm++;
+          armedSeen.add(key);
+        }
+        if (!("updated_at" in patch)) {
+          st.noFrom.push(kind);
+          continue;
+        }
+        const intended = Date.parse(patch.phase_ends_at as string) - Date.parse(patch.updated_at as string);
+        const want = expected(kind, r.settings as MafiaSettings);
+        if (want !== intended) st.durWrong.push(`${kind}: ${intended} بدل ${want}`);
+        const left = Date.parse(r.phase_ends_at as string) - Date.now();
+        if (Math.abs(left - intended) <= 5) st.full++;
+        else {
+          st.short++;
+          st.worstShortMs = Math.max(st.worstShortMs, intended - left);
+        }
+      }
+    };
+    for (let i = 0; i < n; i++) {
+      const r = await oneGame(sim, settings);
+      st.rejectedVotes += r.violations.filter((x) => x.startsWith("تصويت مرفوض")).length;
+      add(agg, r);
+    }
+    return { st, agg };
+  };
+  const configs: MafiaSettings[] = [
+    { maxPlayers: 11, mafiaCount: 3, optionalRoles: ["magician", "journalist", "soldier", "suicide", "silencer", "sheikh"], mode: "fast" },
+    { maxPlayers: 11, mafiaCount: 3, optionalRoles: ["magician", "journalist", "soldier", "suicide", "silencer", "sheikh"], mode: "hype" },
+  ];
+  for (const settings of configs) {
+    const { st, agg } = await run(true, settings);
+    const kinds = Object.entries(st.byKind)
+      .map(([k, c]) => `${k} ${c}`)
+      .join("، ");
+    const line =
+      `${label(settings)}: ${agg.games} جولة | ${st.delayed} كتابة تأخرت (معدل ${(st.delayMs / Math.max(1, st.delayed) / 1000).toFixed(1)} ث)` +
+      ` | مراحل بمؤقت ${st.timed} (${kinds}) | وصلت بوقتها كامل ${st.full} | فائز ${JSON.stringify(agg.winners)}`;
+    const problems = [
+      ...(st.timed === 0 ? ["ما فيه ولا مرحلة بمؤقت"] : []),
+      ...(st.short ? [`${st.short} مرحلة وصلت ناقصة (أسوأها ${(st.worstShortMs / 1000).toFixed(1)} ث)`] : []),
+      ...(st.doubleArm ? [`مؤقت الليل السريع انكتب مرتين بنفس الليلة ${st.doubleArm} مرة`] : []),
+      ...(st.noFrom.length ? [`كتابة موعد بدون لحظة حسابها: ${[...new Set(st.noFrom)].join("، ")}`] : []),
+      ...(st.durWrong.length ? [`مدة غلط: ${[...new Set(st.durWrong)].slice(0, 5).join("، ")}`] : []),
+      ...(agg.hangs.length ? [`تعليق ${agg.hangs.length}: ${agg.hangs.slice(0, 3).join("; ")}`] : []),
+      ...(agg.winners.none ? [`${agg.winners.none} جولة بدون فائز`] : []),
+      ...(agg.violations.length ? [`${agg.violations.length} مخالفة: ${[...new Set(agg.violations)].slice(0, 6).join(" | ")}`] : []),
+    ];
+    if (problems.length) fail(`${line}\n  ${problems.join("\n  ")}`);
+    else ok(`${line} | الأصوات قبل نهاية الوقت الكامل بثانية انقبلت كلها`);
+
+    // نفس الجولات على قاعدة بدون 0019: لازم يبان الفرق، وإلا القسم ما يفحص شي
+    const before = await run(false, settings);
+    const detected = before.st.short > 0 && before.st.rejectedVotes > 0;
+    const bline =
+      `${label(settings)} بدون 0019: ${before.st.short} من ${before.st.timed} مرحلة وصلت ناقصة (أسوأها ${(before.st.worstShortMs / 1000).toFixed(1)} ث)` +
+      ` | ${before.st.rejectedVotes} صوت انرفض | تعليق ${before.agg.hangs.length}`;
+    if (detected) ok(`القسم يكشف المشكلة — ${bline}`);
+    else fail(`القسم ما كشف المشكلة على قاعدة بدون 0019 — ${bline}`);
   }
 }
 

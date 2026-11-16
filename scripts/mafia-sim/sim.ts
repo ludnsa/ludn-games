@@ -193,6 +193,13 @@ const NEXT_PHASES: Record<string, string[]> = {
 export class MafiaSim {
   db: FakeSupabase;
   rnd: () => number;
+  /**
+   * القسم 6 (كتابات متأخرة): الأصوات تنرسل قبل نهاية وقت التصويت الكامل بثانية، محسوب من لحظة ما انكتبت
+   * المرحلة بالقاعدة (landedAt) — لو الموعد انحسب قبل الكتابة وتأخرت، هالأصوات تنرفض.
+   */
+  voteLate = false;
+  /** لحظة ما انكتب كل انتقال مرحلة ("كود:رقم المرحلة" → الساعة الوهمية) — يعبّيها خطّاف القاعدة الوهمية */
+  landedAt = new Map<string, number>();
   /** jitterTurns: يخلط ترتيب الطلبات المتزامنة (شوف FakeDbOptions) */
   constructor(public behavior: Behavior = CALM, rnd: () => number = Math.random, latencyMs = 0, jitterTurns = 0) {
     this.rnd = rnd;
@@ -582,6 +589,8 @@ export class MafiaSim {
         case "voting": {
           const alive = alivePlayers();
           const lateVotes: { p: Truth; send: () => ReturnType<typeof mafia.castMafiaVote> }[] = [];
+          const landed = this.landedAt.get(`${code}:${room.phase_seq}`);
+          if (this.voteLate && landed !== undefined) clock.to(landed + MAFIA_CONFIG.VOTING_SECONDS * 1000 - 1000);
           const liveRoles = this.roles(code);
           for (const p of alive) {
             await checkView(p);

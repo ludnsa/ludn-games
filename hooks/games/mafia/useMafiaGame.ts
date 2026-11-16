@@ -5,6 +5,7 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { addMafiaBots, devGetMafiaRoles, type MafiaMyView, type MafiaTask } from "@/actions/mafia";
 import { MAFIA_SKIP_KEY, isFastMafia, mafiaNightSteps, silencedPlayerId } from "@/lib/game/mafia-engine";
 import { MAFIA_CONFIG } from "@/constants/mafia";
+import { serverNow, startCountdown, useServerClock, whenServerClockReady } from "@/lib/game/server-clock";
 import { getMafiaSoundTiming, playMafiaSound, unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
 import type {
@@ -250,9 +251,6 @@ export function useMafiaGame(
   const [viewFailing, setViewFailing] = useState(false);
   const [devRoles, setDevRoles] = useState<Record<string, MafiaRole | null>>({});
 
-  // فرق الساعة بين الجهاز والسيرفر، عشان المؤقت يكون نفسه عند الكل
-  const offsetRef = useRef(0);
-  const [now, setNow] = useState(() => Date.now());
 
   const onLostRef = useRef(onSessionLost);
   const onSwitchRef = useRef(onSwitchSession);
@@ -313,7 +311,6 @@ export function useMafiaGame(
   /** ok = وصلت. fail = ما رد أو انقطع (نعيد). stop = رد نهائي ما ينفع نعيده */
   const fetchViewOnce = useCallback(async (timeoutMs = MAFIA_REQUEST_TIMEOUT_MS): Promise<"ok" | "fail" | "stop"> => {
     if (!roomCode || !token) return "stop";
-    const sentAt = Date.now();
     const res = await postMafia<MafiaMyView>("view", { roomCode, token }, timeoutMs);
     if (!res.success) {
       if (res.network) return "fail";
@@ -323,8 +320,6 @@ export function useMafiaGame(
       return "stop";
     }
     if (!res.data) return "fail";
-    const roundTrip = Date.now() - sentAt;
-    offsetRef.current = res.data.serverNow + roundTrip / 2 - Date.now();
     setView(
       withPendingSheikh(
         withPendingVote(withPendingPick(res.data, pendingPick.current), voteWant.current, voteConfirmed.current),
@@ -553,20 +548,35 @@ export function useMafiaGame(
   // المؤقت والانتقال التلقائي
   // -------------------------------------------------------------------
 
+  // ساعة السيرفر (lib/game/server-clock.ts — نفس المزاد والسيطرة وحرب القلاع): كل جوال يقيس فرق ساعته عن
+  // السيرفر (أسرع قياس من 4)، ويعد على أساسه، والرقم يقلب على لحظة تغيّره بالضبط — فالكل يشوف نفس الرقم
+  // مهما كانت ساعة جهازه. (قبل: فرق ساعة من رد "حالتي" — قياس واحد كل مرة يتغير معه الرقم — وعد كل ربع ثانية)
+  useServerClock();
+  // أول قياس: قبله ما نطلب انتقال (الجوال المقدّم كان يشوف الوقت خالص ويطلب انتقال قبل وقته)
+  const [clockReady, setClockReady] = useState(false);
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
+    let on = true;
+    void whenServerClockReady().then(() => on && setClockReady(true));
+    return () => {
+      on = false;
+    };
   }, []);
 
   const endsAt = room?.phase_ends_at ? Date.parse(room.phase_ends_at) : null;
-  const remainingMs = endsAt === null ? null : Math.max(0, endsAt - (now + offsetRef.current));
-  const secondsLeft = remainingMs === null ? null : Math.ceil(remainingMs / 1000);
+  const [tick, setTick] = useState<{ end: number; left: number } | null>(null);
+  useEffect(() => {
+    if (endsAt === null) return;
+    return startCountdown(endsAt, (left) => setTick({ end: endsAt, left }));
+  }, [endsAt]);
+  // أول رسمة بعد ما تغيّر الموعد (قبل أول دقة): من ساعة السيرفر مباشرة، مو رقم المرحلة اللي قبل
+  const secondsLeft =
+    endsAt === null ? null : tick?.end === endsAt ? tick.left : Math.max(0, Math.ceil((endsAt - serverNow()) / 1000));
 
   // طلب انتقال واحد بس بالمرة من هالجوال: ما نرسل ثاني لين يرجع اللي قبله (وبعده بـ 2.5 ثانية لو
   // المرحلة ما تغيرت) — وإلا لو السيرفر بطّى، الطلبات تتكدس فوق بعض وكل واحد يسوي نفس الشغل
   const lastAdvance = useRef<{ seq: number; at: number; busy: boolean }>({ seq: -1, at: 0, busy: false });
   useEffect(() => {
-    if (!room || remainingMs === null || remainingMs > 0 || !token) return;
+    if (!room || secondsLeft === null || secondsLeft > 0 || !token || !clockReady) return;
     const last = lastAdvance.current;
     if (last.busy) return;
     if (last.seq === room.phase_seq && Date.now() - last.at < 2500) return;
@@ -586,15 +596,15 @@ export function useMafiaGame(
       clearTimeout(t);
       if (!fired) lastAdvance.current.busy = false;
     };
-  }, [room, remainingMs, token]);
+  }, [room, secondsLeft, token, clockReady]);
 
   // النمط السريع: الليل بدأ بس مؤقته ما بدأ — ننتظر كل أصحاب المهام يوصلهم دورهم (بحد أقصى)
   const nightArming = Boolean(
     room &&
       room.phase === "night_act" &&
       isFastMafia(room.settings) &&
-      remainingMs !== null &&
-      remainingMs > MAFIA_CONFIG.FAST_NIGHT_SECONDS * 1000
+      secondsLeft !== null &&
+      secondsLeft > MAFIA_CONFIG.FAST_NIGHT_SECONDS
   );
 
   // -------------------------------------------------------------------
