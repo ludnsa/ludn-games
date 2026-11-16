@@ -11,8 +11,8 @@ export default function TeamQuestionState({ ctx }: { ctx: any }) {
           <span className="bg-[#1f160c] px-3 py-1 rounded-lg text-xs font-black text-slate-500 border border-[#d4af37]/25">
             سؤال الجولة {(ctx.liveData.current_index || 0) + 1}
           </span>
-          <div className={`text-3xl md:text-4xl font-black font-mono flex items-center gap-2 ${ctx.liveData.timer <= 5 ? "text-rose-500 animate-pulse" : "text-yellow-500"}`}>
-            <TimerIcon size={24} /> {ctx.liveData.timer || 0}
+          <div className={`text-3xl md:text-4xl font-black font-mono flex items-center gap-2 ${ctx.timerLeft <= 5 ? "text-rose-500 animate-pulse" : "text-yellow-500"}`}>
+            <TimerIcon size={24} /> {ctx.timerLeft || 0}
           </div>
        </div>
 

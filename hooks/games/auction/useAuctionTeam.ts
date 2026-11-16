@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { serverNow, startCountdown, useServerClock } from "@/lib/game/server-clock";
 
 
 export function useAuctionTeam() {
@@ -22,6 +23,12 @@ export function useAuctionTeam() {
 
   const triggerAlert = (msg: string) => setAlertConfig({ show: true, message: msg });
   const closeAlert = () => setAlertConfig({ show: false, message: "" });
+
+  // قناة وحدة للغرفة تخدم الحالتين (قبل الدخول وبعده): كان فيه قناتين على نفس الجدول فكل تحديث يوصل الجوال مرتين
+  const joinedRef = useRef(false);
+  useEffect(() => {
+    joinedRef.current = isJoined;
+  }, [isJoined]);
 
   useEffect(() => {
     setMounted(true);
@@ -86,6 +93,16 @@ export function useAuctionTeam() {
               setTeamId(null);
             }
           }
+
+          // داخل اللعبة: نفس التحديث يحدّث بياناتها (بدل قناة ثانية تستقبله مرة ثانية)
+          if (!joinedRef.current) return;
+          setLiveData((prev: any) => {
+            const newData = { ...prev, ...payload.new };
+            if (payload.new.game_state === "bidding" && prev?.game_state !== "bidding") {
+              setMyBid("");
+            }
+            return newData;
+          });
         }).subscribe();
 
       return () => { supabase.removeChannel(nameChannel); };
@@ -121,24 +138,29 @@ export function useAuctionTeam() {
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    const channel = supabase.channel(`team_sync_${roomCode}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auction_rooms', filter: `room_code=eq.${roomCode}` }, (payload) => {
-        setLiveData((prev: any) => {
-          const newData = { ...prev, ...payload.new };
-          if (payload.new.game_state === "bidding" && prev?.game_state !== "bidding") {
-            setMyBid("");
-          }
-
-          return newData;
-        });
-      })
-      .subscribe();
-
+    // التحديثات اللحظية تجي من قناة الغرفة فوق (names_sync)
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      supabase.removeChannel(channel);
     };
   }, [isJoined, roomCode]);
+
+  // المؤقت: الحكم يكتب وقت الانتهاء مرة وحدة مع البداية، والجوال يعد منه (لفوق، مثل الحكم بالضبط).
+  // العد على ساعة السيرفر، مو ساعة الجوال (لو مقدّمة أو متأخرة). وهو واقف (أو قبل ملف القاعدة 0017): الرقم المحفوظ
+  useServerClock();
+  const timerEndsAt = liveData?.is_timer_running && liveData?.timer_ends_at ? Date.parse(liveData.timer_ends_at) : null;
+  // الرقم مربوط بوقت الانتهاء اللي انحسب له (ويتغير بلحظته بالضبط). أول لحظة بعد البداية أو بعد تحديث الصفحة
+  // (قبل أول دقة) نحسب من ساعة السيرفر مباشرة، بدل رقم قديم من قبل البداية (كان يطلع رقم غلط لحظة)
+  const [tick, setTick] = useState<{ end: number | null; left: number }>({ end: null, left: 0 });
+  useEffect(() => {
+    if (timerEndsAt === null) return;
+    return startCountdown(timerEndsAt, (left) => setTick({ end: timerEndsAt, left }));
+  }, [timerEndsAt]);
+  const timerLeft: number =
+    timerEndsAt === null
+      ? liveData?.timer || 0
+      : tick.end === timerEndsAt
+        ? tick.left
+        : Math.max(0, Math.ceil((timerEndsAt - serverNow()) / 1000));
 
   const handleJoin = async () => {
     if (!roomCode || roomCode.length !== 5 || !teamId || !deviceId) return;
@@ -235,7 +257,7 @@ export function useAuctionTeam() {
 
   return {
     mounted, isDark, setIsDark, roomCode, setRoomCode, teamId, setTeamId, isJoined,
-    liveData, myBid, setMyBid, roomInfo, alertConfig, deviceId,
+    liveData, timerLeft, myBid, setMyBid, roomInfo, alertConfig, deviceId,
     triggerAlert, closeAlert, handleJoin, handleLeave, handleSendBid,
     myName, myBalance, myPoints, myAmbush, mySellCards, activeQuestion
   };

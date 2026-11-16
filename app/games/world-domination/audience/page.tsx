@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Cairo } from "next/font/google";
 import { Globe, Coins, Shield, HelpCircle } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { serverNow, startCountdown, useServerClock } from "@/lib/game/server-clock";
 
 import AudienceCapitalAlert from "@/components/games/world-domination/audience/AudienceCapitalAlert";
 import AudienceGameOver from "@/components/games/world-domination/audience/AudienceGameOver";
@@ -91,6 +92,8 @@ export default function WorldDominationAudience() {
         score2: dbRow.score2,
         turn: dbRow.turn,
         timer: dbRow.timer,
+        // المؤقت شغال: وقت انتهائه (ينكتب مرة وحدة مع البداية)
+        timerEndsAt: dbRow.timer_ends_at ?? null,
         selectedCountry: dbRow.current_country_id ? {
           ...foundCountry,
           activeQuestion: dbRow.active_question
@@ -144,19 +147,24 @@ export default function WorldDominationAudience() {
           }
         }
       )
-      .on(
-        'broadcast',
-        { event: 'timer_update' },
-        (payload) => {
-          setLiveData((prev: any) => prev ? { ...prev, timer: payload.payload.timer } : null);
-        }
-      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [supabase, roomCode]);
+
+  // المؤقت: المنشئ يكتب وقت الانتهاء مرة وحدة مع البداية، والشاشة تعد منه (لفوق، مثل المنشئ بالضبط).
+  // العد على ساعة السيرفر، مو ساعة الشاشة (لو مقدّمة أو متأخرة)
+  useServerClock();
+  const timerEndsAt: number | null = liveData?.timerEndsAt ? Date.parse(liveData.timerEndsAt) : null;
+  // الرقم مربوط بوقت الانتهاء اللي انحسب له (ويتغير بلحظته بالضبط). أول لحظة بعد البداية أو بعد تحديث الصفحة
+  // (قبل أول دقة) نحسب من ساعة السيرفر مباشرة، بدل رقم قديم من قبل البداية (كان يطلع رقم غلط لحظة)
+  const [tick, setTick] = useState<{ end: number | null; left: number }>({ end: null, left: 0 });
+  useEffect(() => {
+    if (timerEndsAt === null) return;
+    return startCountdown(timerEndsAt, (left) => setTick({ end: timerEndsAt, left }));
+  }, [timerEndsAt]);
 
   if (!roomCode) {
     return (
@@ -200,11 +208,18 @@ export default function WorldDominationAudience() {
 
   const {
     gameState, team1Name, team2Name, score1, score2, turn, countries,
-    selectedCountry, timer, team1Choice, team2Choice, showResult,
+    selectedCountry, timer: savedTimer, team1Choice, team2Choice, showResult,
     isAttacking, isQuestionRevealed = false, capitals = { team1: null, team2: null },
     stolenCapitalAlert = null, protectedCountries = {}, spiedCountryId = null,
     mapPosition = { center: [0, 0], zoom: 1, name: "العالم" },
   } = liveData;
+  // شغال: من وقت الانتهاء. واقف (أو قبل ملف القاعدة 0017): الرقم المحفوظ
+  const timer =
+    timerEndsAt === null
+      ? savedTimer
+      : tick.end === timerEndsAt
+        ? tick.left
+        : Math.max(0, Math.ceil((timerEndsAt - serverNow()) / 1000));
 
   const cards1 = {
     capture: liveData.cards1?.capture ?? 3, protect: liveData.cards1?.protect ?? 5,

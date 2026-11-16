@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
 import { clearLiveGame, markLiveGame, resumeLiveGame } from "@/lib/live-game";
 import { getBrowserSessionUser } from "@/lib/supabase/client";
+import { whenServerClockReady } from "@/lib/game/server-clock";
 
 const GAME_ID = "world-domination";
 /** المعيار: التجربة تنحسب لما ينجاوب ثالث سؤال بعد اختيار الخريطة والعواصم */
@@ -119,7 +120,7 @@ export function useWorldDomination() {
     gameState, setGameState, isLoading, setIsLoading,
     team1Name, setTeam1Name, team2Name, setTeam2Name,
     score1, setScore1, score2, setScore2, turn, setTurn,
-    timer, setTimer, isTimerRunning, setIsTimerRunning, startTimer, stopTimer, resetTimer,
+    timer, setTimer, isTimerRunning, setIsTimerRunning, timerEndsAt, resumeUntil, startTimer, stopTimer, resetTimer,
     showResult, setShowResult, forcedWinner, setForcedWinner,
     quickProtectTeam, setQuickProtectTeam, adjustScore
   } = flow;
@@ -209,7 +210,13 @@ export function useWorldDomination() {
           setTurn(parsed.turn);
           setCountries(parsed.countries);
           setSelectedCountry(parsed.selectedCountry);
+          // المؤقت كان شغال: نكمّل من وقت الانتهاء المحفوظ (دقاته ما تنحفظ كل ثانية).
+          // وقت الانتهاء على ساعة السيرفر، فننتظر قياس فرق ساعة الجهاز أول
           setTimer(parsed.timer);
+          if (typeof parsed.timerEndsAt === "number") {
+            const savedEnd: number = parsed.timerEndsAt;
+            void whenServerClockReady().then(() => resumeUntil(savedEnd));
+          }
           setTeam1Choice(parsed.team1Choice);
           setTeam2Choice(parsed.team2Choice);
           setShowResult(parsed.showResult);
@@ -368,7 +375,7 @@ export function useWorldDomination() {
     // Flow
     gameState, setGameState, isLoading, setIsLoading, team1Name, setTeam1Name, team2Name, setTeam2Name,
     score1, setScore1, score2, setScore2, turn, setTurn, timer, setTimer, isTimerRunning, setIsTimerRunning,
-    startTimer, stopTimer, resetTimer, showResult, setShowResult, forcedWinner, setForcedWinner,
+    timerEndsAt, startTimer, stopTimer, resetTimer, showResult, setShowResult, forcedWinner, setForcedWinner,
     quickProtectTeam, setQuickProtectTeam, adjustScore,
     // Countries
     dbCountries, setDbCountries, dbWdChallenges, setDbWdChallenges, countriesLimit, setCountriesLimit,

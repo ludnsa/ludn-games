@@ -7,6 +7,7 @@ import {
   Shield, Crown, Swords, Crosshair, Skull, Eye, Flame, CheckCircle2, Lock,
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { startCountdown, useServerClock } from "@/lib/game/server-clock";
 import AudienceCastle from "@/components/games/castle-war/display/AudienceCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
@@ -131,21 +132,14 @@ export default function CastleWarDisplay() {
     }
   }, [liveData?.battleStep, liveData?.targetRoomIndex, revealing]);
 
+  useServerClock();
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
     if (liveData?.targetEndTime) {
-      const updateTimer = () => {
-        const remaining = Math.max(0, Math.floor((liveData.targetEndTime - Date.now()) / 1000));
-        setDisplayTimer(remaining);
-      };
-      updateTimer(); // Initial call
-      intervalId = setInterval(updateTimer, 500);
-    } else {
-      setDisplayTimer(liveData?.genTimer || 0);
+      // نفس حساب الحكم (لفوق): الكل يشوف نفس الرقم ويقلبه بنفس اللحظة ويوصل صفر سوا.
+      // على ساعة السيرفر، مو ساعة الشاشة (لو مقدّمة أو متأخرة)
+      return startCountdown(liveData.targetEndTime, setDisplayTimer);
     }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
+    setDisplayTimer(liveData?.genTimer || 0);
   }, [liveData?.targetEndTime, liveData?.genTimer]);
 
   const getChallengeTitle = (type: string) => {

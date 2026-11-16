@@ -5,6 +5,7 @@ import { getBrowserSessionUser, getSupabaseBrowser } from "@/lib/supabase/client
 import { generateRoomCode } from "@/lib/game/room-code";
 import { shuffleArray } from "@/lib/game/shuffle";
 import { useGameTimer } from "@/hooks/shared/useGameTimer";
+import { serverNow, whenServerClockReady } from "@/lib/game/server-clock";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { useLiveGamePing } from "@/hooks/shared/useLiveGamePing";
 import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
@@ -65,7 +66,7 @@ export function useAuctionReferee() {
   const [playMode, setPlayMode] = useState<"no_options" | "options_normal" | "options_ambush" | "with_options" | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   
-  const { timer, setTimer, isTimerRunning, setIsTimerRunning } = useGameTimer(25);
+  const { timer, setTimer, isTimerRunning, setIsTimerRunning, timerEndsAt, resumeUntil } = useGameTimer(25);
   const [isQuestionVisible, setIsQuestionVisible] = useState<boolean>(false);
 
   const [alertConfig, setAlertConfig] = useState<{ show: boolean; message: string; isConfirm?: boolean; onConfirm?: () => void }>({
@@ -108,6 +109,8 @@ export function useAuctionReferee() {
 
     const initRoom = async () => {
       let savedCode = sessionStorage.getItem("auction_referee_room_code");
+      // فرق ساعة الجهاز عن السيرفر يتقاس بنفس وقت قراءة الغرفة (عشان المؤقت الشغال يكمّل على الوقت الصح)
+      const clockReady = whenServerClockReady();
       if (savedCode) {
         const { data } = await supabase.from("auction_rooms").select("*").eq("room_code", savedCode).single();
         if (data && data.game_state !== "gameOver") {
@@ -131,8 +134,14 @@ export function useAuctionReferee() {
           setBuyer(data.buyer);
           setIsDoubleRisk(data.is_double_risk || false);
           setPlayMode(data.play_mode);
-          setTimer(data.timer || 25);
-          setIsTimerRunning(data.is_timer_running || false);
+          // المؤقت كان شغال: نكمّل من وقت الانتهاء المحفوظ (الباقي الصح، مو من البداية)
+          if (data.is_timer_running && data.timer_ends_at) {
+            await clockReady;
+            resumeUntil(Date.parse(data.timer_ends_at));
+          } else {
+            setTimer(data.timer || 25);
+            setIsTimerRunning(data.is_timer_running || false);
+          }
           setIsQuestionVisible(data.is_question_visible || false);
           if (data.t1_bid !== null && data.t1_bid !== undefined) setT1Bid(data.t1_bid);
           if (data.t2_bid !== null && data.t2_bid !== undefined) setT2Bid(data.t2_bid);
@@ -252,15 +261,26 @@ export function useAuctionReferee() {
     syncCoreData();
   }, [gameState, t1Balance, t2Balance, t1Points, t2Points, currentIndex, winner, buyer, playMode, isDoubleRisk, turn, isQuestionVisible, roomCode, t1SellCards, t2SellCards, isSuddenDeath, t1Ambush, t2Ambush]);
 
+  // المؤقت ينكتب مع البداية والوقفة بس (وقت الانتهاء)، مو كل ثانية: جوالات الفرق تعد من timer_ends_at.
+  // وهو واقف، أي تغيير بالرقم (تصفير لـ 25) ينكتب عادي
+  const timerWhenStopped = isTimerRunning ? null : timer;
   useEffect(() => {
     if (!roomCode || gameState === "setup") return;
+    const endsAtIso = timerEndsAt === null ? null : new Date(timerEndsAt).toISOString();
+    const secondsLeft = timerEndsAt === null ? timerWhenStopped ?? 0 : Math.max(0, Math.ceil((timerEndsAt - serverNow()) / 1000));
     const syncTimer = async () => {
-      await supabase.from("auction_rooms").update({
-        timer: timer, is_timer_running: isTimerRunning
-      }).eq("room_code", roomCode);
+      const patch = { timer: secondsLeft, is_timer_running: timerEndsAt !== null, timer_ends_at: endsAtIso };
+      const { error } = await supabase.from("auction_rooms").update(patch).eq("room_code", roomCode);
+      // ملف القاعدة 0017 ما انشغّل (العمود مو موجود): نكتب بدونه عشان المؤقت والحالة ما يتعطلون
+      if (error && error.message.includes("timer_ends_at")) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { timer_ends_at, ...withoutEnd } = patch;
+        await supabase.from("auction_rooms").update(withoutEnd).eq("room_code", roomCode);
+      }
     };
     syncTimer();
-  }, [timer, isTimerRunning, roomCode, gameState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerWhenStopped, timerEndsAt, roomCode, gameState]);
 
   useEffect(() => {
     if (!roomCode) return;

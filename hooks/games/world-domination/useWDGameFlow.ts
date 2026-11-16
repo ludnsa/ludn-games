@@ -16,7 +16,7 @@ export function useWDGameFlow() {
   const [score1, setScore1] = useState<number>(200);
   const [score2, setScore2] = useState<number>(200);
   const [turn, setTurn] = useState<1 | 2>(1);
-  const { timer, setTimer, isTimerRunning, setIsTimerRunning, startTimer, stopTimer, resetTimer } = useGameTimer(25);
+  const { timer, setTimer, isTimerRunning, setIsTimerRunning, timerEndsAt, resumeUntil, startTimer, stopTimer, resetTimer } = useGameTimer(25);
   const [showResult, setShowResult] = useState<boolean>(false);
   const [forcedWinner, setForcedWinner] = useState<1 | 2 | null>(null);
   const [quickProtectTeam, setQuickProtectTeam] = useState<1 | 2 | null>(null);
@@ -34,7 +34,7 @@ export function useWDGameFlow() {
     score1, setScore1,
     score2, setScore2,
     turn, setTurn,
-    timer, setTimer, isTimerRunning, setIsTimerRunning, startTimer, stopTimer, resetTimer,
+    timer, setTimer, isTimerRunning, setIsTimerRunning, timerEndsAt, resumeUntil, startTimer, stopTimer, resetTimer,
     showResult, setShowResult,
     forcedWinner, setForcedWinner,
     quickProtectTeam, setQuickProtectTeam,

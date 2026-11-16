@@ -7,6 +7,7 @@ import { useCWRoom } from "./games/castle-war/useCWRoom";
 import { useCWCombat } from "./games/castle-war/useCWCombat";
 import { useCWChallenges } from "./games/castle-war/useCWChallenges";
 import { useDebounceCallback } from "@/lib/game/debounce";
+import { serverNow, startCountdown, useServerClock, whenServerClockReady } from "@/lib/game/server-clock";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { useLiveGamePing } from "@/hooks/shared/useLiveGamePing";
 import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
@@ -343,6 +344,11 @@ export function useCastleWar() {
   // skipSync: رجعنا الأسماء من القاعدة، فالكتابة اللي يسببها هذا ما لها داعي (التفصيل في initGame)
   const nameRestoreRef = useRef<"pending" | "skipSync" | "done">("pending");
 
+  /** قيمة المؤقت للكتابة: وهو شغال ثابتة (الشاشات تعد من targetEndTime)، ووهو واقف هي نفسها */
+  const genTimerWhenStopped = isGenTimerRunning ? null : genTimer;
+  // وقت انتهاء المؤقت (targetEndTime) والعد على ساعة السيرفر، مو ساعة جهاز الحكم
+  useServerClock();
+
   useEffect(() => {
     if (!roomCodeRef.current) return;
     if (nameRestoreRef.current !== "done") {
@@ -362,10 +368,12 @@ export function useCastleWar() {
     };
 
     debouncedSyncToSupabase(liveData);
+    // المؤقت شغال: دقاته ما تنكتب كل ثانية — الشاشات تحسب الباقي من targetEndTime (ينكتب مرة وحدة مع البداية).
+    // وقف أو تغيّر وهو واقف (اختيار تحدي، إيقاف مؤقت): ينكتب عادي
   }, [
     gameState, hp1, hp2, revealed1, revealed2, attackingTeam, turn, spiedTarget1, spiedTarget2,
     team1Data, team2Data, team1Name, team2Name, battleStep, activeChallengeName, activeChallengeType,
-    activeChallengeData, isChallengeRevealed, genTimer, resultType, resultMsg,
+    activeChallengeData, isChallengeRevealed, genTimerWhenStopped, resultType, resultMsg,
     explosionRoomIndexHit, targetRoomIndex, usedChallengesT1, usedChallengesT2, timerStarted,
     showGenAnswer, guessesRevealed, guessT1, guessT2, targetEndTime, selectedOption
   ]);
@@ -374,6 +382,8 @@ export function useCastleWar() {
     synthRef.current = createSoundSynth();
     const initGame = async () => {
       setIsLoading(true);
+      // فرق ساعة الجهاز عن السيرفر يتقاس بنفس وقت قراءة الغرفة (عشان المؤقت الشغال يكمّل على الوقت الصح)
+      const clockReady = whenServerClockReady();
       try {
         const savedRoom = sessionStorage.getItem("cw_referee_room");
         if (savedRoom) {
@@ -425,7 +435,20 @@ export function useCastleWar() {
                   if (data.live_sync.guessT2 !== undefined) setGuessT2(data.live_sync.guessT2);
                   if (data.live_sync.targetEndTime !== undefined) setTargetEndTime(data.live_sync.targetEndTime);
                   if (data.live_sync.selectedOption !== undefined) setSelectedOption(data.live_sync.selectedOption);
-                  
+                  // حدّث الصفحة والمؤقت شغال: دقاته ما تنكتب، فنحسب الباقي من وقت الانتهاء ونكمّل العد منه
+                  const endsAt = data.live_sync.targetEndTime;
+                  if (typeof endsAt === "number") {
+                    await clockReady;
+                    const left = Math.ceil((endsAt - serverNow()) / 1000);
+                    if (left > 0) {
+                      setGenTimer(left);
+                      setIsGenTimerRunning(true);
+                    } else {
+                      setGenTimer(0);
+                      setTargetEndTime(null);
+                    }
+                  }
+
                   // Disable access checking if we restored an active game
                   setIsAccessChecking(false);
                 }
@@ -500,17 +523,20 @@ export function useCastleWar() {
   }, [roomCode, team1Ready, team2Ready]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let cancelCountdown: (() => void) | undefined;
     if (isGenTimerRunning && genTimer > 0) {
+      // العد من وقت الانتهاء نفسه اللي تعد منه الشاشات — عشان الكل يقلب الرقم بنفس اللحظة ويوصل صفر سوا
+      const end = targetEndTime ?? serverNow() + genTimer * 1000;
       if (!targetEndTime) {
-        setTargetEndTime(Date.now() + genTimer * 1000);
+        setTargetEndTime(end);
       }
-      timer = setInterval(() => {
+      cancelCountdown = startCountdown(end, (left) => {
         setGenTimer((prev) => {
-          if (prev <= 6 && prev > 1 && soundEnabled && synthRef.current) synthRef.current.playMasterSound("tick");
-          return prev - 1;
+          if (left === prev) return prev;
+          if (left >= 1 && left <= 5 && soundEnabled && synthRef.current) synthRef.current.playMasterSound("tick");
+          return left;
         });
-      }, 1000);
+      });
     } else if (genTimer === 0 && isGenTimerRunning) {
       if (soundEnabled && synthRef.current) synthRef.current.playMasterSound("buzzer");
       setIsGenTimerRunning(false);
@@ -518,7 +544,7 @@ export function useCastleWar() {
     } else {
       setTargetEndTime(null);
     }
-    return () => clearInterval(timer);
+    return () => cancelCountdown?.();
   }, [isGenTimerRunning, genTimer, soundEnabled, targetEndTime, setTargetEndTime]);
 
   const updateTeamNameLocally = async (team: 1 | 2, newName: string) => {
