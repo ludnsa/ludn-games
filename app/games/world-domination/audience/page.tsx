@@ -4,6 +4,7 @@ import { Cairo } from "next/font/google";
 import { Globe, Coins, Shield, HelpCircle } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { serverNow, startCountdown, useServerClock } from "@/lib/game/server-clock";
+import { startBackupRead } from "@/lib/game/room-backup-read";
 
 import AudienceCapitalAlert from "@/components/games/world-domination/audience/AudienceCapitalAlert";
 import AudienceGameOver from "@/components/games/world-domination/audience/AudienceGameOver";
@@ -116,19 +117,33 @@ export default function WorldDominationAudience() {
       };
     };
 
+    // آخر صف انعرض (القراءة الاحتياطية ما تعيد رسم الخريطة لو ما تغيّر شي)
+    let lastRow = "";
+    const showRow = (row: Record<string, unknown>) => {
+      lastRow = JSON.stringify(row);
+      setLiveData(mapColumnsToLiveData(row));
+    };
+
     const fetchInitialData = async () => {
       const { data, error } = await supabase
         .from("wd_rooms")
         .select("*")
         .eq("room_code", roomCode)
         .single();
-      
+
       if (data && !error) {
-        setLiveData(mapColumnsToLiveData(data));
+        showRow(data);
       }
     };
-    
+
     fetchInitialData();
+
+    // القراءة الاحتياطية: الشاشة اللي فاتها تحديث بالبث تلحق لحالها، بدون تحديث الصفحة
+    const backup = startBackupRead(async ({ signal, isFresh }) => {
+      const { data } = await supabase.from("wd_rooms").select("*").eq("room_code", roomCode).abortSignal(signal).maybeSingle();
+      if (!data || !isFresh() || JSON.stringify(data) === lastRow) return;
+      showRow(data);
+    });
 
     const channel = supabase
       .channel(`wd_live_sync_channel_${roomCode}`)
@@ -141,15 +156,17 @@ export default function WorldDominationAudience() {
           filter: `room_code=eq.${roomCode}`
         },
         (payload) => {
+          backup.onEvent();
           const newData = payload.new as any;
           if (newData) {
-            setLiveData(mapColumnsToLiveData(newData));
+            showRow(newData);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => backup.onStatus(status));
 
     return () => {
+      backup.stop();
       supabase.removeChannel(channel);
     };
   }, [supabase, roomCode]);

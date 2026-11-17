@@ -3,6 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { serverNow, startCountdown, useServerClock } from "@/lib/game/server-clock";
+import { startBackupRead } from "@/lib/game/room-backup-read";
+
+/** صف الغرفة (من البث أو القراءة): الحقول اللي نقراها هنا، والباقي ينضاف لبيانات اللعبة مثل ما هو */
+type AuctionRoomRow = {
+  t1_name: string;
+  t2_name: string;
+  t1_device_id?: string | null;
+  t2_device_id?: string | null;
+  game_state?: string;
+} & Record<string, unknown>;
 
 
 export function useAuctionTeam() {
@@ -73,39 +83,61 @@ export function useAuctionTeam() {
       };
       fetchNames();
 
+      // تحديث الغرفة (من البث أو من القراءة الاحتياطية): الأسماء، ومين ماسك الفريق، وبيانات اللعبة لو داخل
+      const applyRoom = (row: AuctionRoomRow) => {
+        setRoomInfo({
+          t1_name: row.t1_name, t2_name: row.t2_name,
+          t1_device_id: row.t1_device_id, t2_device_id: row.t2_device_id
+        });
+
+        let dId = sessionStorage.getItem("auction_device_id");
+        if (dId) {
+          if (row.t1_device_id === dId) {
+            setTeamId(1);
+            setIsJoined(true);
+          } else if (row.t2_device_id === dId) {
+            setTeamId(2);
+            setIsJoined(true);
+          } else if (row.t1_device_id !== dId && row.t2_device_id !== dId) {
+            setIsJoined(false);
+            setTeamId(null);
+          }
+        }
+
+        // داخل اللعبة: نفس التحديث يحدّث بياناتها (بدل قناة ثانية تستقبله مرة ثانية)
+        if (!joinedRef.current) return;
+        setLiveData((prev: any) => {
+          const newData = { ...prev, ...row };
+          if (row.game_state === "bidding" && prev?.game_state !== "bidding") {
+            setMyBid("");
+          }
+          return newData;
+        });
+      };
+
+      // القراءة الاحتياطية (داخل اللعبة بس): الجوال اللي فاته تحديث بالبث يلحق لحاله، بدون تحديث الصفحة
+      let lastRow = "";
+      const backup = startBackupRead(async ({ signal, isFresh }) => {
+        if (!joinedRef.current) return;
+        const { data } = await supabase.from("auction_rooms").select("*").eq("room_code", roomCode).abortSignal(signal).maybeSingle();
+        if (!data || !isFresh()) return;
+        const json = JSON.stringify(data);
+        if (json === lastRow) return;
+        lastRow = json;
+        applyRoom(data);
+      });
+
       const nameChannel = supabase.channel('names_sync')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auction_rooms', filter: `room_code=eq.${roomCode}` }, (payload) => {
-          setRoomInfo({
-            t1_name: payload.new.t1_name, t2_name: payload.new.t2_name,
-            t1_device_id: payload.new.t1_device_id, t2_device_id: payload.new.t2_device_id
-          });
+          backup.onEvent();
+          lastRow = JSON.stringify(payload.new);
+          applyRoom(payload.new as AuctionRoomRow);
+        }).subscribe((status) => backup.onStatus(status));
 
-          let dId = sessionStorage.getItem("auction_device_id");
-          if (dId) {
-            if (payload.new.t1_device_id === dId) {
-              setTeamId(1);
-              setIsJoined(true);
-            } else if (payload.new.t2_device_id === dId) {
-              setTeamId(2);
-              setIsJoined(true);
-            } else if (payload.new.t1_device_id !== dId && payload.new.t2_device_id !== dId) {
-              setIsJoined(false);
-              setTeamId(null);
-            }
-          }
-
-          // داخل اللعبة: نفس التحديث يحدّث بياناتها (بدل قناة ثانية تستقبله مرة ثانية)
-          if (!joinedRef.current) return;
-          setLiveData((prev: any) => {
-            const newData = { ...prev, ...payload.new };
-            if (payload.new.game_state === "bidding" && prev?.game_state !== "bidding") {
-              setMyBid("");
-            }
-            return newData;
-          });
-        }).subscribe();
-
-      return () => { supabase.removeChannel(nameChannel); };
+      return () => {
+        backup.stop();
+        supabase.removeChannel(nameChannel);
+      };
     } else {
       setRoomInfo(null);
     }
@@ -130,18 +162,8 @@ export function useAuctionTeam() {
     };
     fetchInitialData();
 
-    // Fetch data when user returns to the tab (fixes mobile sleep without continuous polling)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchInitialData();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // التحديثات اللحظية تجي من قناة الغرفة فوق (names_sync)
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+    // التحديثات اللحظية تجي من قناة الغرفة فوق (names_sync)، والرجوع للتبويب وانقطاع البث والفحص الدوري
+    // من القراءة الاحتياطية هناك
   }, [isJoined, roomCode]);
 
   // المؤقت: الحكم يكتب وقت الانتهاء مرة وحدة مع البداية، والجوال يعد منه (لفوق، مثل الحكم بالضبط).

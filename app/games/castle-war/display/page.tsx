@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { startCountdown, useServerClock } from "@/lib/game/server-clock";
+import { startBackupRead } from "@/lib/game/room-backup-read";
 import AudienceCastle from "@/components/games/castle-war/display/AudienceCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
@@ -80,38 +81,53 @@ export default function CastleWarDisplay() {
         ? sessionStorage.getItem("cw_player_team")
         : null;
       const backToPlan = () => window.location.replace(`/games/castle-war/join?code=${code}`);
-      // الجوال كان مقفل وفاته التصفير: يقارن باللي في القاعدة لما يرجع
-      const recheckPlayer = async () => {
-        if (document.visibilityState !== "visible") return;
-        const { data } = await supabase.from("cw_rooms").select("team1_setup, team2_setup").eq("room_code", code).single();
-        if (data && !(playerTeam === "1" ? data.team1_setup : data.team2_setup)) backToPlan();
+
+      // آخر حالة انعرضت (القراءة الاحتياطية ما تعيد الرسم لو ما تغيّر شي)
+      let lastSync = "";
+      const showSync = (sync: unknown) => {
+        lastSync = JSON.stringify(sync);
+        handleSyncData(sync);
       };
 
       const fetchInitial = async () => {
         const { data } = await supabase.from("cw_rooms").select("live_sync").eq("room_code", code).single();
-        if (data && data.live_sync) handleSyncData(data.live_sync);
+        if (data && data.live_sync) showSync(data.live_sync);
       };
 
       fetchInitial();
 
+      // القراءة الاحتياطية: الشاشة اللي فاتها تحديث بالبث تلحق لحالها، بدون تحديث الصفحة.
+      // جوال اللاعب: لو فاته التصفير (كان مقفل أو انقطع الاتصال) يرجع لتوزيع فريقه
+      const backup = startBackupRead(async ({ signal, isFresh }) => {
+        const { data } = await supabase
+          .from("cw_rooms")
+          .select(playerTeam ? "live_sync, team1_setup, team2_setup" : "live_sync")
+          .eq("room_code", code)
+          .abortSignal(signal)
+          .maybeSingle();
+        const row = data as { live_sync: unknown; team1_setup?: unknown; team2_setup?: unknown } | null;
+        if (!row || !isFresh()) return;
+        if (playerTeam && !(playerTeam === "1" ? row.team1_setup : row.team2_setup)) {
+          backToPlan();
+          return;
+        }
+        if (row.live_sync && JSON.stringify(row.live_sync) !== lastSync) showSync(row.live_sync);
+      });
+
       const channel = supabase.channel(`display_room_${code}`)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "cw_rooms", filter: `room_code=eq.${code}` },
           (payload) => {
+            backup.onEvent();
             if (playerTeam && payload.new && payload.new.live_sync === null && payload.new.team1_setup === null && payload.new.team2_setup === null) {
               backToPlan();
               return;
             }
-            if (payload.new && payload.new.live_sync) handleSyncData(payload.new.live_sync);
+            if (payload.new && payload.new.live_sync) showSync(payload.new.live_sync);
           }
-        ).subscribe();
-
-      if (playerTeam) {
-        void recheckPlayer();
-        document.addEventListener("visibilitychange", recheckPlayer);
-      }
+        ).subscribe((status) => backup.onStatus(status));
 
       return () => {
-        if (playerTeam) document.removeEventListener("visibilitychange", recheckPlayer);
+        backup.stop();
         supabase.removeChannel(channel);
         document.documentElement.classList.remove("dark");
       };

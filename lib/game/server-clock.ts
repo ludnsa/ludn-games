@@ -16,6 +16,7 @@ import { useEffect } from "react";
  * إعادة القياس (كل 5 دقايق): النت وقتها ممكن يكون أبطأ من أول مرة، والقياس البطيء يميل لين نص الرحلة.
  * فما نطبّق إلا أفضل عينة، وبشرط إنها مو أسوأ بوضوح من القياس الحالي — وإلا نخلي القديم.
  * (إلا لو القياس الجديد يثبت إن القديم غلط: ساعة الجوال نفسها تغيّرت.)
+ * ولو أول قياس كان بطيء (أو فشل)، نعيده مرة بعد 30 ثانية.
  */
 const SAMPLES = 4;
 /** عينة إعادة القياس "أسوأ بوضوح" لو وقت رحلتها أكثر من وقت رحلة القياس الحالي × 1.5 + 50ms */
@@ -23,6 +24,12 @@ const WORSE_RTT_FACTOR = 1.5;
 const WORSE_RTT_MARGIN_MS = 50;
 /** هامش فوق نص الرحلة: لو بعد القياس الجديد عن الحالي أكثر من كذا، الحالي غلط أكيد (الساعة تغيّرت) */
 const JUMP_MARGIN_MS = 100;
+/**
+ * أول قياس بطيء (أسرع عينة رحلتها أكثر من كذا = غلطه ممكن يوصل نصها) أو فشل كله: نعيد القياس مرة وحدة
+ * بعد 30 ثانية — مثلاً لو الخادم كان مزحوم لحظة دخول الكل مع بعض. ينطبق بنفس شرط إعادة القياس
+ */
+const SLOW_FIRST_RTT_MS = 300;
+const EARLY_RESYNC_MS = 30 * 1000;
 /** إعادة القياس كل كم (ولما ترجع الصفحة قدام بعد غياب) */
 const RESYNC_MS = 5 * 60 * 1000;
 const RESYNC_ON_RETURN_MS = 60 * 1000;
@@ -36,6 +43,8 @@ let offsetRtt = Infinity;
 /** وقت آخر قياس نجح (ساعة الجهاز)، و 0 = ما نجح ولا قياس */
 let syncedAt = 0;
 let inflight: Promise<void> | null = null;
+/** إعادة القياس بعد 30 ثانية (لو أول قياس بطيء) انجدولت؟ مرة وحدة بس بالصفحة */
+let earlyResyncPlanned = false;
 /** يتحقق مع أول قياس ينجح (اللي ينتظرون الساعة ما يستنون باقي القياسات) */
 let markFirstSync: (() => void) | null = null;
 const firstSync = new Promise<void>((resolve) => {
@@ -93,6 +102,11 @@ export function syncServerClock(): Promise<void> {
       if (resyncAccepts(best)) applySample(best);
       // أسوأ بوضوح: الفرق الحالي يظل، بس القياس صار (ما نعيده قبل موعده الجاي)
       else syncedAt = Date.now();
+    }
+    // أول قياس بطيء أو فشل: نعيده بعد 30 ثانية (مرة وحدة)، بدل ما ننتظر 5 دقايق
+    if (first && !earlyResyncPlanned && offsetRtt > SLOW_FIRST_RTT_MS) {
+      earlyResyncPlanned = true;
+      setTimeout(() => void syncServerClock(), EARLY_RESYNC_MS);
     }
   })().finally(() => {
     inflight = null;

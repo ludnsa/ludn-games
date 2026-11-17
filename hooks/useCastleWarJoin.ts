@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { startBackupRead, type BackupReadCtx } from "@/lib/game/room-backup-read";
 
 export const TOTAL_SOLDIERS = 120;
 export const ROOMS_COUNT = 15;
@@ -155,12 +156,14 @@ export function useCastleWarJoin() {
       rejoinPendingRef.current = (current === "done" || current === "setup") && team !== null;
     };
 
-    // فاته حدث التصفير (الجوال كان مقفل أو الاتصال انقطع): يقارن باللي في القاعدة
-    const recheckRoom = async () => {
+    // فاته حدث التصفير (الجوال كان مقفل أو الاتصال انقطع أو فاته تحديث): يقارن باللي في القاعدة.
+    // القراءة الاحتياطية تشغّلها: لما يرجع البث، ولما يرجع للتبويب أو يرجع النت، وفحص دوري خفيف.
+    // لو وصل تحديث من البث وهي بالطريق، ردها ممكن يكون أقدم منه فنتركه
+    const recheckRoom = async ({ signal, isFresh }: BackupReadCtx) => {
       const stepAtStart = latest.current.step;
       if (stepAtStart !== "done" && stepAtStart !== "selectTeam") return;
-      const { data, error } = await supabase.from("cw_rooms").select("live_sync, team1_setup, team2_setup").eq("room_code", roomCode).single();
-      if (error || !data || latest.current.step !== stepAtStart) return;
+      const { data, error } = await supabase.from("cw_rooms").select("live_sync, team1_setup, team2_setup").eq("room_code", roomCode).abortSignal(signal).single();
+      if (error || !data || latest.current.step !== stepAtStart || !isFresh()) return;
       const { selectedTeam: team, team1Ready: had1, team2Ready: had2 } = latest.current;
 
       if (stepAtStart === "done") {
@@ -180,10 +183,13 @@ export function useCastleWarJoin() {
       if (data.team2_setup) setTeam2Ready(true);
     };
 
+    const backup = startBackupRead(recheckRoom);
+
     const channel = supabase.channel(`join_${roomCode}`)
       .on(
         "postgres_changes", { event: "UPDATE", schema: "public", table: "cw_rooms", filter: `room_code=eq.${roomCode}` },
         (payload) => {
+          backup.onEvent();
           const newRecord = payload.new;
           // التصفير بس يكتب الثلاثة فاضية مع بعض (resetGame). ما نكتفي بخطة فاضية:
           // تحديث قديم يوصل متأخر ممكن يكون قبل اعتماد الخطة، فيرجّع اللاعب بالغلط
@@ -204,21 +210,16 @@ export function useCastleWarJoin() {
           if (newRecord.team1_setup) setTeam1Ready(true);
           if (newRecord.team2_setup) setTeam2Ready(true);
         }
-      ).subscribe((status) => {
-        if (status === "SUBSCRIBED") void recheckRoom();
-      });
+      ).subscribe((status) => backup.onStatus(status));
 
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void recheckRoom();
-    };
+    // رجعت الصفحة من ذاكرة المتصفح (زر الرجوع): نقارن على طول
     const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) void recheckRoom();
+      if (e.persisted) backup.readNow();
     };
-    document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("pageshow", onPageShow);
     return () => {
-      document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pageshow", onPageShow);
+      backup.stop();
       supabase.removeChannel(channel);
     };
   }, [roomCode, supabase]);
