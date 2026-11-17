@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { serverNow, startCountdown, useServerClock } from "@/lib/game/server-clock";
-import { startBackupRead } from "@/lib/game/room-backup-read";
+import { startBackupRead, type BackupRead } from "@/lib/game/room-backup-read";
 
 /** صف الغرفة (من البث أو القراءة): الحقول اللي نقراها هنا، والباقي ينضاف لبيانات اللعبة مثل ما هو */
 type AuctionRoomRow = {
@@ -36,6 +36,7 @@ export function useAuctionTeam() {
 
   // قناة وحدة للغرفة تخدم الحالتين (قبل الدخول وبعده): كان فيه قناتين على نفس الجدول فكل تحديث يوصل الجوال مرتين
   const joinedRef = useRef(false);
+  const backupRef = useRef<BackupRead | null>(null);
   useEffect(() => {
     joinedRef.current = isJoined;
   }, [isJoined]);
@@ -126,6 +127,7 @@ export function useAuctionTeam() {
         lastRow = json;
         applyRoom(data);
       });
+      backupRef.current = backup;
 
       const nameChannel = supabase.channel('names_sync')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auction_rooms', filter: `room_code=eq.${roomCode}` }, (payload) => {
@@ -135,6 +137,7 @@ export function useAuctionTeam() {
         }).subscribe((status) => backup.onStatus(status));
 
       return () => {
+        if (backupRef.current === backup) backupRef.current = null;
         backup.stop();
         supabase.removeChannel(nameChannel);
       };
@@ -177,6 +180,10 @@ export function useAuctionTeam() {
     if (timerEndsAt === null) return;
     return startCountdown(timerEndsAt, (left) => setTick({ end: timerEndsAt, left }));
   }, [timerEndsAt]);
+  // وصل صفر وما جا تحديث من البث خلال ثانيتين: الجوال يقرا الغرفة على طول
+  useEffect(() => {
+    backupRef.current?.watchDeadline(isJoined ? timerEndsAt : null);
+  }, [timerEndsAt, isJoined]);
   const timerLeft: number =
     timerEndsAt === null
       ? liveData?.timer || 0

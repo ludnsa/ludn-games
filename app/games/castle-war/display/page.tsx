@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { startCountdown, useServerClock } from "@/lib/game/server-clock";
-import { startBackupRead } from "@/lib/game/room-backup-read";
+import { startBackupRead, type BackupRead } from "@/lib/game/room-backup-read";
 import AudienceCastle from "@/components/games/castle-war/display/AudienceCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
@@ -27,6 +27,7 @@ export default function CastleWarDisplay() {
   const [displayTimer, setDisplayTimer] = useState<number>(0);
 
   const lastTimestampRef = useRef<number | null>(null);
+  const backupRef = useRef<BackupRead | null>(null);
 
   // عرض بس: الكشف فوق اللعبة، وصناديق النتيجة تطلع بعد ما يخلص
   const reveal = useCastleReveal({
@@ -113,6 +114,7 @@ export default function CastleWarDisplay() {
         }
         if (row.live_sync && JSON.stringify(row.live_sync) !== lastSync) showSync(row.live_sync);
       });
+      backupRef.current = backup;
 
       const channel = supabase.channel(`display_room_${code}`)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "cw_rooms", filter: `room_code=eq.${code}` },
@@ -127,6 +129,7 @@ export default function CastleWarDisplay() {
         ).subscribe((status) => backup.onStatus(status));
 
       return () => {
+        if (backupRef.current === backup) backupRef.current = null;
         backup.stop();
         supabase.removeChannel(channel);
         document.documentElement.classList.remove("dark");
@@ -157,6 +160,10 @@ export default function CastleWarDisplay() {
     }
     setDisplayTimer(liveData?.genTimer || 0);
   }, [liveData?.targetEndTime, liveData?.genTimer]);
+  // وصل صفر وما جا تحديث من البث خلال ثانيتين: الشاشة (وجوال اللاعب) تقرا الغرفة على طول
+  useEffect(() => {
+    backupRef.current?.watchDeadline(typeof liveData?.targetEndTime === "number" ? liveData.targetEndTime : null);
+  }, [liveData?.targetEndTime]);
 
   const getChallengeTitle = (type: string) => {
     switch (type) {

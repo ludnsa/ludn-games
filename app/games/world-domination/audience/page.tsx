@@ -1,10 +1,10 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Cairo } from "next/font/google";
 import { Globe, Coins, Shield, HelpCircle } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { serverNow, startCountdown, useServerClock } from "@/lib/game/server-clock";
-import { startBackupRead } from "@/lib/game/room-backup-read";
+import { startBackupRead, type BackupRead } from "@/lib/game/room-backup-read";
 
 import AudienceCapitalAlert from "@/components/games/world-domination/audience/AudienceCapitalAlert";
 import AudienceGameOver from "@/components/games/world-domination/audience/AudienceGameOver";
@@ -23,6 +23,7 @@ export default function WorldDominationAudience() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [inputCode, setInputCode] = useState<string>("");
   const [liveData, setLiveData] = useState<any>(null);
+  const backupRef = useRef<BackupRead | null>(null);
 
   // كشف البطاقة: يقرأ أعداد البطاقات بس، وما يطلع إلا وقت اللعب
   const cardReveal = useWDCardReveal({
@@ -144,6 +145,7 @@ export default function WorldDominationAudience() {
       if (!data || !isFresh() || JSON.stringify(data) === lastRow) return;
       showRow(data);
     });
+    backupRef.current = backup;
 
     const channel = supabase
       .channel(`wd_live_sync_channel_${roomCode}`)
@@ -166,6 +168,7 @@ export default function WorldDominationAudience() {
       .subscribe((status) => backup.onStatus(status));
 
     return () => {
+      if (backupRef.current === backup) backupRef.current = null;
       backup.stop();
       supabase.removeChannel(channel);
     };
@@ -181,6 +184,10 @@ export default function WorldDominationAudience() {
   useEffect(() => {
     if (timerEndsAt === null) return;
     return startCountdown(timerEndsAt, (left) => setTick({ end: timerEndsAt, left }));
+  }, [timerEndsAt]);
+  // وصل صفر وما جا تحديث من البث خلال ثانيتين: الشاشة تقرا الغرفة على طول
+  useEffect(() => {
+    backupRef.current?.watchDeadline(timerEndsAt);
   }, [timerEndsAt]);
 
   if (!roomCode) {

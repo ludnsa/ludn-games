@@ -6,6 +6,7 @@ import { generateRoomCode } from "@/lib/game/room-code";
 import { shuffleArray } from "@/lib/game/shuffle";
 import { useGameTimer } from "@/hooks/shared/useGameTimer";
 import { serverNow, whenServerClockReady } from "@/lib/game/server-clock";
+import { startBackupRead } from "@/lib/game/room-backup-read";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { useLiveGamePing } from "@/hooks/shared/useLiveGamePing";
 import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
@@ -282,35 +283,50 @@ export function useAuctionReferee() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerWhenStopped, timerEndsAt, roomCode, gameState]);
 
+  // القراءة الاحتياطية تحتاج آخر مرحلة، وتعرف لو الحكم كتب المزايدات بنفسه وهي بالطريق
+  const gameStateRef = useRef(gameState);
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+  const ownBidWritesRef = useRef(0);
+
   useEffect(() => {
     if (!roomCode) return;
 
-    const fetchBidsFallback = async () => {
-      const { data } = await supabase.from("auction_rooms").select("t1_bid, t2_bid").eq("room_code", roomCode).neq("t1_name", Date.now().toString()).single();
-      if (data) {
-        if (data.t1_bid !== undefined) setT1Bid(data.t1_bid === null ? "" : data.t1_bid);
-        if (data.t2_bid !== undefined) setT2Bid(data.t2_bid === null ? "" : data.t2_bid);
-      }
+    type BidsRow = { t1_bid?: number | null; t2_bid?: number | null };
+    const applyBids = (row: BidsRow) => {
+      if (row.t1_bid !== undefined) setT1Bid(row.t1_bid === null ? "" : row.t1_bid);
+      if (row.t2_bid !== undefined) setT2Bid(row.t2_bid === null ? "" : row.t2_bid);
     };
+    // آخر مزايدات وصلت من القاعدة: القراءة تكتب بس لو تغيّرت هناك (ما تمسح مزايدة يكتبها الحكم بيده)
+    let lastBids = "";
+    const bidsKey = (row: BidsRow) => JSON.stringify([row.t1_bid ?? null, row.t2_bid ?? null]);
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchBidsFallback();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    // القراءة الاحتياطية (وقت المزايدة بس): مزايدة فاتت الحكم بالبث توصله لحالها، بدون تحديث الصفحة.
+    // بعد المزايدة المبالغ عند الحكم هي المعتمدة، فما نلمسها
+    const backup = startBackupRead(async ({ signal, isFresh }) => {
+      if (gameStateRef.current !== "bidding") return;
+      const mine = ownBidWritesRef.current;
+      const { data } = await supabase.from("auction_rooms").select("t1_bid, t2_bid").eq("room_code", roomCode).abortSignal(signal).maybeSingle();
+      if (!data || !isFresh() || ownBidWritesRef.current !== mine || gameStateRef.current !== "bidding") return;
+      const key = bidsKey(data);
+      if (key === lastBids) return;
+      lastBids = key;
+      applyBids(data);
+    });
 
     const channel = supabase.channel('referee_sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auction_rooms', filter: `room_code=eq.${roomCode}` }, (payload) => {
-        const newData = payload.new as any;
-        if (newData.t1_bid !== undefined) setT1Bid(newData.t1_bid === null ? "" : newData.t1_bid);
-        if (newData.t2_bid !== undefined) setT2Bid(newData.t2_bid === null ? "" : newData.t2_bid);
+        backup.onEvent();
+        const newData = payload.new as BidsRow;
+        lastBids = bidsKey(newData);
+        applyBids(newData);
       })
-      .subscribe();
-      
-    return () => { 
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      supabase.removeChannel(channel); 
+      .subscribe((status) => backup.onStatus(status));
+
+    return () => {
+      backup.stop();
+      supabase.removeChannel(channel);
     };
   }, [roomCode]);
 
@@ -511,7 +527,8 @@ export function useAuctionReferee() {
     else setT2Balance(p => Math.max(0, p - winningBid));
 
     // تحديث قاعدة البيانات بالمزايدات لو الحكم دخلها يدوي عشان شاشة اللاعبين تتحدث
-    supabase.from("auction_rooms").update({ 
+    ownBidWritesRef.current++;
+    supabase.from("auction_rooms").update({
       t1_bid: b1, t2_bid: b2 
     }).eq("room_code", roomCode);
 
@@ -715,15 +732,17 @@ export function useAuctionReferee() {
         setT2Balance(0); // Bet it all
       }
       
-      await supabase.from("auction_rooms").update({ 
-        t1_bid: winId === 1 ? balanceToBid : 0, 
-        t2_bid: winId === 2 ? balanceToBid : 0, 
+      ownBidWritesRef.current++;
+      await supabase.from("auction_rooms").update({
+        t1_bid: winId === 1 ? balanceToBid : 0,
+        t2_bid: winId === 2 ? balanceToBid : 0,
         selected_option: null,
         t1_balance: winId === 1 ? 0 : t1Balance,
         t2_balance: winId === 2 ? 0 : t2Balance,
         is_sudden_death: true
       }).eq("room_code", roomCode);
-      
+      ownBidWritesRef.current++;
+
       setCurrentIndex(p => p + 1);
       setBuyer(null);
       setPlayMode(null);
@@ -734,8 +753,11 @@ export function useAuctionReferee() {
       setGameState("questionReveal"); // Skip bidding directly to reveal
       triggerAlert("الفرصة الأخيرة! سؤال أخير وفرصة للعودة.");
     } else {
+      // قراءة احتياطية بالطريق ممكن ترجع مزايدات السؤال اللي فات: نتركها
+      ownBidWritesRef.current++;
       await supabase.from("auction_rooms").update({ t1_bid: null, t2_bid: null, selected_option: null }).eq("room_code", roomCode);
-      
+      ownBidWritesRef.current++;
+
       setCurrentIndex(p => p + 1);
       setTurn(turn === 1 ? 2 : 1);
       setWinner(null);

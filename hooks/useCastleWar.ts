@@ -8,6 +8,7 @@ import { useCWCombat } from "./games/castle-war/useCWCombat";
 import { useCWChallenges } from "./games/castle-war/useCWChallenges";
 import { useDebounceCallback } from "@/lib/game/debounce";
 import { serverNow, startCountdown, useServerClock, whenServerClockReady } from "@/lib/game/server-clock";
+import { startBackupRead } from "@/lib/game/room-backup-read";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { useLiveGamePing } from "@/hooks/shared/useLiveGamePing";
 import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
@@ -247,6 +248,8 @@ export function useCastleWar() {
     setResultType(type);
   };
 
+  // القراءة الاحتياطية لخطط الفرق: لو التصفير صار وهي بالطريق، ردها قديم (فيه الخطط اللي انمسحت) فنتركه
+  const resetSeqRef = useRef(0);
   const resetGame = async () => {
     // نمسح من القاعدة أول: مسح الحالة يعيد قراءة الفرق، ولو سبق المسح يرجّع التوزيع القديم "جاهز"
     const code = roomCodeRef.current;
@@ -255,7 +258,9 @@ export function useCastleWar() {
       // (التصفير المجاني القديم انشال: القاعدة الجديدة تغطيه. عمود free_reset يظل بالقاعدة بدون استخدام)
       await endBrowserGameSession(GAME_ID, code).catch(() => null);
       clearLiveGame(GAME_ID);
+      resetSeqRef.current++;
       await supabase.from("cw_rooms").update({ team1_setup: null, team2_setup: null, live_sync: null }).eq("room_code", code);
+      resetSeqRef.current++;
     }
 
     setGameState("lobby");
@@ -484,42 +489,43 @@ export function useCastleWar() {
 
   useEffect(() => {
     if (!roomCode) return;
-    const fetchInitialTeams = async () => {
-      const { data } = await supabase.from("cw_rooms").select("team1_setup, team2_setup").eq("room_code", roomCode).single();
-      if (data) {
-        if (data.team1_setup && !team1Ready) {
-          setTeam1Data(data.team1_setup);
-          if (data.team1_setup.name) setTeam1Name(data.team1_setup.name);
-          setTeam1Ready(true);
-        }
-        if (data.team2_setup && !team2Ready) {
-          setTeam2Data(data.team2_setup);
-          if (data.team2_setup.name) setTeam2Name(data.team2_setup.name);
-          setTeam2Ready(true);
-        }
+    // خطة فريق وصلت (من البث أو من القراءة): تنحفظ مرة وحدة، أول ما تجي
+    const applyTeams = (row: { team1_setup?: TeamSetup | null; team2_setup?: TeamSetup | null }) => {
+      if (row.team1_setup && !team1Ready) {
+        setTeam1Data(row.team1_setup);
+        if (row.team1_setup.name) setTeam1Name(row.team1_setup.name);
+        setTeam1Ready(true);
+      }
+      if (row.team2_setup && !team2Ready) {
+        setTeam2Data(row.team2_setup);
+        if (row.team2_setup.name) setTeam2Name(row.team2_setup.name);
+        setTeam2Ready(true);
       }
     };
-    fetchInitialTeams();
+
+    // القراءة الاحتياطية (لين الفريقين يعتمدون خططهم، وبعدها ما فيه شي ننتظره): خطة فاتت الحكم بالبث
+    // توصله لحالها بدون تحديث الصفحة. وأول قراءة على طول (بدل القراءة الأولى اللي كانت هنا)
+    const backup = team1Ready && team2Ready ? null : startBackupRead(async ({ signal, isFresh }) => {
+      const seq = resetSeqRef.current;
+      const { data } = await supabase.from("cw_rooms").select("team1_setup, team2_setup").eq("room_code", roomCode).abortSignal(signal).maybeSingle();
+      if (!data || !isFresh() || resetSeqRef.current !== seq) return;
+      applyTeams(data);
+    });
+    backup?.readNow();
 
     const channel = supabase.channel(`room_${roomCode}`)
       .on(
         "postgres_changes", { event: "UPDATE", schema: "public", table: "cw_rooms", filter: `room_code=eq.${roomCode}` },
         (payload) => {
-          const newRecord = payload.new;
-          if (newRecord.team1_setup && !team1Ready) {
-            setTeam1Data(newRecord.team1_setup);
-            if (newRecord.team1_setup.name) setTeam1Name(newRecord.team1_setup.name);
-            setTeam1Ready(true);
-          }
-          if (newRecord.team2_setup && !team2Ready) {
-            setTeam2Data(newRecord.team2_setup);
-            if (newRecord.team2_setup.name) setTeam2Name(newRecord.team2_setup.name);
-            setTeam2Ready(true);
-          }
+          backup?.onEvent();
+          applyTeams(payload.new);
         }
-      ).subscribe();
+      ).subscribe((status) => backup?.onStatus(status));
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      backup?.stop();
+      supabase.removeChannel(channel);
+    };
   }, [roomCode, team1Ready, team2Ready]);
 
   useEffect(() => {
