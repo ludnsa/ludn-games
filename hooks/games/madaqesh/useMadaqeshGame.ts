@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { startBackupRead } from "@/lib/game/room-backup-read";
 import {
   addMadaqeshBots,
   closeMadaqeshRoom,
@@ -49,10 +50,6 @@ import type {
   MadaqeshSettings,
 } from "@/types/madaqesh";
 
-/** القراءة الاحتياطية للغرفة: البث اللحظي شغال = كل 10 ثواني، مقطوع = كل 4 */
-const SAFETY_POLL_LIVE_MS = 10_000;
-const SAFETY_POLL_OFFLINE_MS = 4_000;
-
 export interface MadaqeshSession {
   roomCode: string;
   token: string;
@@ -83,6 +80,17 @@ export function useMadaqeshGame(
 
   /** فيه ضغطة تنتظر تأكيد السيرفر — ما نجلب حالة قديمة فوقها */
   const inFlight = useRef(false);
+  /**
+   * حماية القراءة من إنها تكتب فوق شي أحدث منها:
+   * - عدّاد تحديثات البث (الغرفة لحالها واللاعبين لحالهم): لو وصل تحديث والقراءة بالطريق، ردها ممكن يكون أقدم منه
+   * - الضغطات اللي تغيّر الشاشة على طول (المزايدة، القرار، الرد...): لو بدأت ضغطة والقراءة بالطريق، أو للحين تنتظر
+   *   السيرفر، الرد ممكن يرجّع الشاشة لورا — فنتركه، ونقرا من جديد بعد ما يرد السيرفر (عشان ما يضيع تغيير لاعب ثاني)
+   */
+  const roomEvents = useRef(0);
+  const playersEvents = useRef(0);
+  const localSeq = useRef(0);
+  const pending = useRef(0);
+  const readAfterPending = useRef(false);
   const onLostRef = useRef(onSessionLost);
   const onSwitchRef = useRef(onSwitchSession);
   useEffect(() => {
@@ -94,14 +102,44 @@ export function useMadaqeshGame(
   // الجلب والبث اللحظي
   // -------------------------------------------------------------------
 
-  const fetchPublic = useCallback(async () => {
-    const [{ data: roomRow }, { data: roster }] = await Promise.all([
-      supabase.from("madaqesh_rooms").select("*").eq("room_code", roomCode).maybeSingle(),
-      supabase.from("madaqesh_players").select("*").eq("room_code", roomCode).order("seat", { ascending: true }),
-    ]);
-    if (roomRow) setRoom(roomRow as MadaqeshRoom);
-    if (roster) setPlayers((roster as MadaqeshPlayer[]).map((p) => ({ ...p, balance: Number(p.balance) })));
+  const fetchPublic = useMemo(() => {
+    const fetchOnce = async (signal?: AbortSignal): Promise<void> => {
+      const local0 = localSeq.current;
+      const room0 = roomEvents.current;
+      const players0 = playersEvents.current;
+      const roomQuery = supabase.from("madaqesh_rooms").select("*").eq("room_code", roomCode);
+      const rosterQuery = supabase.from("madaqesh_players").select("*").eq("room_code", roomCode).order("seat", { ascending: true });
+      const [{ data: roomRow }, { data: roster }] = await Promise.all([
+        (signal ? roomQuery.abortSignal(signal) : roomQuery).maybeSingle(),
+        signal ? rosterQuery.abortSignal(signal) : rosterQuery,
+      ]);
+      if (!roomRow && !roster) return;
+      // ضغطة من هالجهاز بدأت وهي بالطريق، أو للحين تنتظر السيرفر: نتركه ونقرا من جديد بعد ما يرد
+      if (localSeq.current !== local0 || pending.current > 0) {
+        if (pending.current > 0) readAfterPending.current = true;
+        else void fetchOnce();
+        return;
+      }
+      // وصل تحديث أحدث من البث وهي بالطريق: نتركه (الغرفة: التحديث فيه الصف كامل. اللاعبين: التحديث يقرا من جديد)
+      if (roomRow && roomEvents.current === room0) setRoom(roomRow as MadaqeshRoom);
+      if (roster && playersEvents.current === players0) {
+        setPlayers((roster as MadaqeshPlayer[]).map((p) => ({ ...p, balance: Number(p.balance) })));
+      }
+    };
+    return fetchOnce;
   }, [supabase, roomCode]);
+
+  /** ضغطة تغيّر الشاشة على طول: بدايتها ونهايتها (لما يرد السيرفر) */
+  const beginLocal = useCallback(() => {
+    pending.current++;
+    localSeq.current++;
+  }, []);
+  const endLocal = useCallback(() => {
+    pending.current--;
+    if (pending.current > 0 || !readAfterPending.current) return;
+    readAfterPending.current = false;
+    void fetchPublic();
+  }, [fetchPublic]);
 
   const fetchHistory = useCallback(async () => {
     const { data } = await supabase
@@ -130,52 +168,47 @@ export function useMadaqeshGame(
     fetchHistory();
     isMadaqeshDevMode().then(setDevMode);
 
-    // البث اللحظي متصل؟ (يحدد كل كم نقرا القراءة الاحتياطية)
-    let live = false;
-    let lastSafety = Date.now();
+    // القراءة الاحتياطية (lib/game/room-backup-read.ts — نفس باقي الألعاب): أول ما يتصل البث ولما يرجع،
+    // ولما يرجع التبويب أو النت، وكل 10 ثواني سكوت (4 والبث مقطوع). التبويب مخفي: ما نقرا لين يرجع.
+    // ضغطة تنتظر السيرفر: ما نقرا (نجلب حالة قديمة فوقها)
+    const backup = startBackupRead(async ({ signal }) => {
+      if (pending.current > 0) return;
+      await fetchPublic(signal);
+    });
+
     const channel = supabase
       .channel(`madaqesh_${roomCode}_${Math.random().toString(36).slice(2, 8)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "madaqesh_rooms", filter: `room_code=eq.${roomCode}` },
-        (payload) => setRoom((prev) => ({ ...(prev || {}), ...payload.new }) as MadaqeshRoom)
+        (payload) => {
+          roomEvents.current++;
+          backup.onEvent();
+          setRoom((prev) => ({ ...(prev || {}), ...payload.new }) as MadaqeshRoom);
+        }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "madaqesh_players", filter: `room_code=eq.${roomCode}` },
         (payload) => {
+          playersEvents.current++;
+          backup.onEvent();
           fetchPublic();
           // انطردت (انحذفت من الغرفة)
           if (payload.eventType === "DELETE") fetchMe();
         }
       )
-      .subscribe((status) => {
-        const wasLive = live;
-        live = status === "SUBSCRIBED";
-        // رجع الاتصال بعد انقطاع: نجيب آخر حالة على طول، ما ننتظر القراءة الاحتياطية
-        if (live && !wasLive) {
-          lastSafety = Date.now();
-          fetchPublic();
-        }
-      });
+      .subscribe((status) => backup.onStatus(status));
 
+    // السجل: لما يرجع التبويب (وغير كذا يتحدث مع كل جولة تنحسب أو تنعاد)
     const onVisible = () => {
-      if (document.visibilityState === "visible") {
-        fetchPublic();
-        fetchHistory();
-      }
+      if (document.visibilityState === "visible") fetchHistory();
     };
     document.addEventListener("visibilitychange", onVisible);
-    // شبكة أمان لو البث اللحظي انقطع بصمت: كل 10 ثواني وهو متصل، وكل 4 لو انقطع
-    const safety = setInterval(() => {
-      if (Date.now() - lastSafety < (live ? SAFETY_POLL_LIVE_MS : SAFETY_POLL_OFFLINE_MS)) return;
-      lastSafety = Date.now();
-      if (!inFlight.current) fetchPublic();
-    }, 1000);
 
     return () => {
+      backup.stop();
       document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(safety);
       supabase.removeChannel(channel);
     };
   }, [supabase, roomCode, fetchPublic, fetchMe, fetchHistory]);
@@ -229,20 +262,23 @@ export function useMadaqeshGame(
     async <T extends { success: boolean; error?: string }>(apply: () => void, fn: () => Promise<T>) => {
       if (inFlight.current) return null;
       inFlight.current = true;
+      beginLocal();
       setError("");
       apply();
       try {
         const res = await fn();
         if (!res.success) {
           if ("error" in res && res.error) setError(res.error);
-          fetchPublic();
+          // رفض السيرفر: نرجع لحالته (القراءة تبدأ أول ما تخلص الضغطة)
+          readAfterPending.current = true;
         }
         return res;
       } finally {
         inFlight.current = false;
+        endLocal();
       }
     },
-    [fetchPublic]
+    [beginLocal, endLocal]
   );
 
   /** نحسب الجولة محلياً (نفس حساب السيرفر) ونعرض النتيجة والأرصدة الجديدة فوراً */
@@ -330,18 +366,23 @@ export function useMadaqeshGame(
     async (response: MadaqeshResponse) => {
       setError("");
       const myId = me?.playerId;
+      beginLocal();
       if (myId) {
         setRoom((r) =>
           r?.round ? { ...r, round: { ...r.round, responses: { ...r.round.responses, [myId]: response } } } : r
         );
       }
-      const res = await respondMadaqesh({ roomCode, token, response });
-      if (!res.success) {
-        setError(res.error);
-        fetchPublic();
+      try {
+        const res = await respondMadaqesh({ roomCode, token, response });
+        if (!res.success) {
+          setError(res.error);
+          readAfterPending.current = true;
+        }
+      } finally {
+        endLocal();
       }
     },
-    [me?.playerId, roomCode, token, fetchPublic]
+    [me?.playerId, roomCode, token, beginLocal, endLocal]
   );
 
   /** المنشئ يسجّل صاحب أقوى ورق — أو أكثر من واحد لو تعادل */

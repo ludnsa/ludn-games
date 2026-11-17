@@ -7,6 +7,7 @@ import { getMyHiveRoom, openHiveRoom, pingHiveSession, saveHiveRoom, startHiveRo
 import { HIVE_ROOM_CODE_RE } from "@/constants/letters-hive";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { createThrottledRunner } from "@/lib/throttled-runner";
+import { startBackupRead } from "@/lib/game/room-backup-read";
 
 /**
  * مزامنة خلية الحروف:
@@ -32,6 +33,8 @@ const hintTopic = (code: string) => `hive:${code}`;
 const HINT_EVENT = "changed";
 /** الشاشة ما تقرا من القاعدة أكثر من مرة كل هالمدة، مهما كثرت الإشارات */
 const REFETCH_GAP_MS = 300;
+/** الفحص الدوري للشاشة والبث متصل: 20 ثانية سكوت (مثل قبل — الإشارة هي الطريق الأساسي) */
+const HIVE_BACKUP_QUIET_MS = 20_000;
 
 /**
  * قناة الإشارة: وحدة لكل غرفة بالصفحة. المكتبة ترجّع نفس القناة لنفس الاسم، و React (وضع التطوير)
@@ -502,60 +505,54 @@ export function useLettersHiveDisplay(code: string | null): { state: HiveState |
   }, [code, valid, accept]);
 
   // من أي جهاز: الغرفة بالكود. أسرع طريق: إشارة المقدم ← نقرا من القاعدة.
-  // واحتياط: البث من القاعدة نفسها (postgres_changes) + سؤال دوري + لما الجوال يرجع للمتصفح.
+  // واحتياط: البث من القاعدة نفسها (postgres_changes) + القراءة الاحتياطية (lib/game/room-backup-read.ts، مثل باقي
+  // الألعاب): أول ما يتصل البث ولما يرجع، ولما يرجع التبويب أو النت، و20 ثانية سكوت (4 والبث مقطوع).
+  // التبويب مخفي أو بدون نت: ما نقرا، ونقرا أول ما يرجع.
+  // اللوحة الأقدم ما تكتب فوق الأحدث أبد (accept يقارن وقت التحديث)، فالقراءة اللي ترجع متأخرة ما تضر.
   useEffect(() => {
     if (!code || !valid) return;
     const supabase = getSupabaseBrowser();
-    let live = false;
     let stopped = false;
 
-    const fetchRoom = async () => {
-      const { data, error } = await supabase.from("hive_rooms").select("state").eq("room_code", code).maybeSingle();
+    const fetchRoom = async (signal?: AbortSignal) => {
+      const query = supabase.from("hive_rooms").select("state").eq("room_code", code);
+      const { data, error } = await (signal ? query.abortSignal(signal) : query).maybeSingle();
       if (stopped || error) return; // مشكلة اتصال: نجرب بعدين
       if (!data) return setFound("no");
       setFound("yes");
       accept(data.state as HiveState);
     };
-    // كل القراءات تمر من هنا: مرة كل 300ms بالكثير، والطلبات اللي بينها تنجمع في قراءة وحدة بعدها
-    const refetch = createThrottledRunner(fetchRoom, REFETCH_GAP_MS);
+    // قراءات الإشارة تمر من هنا: مرة كل 300ms بالكثير، والطلبات اللي بينها تنجمع في قراءة وحدة بعدها
+    const refetch = createThrottledRunner(() => fetchRoom(), REFETCH_GAP_MS);
+    const backup = startBackupRead(({ signal }) => fetchRoom(signal), { quietMs: HIVE_BACKUP_QUIET_MS });
 
-    // الإشارة ما فيها لوحة — بس تقول "اقرا الحين"
-    const hint = acquireHint(code, () => refetch.trigger());
+    // الإشارة ما فيها لوحة — بس تقول "اقرا الحين" (وتحسب تحديث: الفحص الدوري ينتظر 20 ثانية من بعدها).
+    // التبويب مخفي: ما نقرا (البث من القاعدة يجيب اللوحة كاملة لو وصل، ورجوع التبويب يقرا)
+    const hint = acquireHint(code, () => {
+      backup.onEvent();
+      if (document.visibilityState === "visible") refetch.trigger();
+    });
 
     const channel = supabase
       .channel(`hive_display_${code}_${Math.random().toString(36).slice(2, 8)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "hive_rooms", filter: `room_code=eq.${code}` }, (payload) => {
+        backup.onEvent();
         const row = payload.new as { state?: HiveState } | null;
         if (row?.state) {
           setFound("yes");
           accept(row.state);
         }
       })
-      .subscribe((status) => {
-        live = status === "SUBSCRIBED";
-        // اتصل (أو رجع اتصل): نجيب آخر نسخة عشان ما يفوتنا شي وقت الانقطاع
-        if (live) refetch.trigger();
-      });
+      // اتصل (أو رجع اتصل): القراءة الاحتياطية تجيب آخر نسخة عشان ما يفوتنا شي وقت الانقطاع
+      .subscribe((status) => backup.onStatus(status));
 
     refetch.trigger();
-    // الجوال طلع من المتصفح ورجع
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refetch.trigger();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    // احتياط: لو البث اللحظي مو متصل نسأل كل 4 ثواني، ولو متصل كل 20 ثانية
-    let ticks = 0;
-    const safety = setInterval(() => {
-      ticks++;
-      if (!live || ticks % 5 === 0) refetch.trigger();
-    }, 4000);
 
     return () => {
       stopped = true;
+      backup.stop();
       refetch.stop();
       hint?.release();
-      document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(safety);
       void supabase.removeChannel(channel);
     };
   }, [code, valid, accept]);

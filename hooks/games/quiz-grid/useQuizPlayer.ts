@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { startBackupRead } from "@/lib/game/room-backup-read";
 import { getQuizRoomPublicInfo, joinQuizRoom } from "@/actions/quiz-grid";
 import type { QuizRoom, QuizSessionPlayer, QuizTeam } from "@/types";
 
@@ -105,28 +106,46 @@ export function useQuizPlayer() {
 
     fetchRoomRow(roomCode);
 
+    // القراءة الاحتياطية (lib/game/room-backup-read.ts): رجوع البث، ورجوع التبويب (الهواتف تقطع الاتصال
+    // عند إطفاء الشاشة)، ورجوع النت، وفحص دوري لو فات الجوال تحديث بالبث
+    const backup = startBackupRead(async ({ signal, isFresh }) => {
+      const [{ data, error }, { data: roster, error: rosterError }] = await Promise.all([
+        supabase.from("quiz_rooms").select("*").eq("room_code", roomCode).abortSignal(signal).maybeSingle(),
+        supabase
+          .from("quiz_session_players")
+          .select("*")
+          .eq("room_code", roomCode)
+          .order("joined_at", { ascending: true })
+          .abortSignal(signal),
+      ]);
+      // وصل تحديث من البث وهي بالطريق: ردها ممكن يكون أقدم — نتركه
+      if (!isFresh()) return;
+      if (!error && data) setRoom(data as QuizRoom);
+      if (!rosterError && roster) setPlayers(roster as QuizSessionPlayer[]);
+    });
+
     const channel = supabase
       .channel(`quiz_player_${roomCode}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "quiz_rooms", filter: `room_code=eq.${roomCode}` },
-        (payload) => setRoom((prev) => ({ ...(prev || {}), ...payload.new } as QuizRoom))
+        (payload) => {
+          backup.onEvent();
+          setRoom((prev) => ({ ...(prev || {}), ...payload.new } as QuizRoom));
+        }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "quiz_session_players", filter: `room_code=eq.${roomCode}` },
-        () => fetchRoomRow(roomCode)
+        () => {
+          backup.onEvent();
+          fetchRoomRow(roomCode);
+        }
       )
-      .subscribe();
-
-    // الهواتف تقطع الاتصال عند إطفاء الشاشة — نُحدّث عند العودة
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") fetchRoomRow(roomCode);
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
+      .subscribe((status) => backup.onStatus(status));
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
+      backup.stop();
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

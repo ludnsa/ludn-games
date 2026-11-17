@@ -5,6 +5,7 @@ import { serverNow } from "@/lib/game/server-clock";
 /**
  * القراءة الاحتياطية للغرفة: جوالات الفرق وشاشات الجمهور (المزاد، والسيطرة على العالم، وحرب القلاع)،
  * وحكم المزاد (مزايدات الفرق) وحكم حرب القلاع (خطط الفرق) — مثل المافيا.
+ * وتحدي الفئات (المنشئ واللاعبين)، ومداقش (كل الأجهزة)، وشاشة خلية الحروف.
  *
  * قبل مؤقتات ساعة السيرفر، الحكم كان يكتب الغرفة كل ثانية، فالجهاز اللي يفوته تحديث بالبث يتصحح بالثانية اللي بعدها.
  * الحين يكتب مرة وحدة مع كل تغيير، فاللي يفوته تحديث يظل على شاشة قديمة لين التغيير الجاي.
@@ -43,7 +44,13 @@ export type BackupRead = {
   stop: () => void;
 };
 
-export function startBackupRead(read: (ctx: BackupReadCtx) => Promise<unknown>): BackupRead {
+export type BackupReadOptions = {
+  /** الفحص الدوري والبث متصل: كم ثانية سكوت قبل ما نقرا (الافتراضي 10). شاشة خلية الحروف: 20 مثل قبل */
+  quietMs?: number;
+};
+
+export function startBackupRead(read: (ctx: BackupReadCtx) => Promise<unknown>, opts: BackupReadOptions = {}): BackupRead {
+  const quietMs = opts.quietMs ?? BACKUP_READ_QUIET_MS;
   let live = false;
   let stopped = false;
   /** آخر قراءة أو تحديث من البث (performance: ما يتأثر لو تغيّرت ساعة الجهاز) */
@@ -106,7 +113,7 @@ export function startBackupRead(read: (ctx: BackupReadCtx) => Promise<unknown>):
 
   const timer = setInterval(() => {
     if (document.visibilityState !== "visible" || navigator.onLine === false) return;
-    if (performance.now() - lastAt < (live ? BACKUP_READ_QUIET_MS : BACKUP_READ_OFFLINE_MS)) return;
+    if (performance.now() - lastAt < (live ? quietMs : BACKUP_READ_OFFLINE_MS)) return;
     void run();
   }, 1000);
 

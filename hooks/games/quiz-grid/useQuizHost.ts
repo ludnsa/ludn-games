@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { getBrowserSessionUser, getSupabaseBrowser } from "@/lib/supabase/client";
+import { startBackupRead, type BackupRead } from "@/lib/game/room-backup-read";
 import { QUIZ_CONFIG, QUIZ_GAME, QUIZ_LIFELINES, QUIZ_LIFELINES_PER_TEAM } from "@/constants/quiz-grid";
 import {
   activateQuizLifeline,
@@ -117,6 +118,9 @@ export function useQuizHost() {
 
   const roomCodeRef = useRef("");
   roomCodeRef.current = roomCode;
+  const backupRef = useRef<BackupRead | null>(null);
+  /** يزيد قبل وبعد كل طلب للسيرفر من الحكم: القراءة الاحتياطية اللي كانت بالطريق وقتها ممكن ترجع حالة قبله، فتنترك */
+  const ownWritesRef = useRef(0);
 
   const triggerAlert = useCallback(
     (message: string) => setAlert({ show: true, message, isConfirm: false }),
@@ -303,28 +307,52 @@ export function useQuizHost() {
 
   // -------------------------------------------------------------------
   // البث اللحظي — نفس نمط بقية الألعاب مع احتياطي عند عودة التبويب
+  // + القراءة الاحتياطية (lib/game/room-backup-read.ts): صف الغرفة واللاعبين، لو فات الحكم تحديث بالبث
+  //   (حالة السؤال بعد ضغطته، أو لاعب انضم)
   // -------------------------------------------------------------------
 
   useEffect(() => {
     if (!roomCode) return;
+
+    const backup = startBackupRead(async ({ signal, isFresh }) => {
+      const writes = ownWritesRef.current;
+      const [{ data: roomRow, error: roomError }, { data: roster, error: rosterError }] = await Promise.all([
+        supabase.from("quiz_rooms").select("*").eq("room_code", roomCode).abortSignal(signal).maybeSingle(),
+        supabase
+          .from("quiz_session_players")
+          .select("*")
+          .eq("room_code", roomCode)
+          .order("joined_at", { ascending: true })
+          .abortSignal(signal),
+      ]);
+      // وصل تحديث من البث وهي بالطريق، أو الحكم ضغط شي: ردها ممكن يكون أقدم — نتركه
+      if (!isFresh() || ownWritesRef.current !== writes) return;
+      if (!roomError && roomRow) setRoom(roomRow as QuizRoom);
+      if (!rosterError && roster) setPlayers(roster as QuizSessionPlayer[]);
+    });
+    backupRef.current = backup;
 
     const channel = supabase
       .channel(`quiz_host_${roomCode}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "quiz_rooms", filter: `room_code=eq.${roomCode}` },
-        (payload) => setRoom((prev) => ({ ...(prev || {}), ...payload.new } as QuizRoom))
+        (payload) => {
+          backup.onEvent();
+          setRoom((prev) => ({ ...(prev || {}), ...payload.new } as QuizRoom));
+        }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "quiz_session_players", filter: `room_code=eq.${roomCode}` },
         () => {
+          backup.onEvent();
           getQuizSession(roomCode).then((res) => {
             if (res.success) setPlayers(res.data.players);
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => backup.onStatus(status));
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") refreshSession(roomCode);
@@ -332,6 +360,8 @@ export function useQuizHost() {
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
+      backup.stop();
+      if (backupRef.current === backup) backupRef.current = null;
       document.removeEventListener("visibilitychange", handleVisibility);
       supabase.removeChannel(channel);
     };
@@ -382,6 +412,11 @@ export function useQuizHost() {
     const id = setInterval(() => setRemaining(secondsUntil(deadline)), 250);
     return () => clearInterval(id);
   }, [deadline, isTimerRunning, roomTimerSeconds]);
+
+  // صفر العدّاد: لو ما وصل أي تحديث من البث خلال ثانيتين بعده، القراءة الاحتياطية تقرا الغرفة على طول
+  useEffect(() => {
+    backupRef.current?.watchDeadline(deadline && isTimerRunning ? Date.parse(deadline) : null);
+  }, [deadline, isTimerRunning, roomCode]);
 
   // -------------------------------------------------------------------
   // مشتقات اللوحة
@@ -448,8 +483,10 @@ export function useQuizHost() {
     ) => {
       if (isBusy) return;
       setIsBusy(true);
+      ownWritesRef.current++;
       try {
         const res = await fn();
+        ownWritesRef.current++;
         if (!res.success) {
           triggerAlert(res.error || "حدث خطأ غير متوقع.");
           return;
