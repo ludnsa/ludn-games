@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { getBrowserSessionUser, getSupabaseBrowser } from "@/lib/supabase/client";
 import { startBackupRead, type BackupRead } from "@/lib/game/room-backup-read";
+import { serverNow, startCountdown, useServerClock, whenServerClockReady } from "@/lib/game/server-clock";
 import { QUIZ_CONFIG, QUIZ_GAME, QUIZ_LIFELINES, QUIZ_LIFELINES_PER_TEAM } from "@/constants/quiz-grid";
 import {
   activateQuizLifeline,
@@ -42,13 +43,6 @@ function otherTeam(team: QuizTeam): QuizTeam {
 
 const ROOM_STORAGE_KEY = "quiz_referee_room_code";
 const ACTIVE_SESSION_KEY = "quiz_active_session";
-
-/** الثواني المتبقية حتى وقت الانتهاء المخزّن في قاعدة البيانات. */
-function secondsUntil(deadline: string | null): number {
-  if (!deadline) return 0;
-  const diff = Math.ceil((new Date(deadline).getTime() - Date.now()) / 1000);
-  return Math.max(0, diff);
-}
 
 /** يحمّل صورة في ذاكرة تخزين المتصفح المؤقتة. فشل صورة واحدة لا يوقف الباقي. */
 function preloadImage(url: string): Promise<void> {
@@ -398,25 +392,49 @@ export function useQuizHost() {
   }, [sessionPing]);
 
   // -------------------------------------------------------------------
-  // المؤقت — يُحسب محلياً من وقت الانتهاء، بلا أي كتابة لكل ثانية
+  // المؤقت — يُحسب محلياً من وقت الانتهاء، بلا أي كتابة لكل ثانية.
+  // العد على ساعة السيرفر (lib/game/server-clock.ts — نفس باقي الألعاب)، مو ساعة جهاز الحكم:
+  // وقت الانتهاء ينحسب بالسيرفر، فلو ساعة الجهاز مقدّمة أو متأخرة كان العداد يطلع غلط بنفس الفرق
   // -------------------------------------------------------------------
 
+  useServerClock();
+  // أول قياس للساعة: قبله ما نبدأ عد شغال (بعد تحديث الصفحة وسط سؤال، الجهاز المقدّم كان يشوف الوقت خالص)
+  const [clockReady, setClockReady] = useState(false);
+  useEffect(() => {
+    let on = true;
+    void whenServerClockReady().then(() => on && setClockReady(true));
+    return () => {
+      on = false;
+    };
+  }, []);
+
   const deadline = room?.question_deadline_at ?? null;
+  const endsAt = deadline ? Date.parse(deadline) : null;
   const isTimerRunning = room?.is_timer_running ?? false;
   const roomTimerSeconds = room?.timer_seconds ?? QUIZ_CONFIG.TIMER_DEFAULT;
 
   useEffect(() => {
-    setRemaining(deadline ? secondsUntil(deadline) : roomTimerSeconds);
-    if (!deadline || !isTimerRunning) return;
-
-    const id = setInterval(() => setRemaining(secondsUntil(deadline)), 250);
-    return () => clearInterval(id);
-  }, [deadline, isTimerRunning, roomTimerSeconds]);
+    if (endsAt === null) {
+      setRemaining(roomTimerSeconds);
+      return;
+    }
+    // واقف (كشف الإجابة): الرقم لحظة الوقفة
+    if (!isTimerRunning) {
+      setRemaining(Math.max(0, Math.ceil((endsAt - serverNow()) / 1000)));
+      return;
+    }
+    // قبل أول قياس (لحظات بعد فتح الصفحة): مدة السؤال، ونبدأ العد أول ما تجهز الساعة
+    if (!clockReady) {
+      setRemaining(roomTimerSeconds);
+      return;
+    }
+    return startCountdown(endsAt, setRemaining);
+  }, [endsAt, isTimerRunning, roomTimerSeconds, clockReady]);
 
   // صفر العدّاد: لو ما وصل أي تحديث من البث خلال ثانيتين بعده، القراءة الاحتياطية تقرا الغرفة على طول
   useEffect(() => {
-    backupRef.current?.watchDeadline(deadline && isTimerRunning ? Date.parse(deadline) : null);
-  }, [deadline, isTimerRunning, roomCode]);
+    backupRef.current?.watchDeadline(isTimerRunning ? endsAt : null);
+  }, [endsAt, isTimerRunning, roomCode]);
 
   // -------------------------------------------------------------------
   // مشتقات اللوحة
@@ -479,11 +497,15 @@ export function useQuizHost() {
   const run = useCallback(
     async <T,>(
       fn: () => Promise<{ success: boolean; error?: string; data?: T }>,
-      onDone?: (data?: T) => void
+      onDone?: (data?: T) => void,
+      /** يتغير على الشاشة على طول قبل رد السيرفر، ويرجّع دالة تعيده مثل ما كان لو فشل الطلب */
+      optimistic?: () => () => void
     ) => {
       if (isBusy) return;
       setIsBusy(true);
       ownWritesRef.current++;
+      const undo = optimistic?.();
+      let ok = false;
       try {
         const res = await fn();
         ownWritesRef.current++;
@@ -491,8 +513,11 @@ export function useQuizHost() {
           triggerAlert(res.error || "حدث خطأ غير متوقع.");
           return;
         }
+        ok = true;
         onDone?.(res.data);
       } finally {
+        // فشل الطلب (رفضه السيرفر أو انقطع النت): الشاشة ترجع مثل ما كانت
+        if (!ok) undo?.();
         setIsBusy(false);
       }
     },
@@ -606,15 +631,29 @@ export function useQuizHost() {
       }
     );
 
-  const award = (team: QuizTeam | null) =>
-    run(
+  /**
+   * نتيجة السؤال (صح لفريق، أو لا أحد أجاب). خلية السؤال تنقفل على شاشة الحكم أول ما يضغط، بدون ما تنتظر
+   * رد السيرفر — قبل كانت اللوحة ترجع والخلية تبين متاحة لين توصل اللوحة الجديدة، ولو ضغطها: "تم استخدام
+   * هذا السؤال مسبقاً". لو فشل الطلب ترجع مثل ما كانت. (النقاط والدور تظل من السيرفر)
+   */
+  const award = (team: QuizTeam | null) => {
+    const cellId = room?.active_cell_id ?? activeQuestion?.id ?? null;
+    const before = cellId ? cells.find((c) => c.id === cellId) : undefined;
+    return run(
       () => resolveQuizQuestion({ roomCode, awardedTeam: team }),
       () => {
         setActiveQuestion(null);
         setAnswerContent(null);
         refreshSession();
-      }
+      },
+      before
+        ? () => {
+            setCells((cs) => cs.map((c) => (c.id === before.id ? { ...c, status: "consumed", awarded_team: team } : c)));
+            return () => setCells((cs) => cs.map((c) => (c.id === before.id ? before : c)));
+          }
+        : undefined
     );
+  };
 
   /**
    * تفعيل وسيلة مساعدة. الفريق المُفعِّل يُحسب من سجل القواعد في
