@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { ToastProvider } from '@/components/providers/ToastProvider'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+import { SpeedInsightsDeferred } from '@/components/providers/SpeedInsightsDeferred'
 
 const cairo = Cairo({ subsets: ['arabic'], weight: ['400', '700', '900'] })
 // خط العناوين بالواجهة العامة (font-display) — بدون تحميل مسبق، فما يأثر على صفحات الألعاب
@@ -35,6 +36,8 @@ export default function RootLayout({
             </main>
           </AuthProvider>
         </ThemeProvider>
+        {/* قياس سرعة الصفحات (Vercel Speed Insights): يتحمّل بعد ما تخلص الصفحة */}
+        <SpeedInsightsDeferred />
       </body>
     </html>
   )
