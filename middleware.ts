@@ -1,50 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// بسيط وسريع: تتبع محلي لطلبات الـ IP (يعمل بشكل جيد في بيئات Serverless لمنع السبام السريع)
-const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // دقيقة واحدة
-const RATE_LIMIT_MAX_REQUESTS = 10; // 10 طلبات في الدقيقة للصفحات الحساسة
-
-function checkRateLimit(request: NextRequest): boolean {
-  // تطبيق الحد من الطلبات فقط على مسارات تسجيل الدخول والتسجيل
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/player");
-  
-  if (!isAuthRoute) return true; // مسموح للطلبات الأخرى
-
-  // الحصول على IP المستخدم
-  const ip = request.headers.get("x-forwarded-for") || "unknown-ip";
-  const now = Date.now();
-  
-  const record = rateLimitMap.get(ip);
-  if (!record) {
-    rateLimitMap.set(ip, { count: 1, lastReset: now });
-    return true;
-  }
-
-  // إعادة تعيين العداد إذا مر الوقت المحدد
-  if (now - record.lastReset > RATE_LIMIT_WINDOW) {
-    rateLimitMap.set(ip, { count: 1, lastReset: now });
-    return true;
-  }
-
-  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false; // تم تجاوز الحد
-  }
-
-  record.count += 1;
-  return true;
-}
+// ما فيه حد طلبات هنا: الدخول وإنشاء الحساب يروحون من المتصفح لـ Supabase مباشرة (ما يمرون على هذا الملف)،
+// فالحد اللي كان هنا يحسب فتح صفحتي /login و/player والـ prefetch بس، ويوقف ناس على نفس الـ IP (شبكات الجوال).
+// حد المحاولات الحين: عند Supabase لكل IP (Authentication > Rate Limits)، وعلى نفس الجهاز بالصفحة (lib/auth/attempt-limit.ts).
 
 export async function middleware(request: NextRequest) {
-  // التحقق من الحد من الطلبات (Rate Limiting) أولاً
-  if (!checkRateLimit(request)) {
-    return new NextResponse(
-      JSON.stringify({ error: "Too many requests, please try again later." }),
-      { status: 429, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
   let supabaseResponse = NextResponse.next({
     request,
   });

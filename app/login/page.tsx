@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { Moon, Sun, Mail, ShieldCheck, KeyRound } from "lucide-react";
 import { AuthShell } from "@/components/home/SitePage";
 import { BTN_GOLD, BTN_SOFT, CARD, FIELD, LABEL } from "@/components/home/ui";
+import { clearAttempts, isCountableFailure, lockedFor, lockMessage, rateLimitMessage, recordAttempt, recordServerLimit } from "@/lib/auth/attempt-limit";
 
 export default function LoginPage() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -26,6 +27,9 @@ export default function LoginPage() {
       setMessage("الرجاء كتابة البريد الإلكتروني وكلمة المرور");
       return;
     }
+    // حد المحاولات على هالجهاز (lib/auth/attempt-limit.ts)
+    const wait = lockedFor("signin");
+    if (wait) { setMessage(lockMessage(wait)); return; }
     setLoading(true);
     setMessage("");
     try {
@@ -35,8 +39,11 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setMessage(`خطأ: ${error.message}`);
+        const limited = rateLimitMessage(error);
+        const lockedNow = limited ? recordServerLimit("signin") : isCountableFailure(error) ? recordAttempt("signin") : 0;
+        setMessage(limited ?? (lockedNow ? lockMessage(lockedNow) : `خطأ: ${error.message}`));
       } else if (data.session) {
+        clearAttempts("signin");
         setMessage("تم تسجيل الدخول بنجاح! جاري تحويلك...");
         if (data.session.user?.app_metadata?.role === "admin") {
           window.location.href = "/admin";
@@ -57,6 +64,9 @@ export default function LoginPage() {
       );
       return;
     }
+    const wait = lockedFor("reset");
+    if (wait) { setMessage(lockMessage(wait)); return; }
+    recordAttempt("reset"); // كل طلب = إيميل
     setLoading(true);
     setMessage("");
     try {
@@ -64,7 +74,9 @@ export default function LoginPage() {
         redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
       });
       if (error) {
-        setMessage(`خطأ: ${error.message}`);
+        const limited = rateLimitMessage(error);
+        if (limited) recordServerLimit("reset");
+        setMessage(limited ?? `خطأ: ${error.message}`);
       } else {
         setMessage(
           "تم إرسال رابط استعادة كلمة المرور لإيميلك! شيك على الوارد.",

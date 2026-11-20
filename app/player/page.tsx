@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { SitePage } from "@/components/home/SitePage";
 import { NoticeDialog } from "@/components/home/NoticeDialog";
 import { BTN_GOLD, BTN_SOFT, CARD, FIELD } from "@/components/home/ui";
+import {
+  type AttemptKind, clearAttempts, isCountableFailure, lockedFor, lockMessage,
+  rateLimitMessage, recordAttempt, recordServerLimit, waitClock,
+} from "@/lib/auth/attempt-limit";
 
 const supabase = getSupabaseBrowser();
 
@@ -21,6 +25,17 @@ export default function PlayerLoginPage() {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [notification, setNotification] = useState({ isOpen: false, message: "", type: "success" });
+
+  // حد المحاولات على هالجهاز (lib/auth/attempt-limit.ts): كم باقي على فك الإيقاف، يتحدّث كل ثانية للعدّاد بالزر
+  const kind: AttemptKind = isLoginMode ? "signin" : "signup";
+  const [lockLeft, setLockLeft] = useState(0);
+  useEffect(() => {
+    const tick = () => setLockLeft(lockedFor(kind));
+    const first = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => { clearTimeout(first); clearInterval(id); };
+  }, [kind]);
+  const showError = (message: string) => setNotification({ isOpen: true, message, type: "error" });
 
   // التبديل بين الدخول وإنشاء حساب (يمسح كلمة المرور زي قبل)
   const switchMode = (loginMode: boolean) => {
@@ -50,13 +65,18 @@ export default function PlayerLoginPage() {
       setNotification({ isOpen: true, message: "الرجاء كتابة البريد الإلكتروني أولاً حتى نتمكن من إرسال رابط الاستعادة", type: "error" });
       return;
     }
+    const wait = lockedFor("reset");
+    if (wait) { showError(lockMessage(wait)); return; }
+    recordAttempt("reset"); // كل طلب = إيميل
     setAuthLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(authEmail, {
         redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
       });
       if (error) {
-        setNotification({ isOpen: true, message: `خطأ: ${error.message}`, type: "error" });
+        const limited = rateLimitMessage(error);
+        if (limited) recordServerLimit("reset");
+        setNotification({ isOpen: true, message: limited ?? `خطأ: ${error.message}`, type: "error" });
       } else {
         setNotification({ isOpen: true, message: "تم إرسال رابط استعادة كلمة المرور لإيميلك! شيك على الوارد.", type: "success" });
       }
@@ -74,6 +94,8 @@ export default function PlayerLoginPage() {
         setNotification({ isOpen: true, message: "الرجاء إدخال البريد الإلكتروني وكلمة المرور.", type: "error" });
         return;
       }
+      const wait = lockedFor("signin");
+      if (wait) { showError(lockMessage(wait)); return; }
       setAuthLoading(true);
       try {
         const { error } = await supabase.auth.signInWithPassword({
@@ -81,11 +103,20 @@ export default function PlayerLoginPage() {
           password: authPassword,
         });
         if (error) throw error;
+        clearAttempts("signin");
         // نستخدم window.location.href بدلاً من router.push لضمان أن Middleware يقرأ الكوكيز الجديدة
         window.location.href = "/";
       } catch (error: any) {
         console.error("Email auth error:", error);
-        if (error.message && error.message.toLowerCase().includes("email not confirmed")) {
+        const limited = rateLimitMessage(error);
+        // دخول غلط ينحسب على هالجهاز (انقطاع النت ما ينحسب)
+        const lockedNow = limited ? recordServerLimit("signin") : isCountableFailure(error) ? recordAttempt("signin") : 0;
+        setLockLeft(lockedFor("signin"));
+        if (limited) {
+          showError(limited);
+        } else if (lockedNow) {
+          showError(lockMessage(lockedNow));
+        } else if (error.message && error.message.toLowerCase().includes("email not confirmed")) {
           // حسابات قديمة أُنشئت قبل تعطيل تأكيد البريد
           setNotification({ isOpen: true, message: "هذا الحساب غير موثق. تواصل مع الدعم لتفعيله.", type: "error" });
         } else {
@@ -104,6 +135,9 @@ export default function PlayerLoginPage() {
         return;
       }
 
+      const wait = lockedFor("signup");
+      if (wait) { showError(lockMessage(wait)); return; }
+      recordAttempt("signup"); // كل إرسال لنموذج الحساب الجديد ينحسب
       setAuthLoading(true);
       try {
         const { data, error } = await supabase.auth.signUp({
@@ -118,6 +152,8 @@ export default function PlayerLoginPage() {
 
         // التقاط خطأ الإيميل المستخدم
         if (error) {
+          const limited = rateLimitMessage(error);
+          if (limited) { recordServerLimit("signup"); throw new Error(limited); }
           if (error.status === 422 || (error.message && error.message.includes("already registered"))) {
             throw new Error("هذا البريد الإلكتروني مستخدم مسبقاً.");
           }
@@ -137,6 +173,7 @@ export default function PlayerLoginPage() {
         setNotification({ isOpen: true, message: error.message || "حدث خطأ أثناء التسجيل.", type: "error" });
       } finally {
         setAuthLoading(false);
+        setLockLeft(lockedFor("signup"));
       }
     }
   };
@@ -221,8 +258,8 @@ export default function PlayerLoginPage() {
             </div>
           )}
 
-          <button type="submit" disabled={authLoading} className={`${BTN_GOLD} w-full mt-1 text-lg`}>
-            {authLoading ? "جاري التحميل..." : (isLoginMode ? "تسجيل الدخول" : "إنشاء حساب جديد")}
+          <button type="submit" disabled={authLoading || lockLeft > 0} className={`${BTN_GOLD} w-full mt-1 text-lg`}>
+            {authLoading ? "جاري التحميل..." : lockLeft > 0 ? <span dir="rtl">جرّب بعد <span dir="ltr" className="tabular-nums">{waitClock(lockLeft)}</span></span> : (isLoginMode ? "تسجيل الدخول" : "إنشاء حساب جديد")}
           </button>
         </form>
 

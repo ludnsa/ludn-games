@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { AuthShell } from "@/components/home/SitePage";
 import { BTN_GOLD, CARD, FIELD, LABEL } from "@/components/home/ui";
+import { rateLimitMessage } from "@/lib/auth/attempt-limit";
 
 const supabase = getSupabaseBrowser();
 
@@ -32,7 +33,7 @@ export default function ResetPasswordPage() {
       });
 
       if (error) {
-        setMessage(`خطأ: ${error.message}`);
+        setMessage(rateLimitMessage(error) ?? `خطأ: ${error.message}`);
       } else {
         setMessage("تم تحديث كلمة المرور بنجاح! جاري تحويلك للموقع...");
 
