@@ -6,6 +6,7 @@ import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { serverNow, startCountdown, useServerClock } from "@/lib/game/server-clock";
 import { startBackupRead, type BackupRead } from "@/lib/game/room-backup-read";
 
+import { GuideButton } from "@/components/guides/GuideButton";
 import AudienceCapitalAlert from "@/components/games/world-domination/audience/AudienceCapitalAlert";
 import AudienceGameOver from "@/components/games/world-domination/audience/AudienceGameOver";
 import AudienceQuestionModal from "@/components/games/world-domination/audience/AudienceQuestionModal";
@@ -193,6 +194,8 @@ export default function WorldDominationAudience() {
   if (!roomCode) {
     return (
       <div className={`relative z-[999] pointer-events-auto min-h-screen flex items-center justify-center p-4 ${cairo.className}`} dir="rtl">
+        {/* زر صغير: طريقة اللعب */}
+        <div className="fixed top-3 left-3 z-[1010]"><GuideButton gameId="world-domination" variant="small" /></div>
         <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 max-w-sm w-full text-center shadow-xl border border-slate-200 dark:border-slate-800 relative z-[1000]">
           <Globe className="w-16 h-16 text-blue-500 mx-auto mb-6 animate-pulse" />
           <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">الدخول للرادار</h2>
@@ -277,6 +280,8 @@ export default function WorldDominationAudience() {
       className={`relative w-full min-h-[100dvh] overflow-x-hidden overflow-y-auto text-slate-900 dark:text-white p-3 lg:p-6 max-lg:pt-[calc(5.25rem+env(safe-area-inset-top))] flex flex-col gap-4 lg:gap-6 transition-colors duration-700 ${cairo.className}`}
       dir="rtl"
     >
+      {/* زر صغير: طريقة اللعب (تحت يسار، بعيد عن شريط النقاط) */}
+      <div className="fixed bottom-3 left-3 z-[80]"><GuideButton gameId="world-domination" variant="small" /></div>
       {/* الجوال: شريط النقاط ثابت فوق، يبقى ظاهر وهم ينزلون. الشاشة الكبيرة ما يطلع فيها */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-70 px-3 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 bg-slate-950/85 backdrop-blur-md border-b border-white/10 shadow-lg">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 max-w-2xl mx-auto">

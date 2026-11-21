@@ -181,7 +181,7 @@ export default function MafiaHostMenu({ ctx }: { ctx: MafiaGameCtx }) {
                   <MenuButton
                     icon={<UserX size={20} />}
                     label="طرد لاعب"
-                    hint="يطلع من الغرفة فوراً وما يقدر يرجع لين تخلص الجولة"
+                    hint="يطلع من الغرفة. يقدر يرجع بس وقت غرفة الانتظار."
                     tone="danger"
                     onClick={() => togglePicker("kick")}
                     disabled={busy}

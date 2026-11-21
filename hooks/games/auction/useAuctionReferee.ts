@@ -294,13 +294,19 @@ export function useAuctionReferee() {
     if (!roomCode) return;
 
     type BidsRow = { t1_bid?: number | null; t2_bid?: number | null };
-    const applyBids = (row: BidsRow) => {
-      if (row.t1_bid !== undefined) setT1Bid(row.t1_bid === null ? "" : row.t1_bid);
-      if (row.t2_bid !== undefined) setT2Bid(row.t2_bid === null ? "" : row.t2_bid);
+    // آخر مزايدة شفناها بالقاعدة لكل فريق. نطبّق بس العمود اللي تغيّر هناك: التحديث يجي بالصف كامل،
+    // فمزايدة جوال فريق (عموده بس تغيّر) ما تمسح مزايدة كتبها الحكم بيده للفريق الثاني (عموده فاضي بالقاعدة)
+    let seen: { t1: number | null; t2: number | null } | null = null;
+    const applyChangedBids = (row: BidsRow, apply: boolean) => {
+      const prev = seen;
+      const t1 = row.t1_bid === undefined ? (prev?.t1 ?? null) : row.t1_bid;
+      const t2 = row.t2_bid === undefined ? (prev?.t2 ?? null) : row.t2_bid;
+      seen = { t1, t2 };
+      if (!apply) return;
+      // أول مرة نشوف الصف: نطبّق المزايدات الموجودة بس (الفاضي ما يمسح شي)
+      if (row.t1_bid !== undefined && (prev ? t1 !== prev.t1 : t1 !== null)) setT1Bid(t1 === null ? "" : t1);
+      if (row.t2_bid !== undefined && (prev ? t2 !== prev.t2 : t2 !== null)) setT2Bid(t2 === null ? "" : t2);
     };
-    // آخر مزايدات وصلت من القاعدة: القراءة تكتب بس لو تغيّرت هناك (ما تمسح مزايدة يكتبها الحكم بيده)
-    let lastBids = "";
-    const bidsKey = (row: BidsRow) => JSON.stringify([row.t1_bid ?? null, row.t2_bid ?? null]);
 
     // القراءة الاحتياطية (وقت المزايدة بس): مزايدة فاتت الحكم بالبث توصله لحالها، بدون تحديث الصفحة.
     // بعد المزايدة المبالغ عند الحكم هي المعتمدة، فما نلمسها
@@ -309,18 +315,14 @@ export function useAuctionReferee() {
       const mine = ownBidWritesRef.current;
       const { data } = await supabase.from("auction_rooms").select("t1_bid, t2_bid").eq("room_code", roomCode).abortSignal(signal).maybeSingle();
       if (!data || !isFresh() || ownBidWritesRef.current !== mine || gameStateRef.current !== "bidding") return;
-      const key = bidsKey(data);
-      if (key === lastBids) return;
-      lastBids = key;
-      applyBids(data);
+      applyChangedBids(data, true);
     });
 
     const channel = supabase.channel('referee_sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'auction_rooms', filter: `room_code=eq.${roomCode}` }, (payload) => {
         backup.onEvent();
-        const newData = payload.new as BidsRow;
-        lastBids = bidsKey(newData);
-        applyBids(newData);
+        // وقت المزايدة بس (نفس القراءة الاحتياطية): بعدها المبالغ عند الحكم هي المعتمدة، فتحديثات الغرفة ما تمسحها
+        applyChangedBids(payload.new as BidsRow, gameStateRef.current === "bidding");
       })
       .subscribe((status) => backup.onStatus(status));
 
@@ -526,11 +528,13 @@ export function useAuctionReferee() {
     if (winId === 1) setT1Balance(p => Math.max(0, p - winningBid));
     else setT2Balance(p => Math.max(0, p - winningBid));
 
-    // تحديث قاعدة البيانات بالمزايدات لو الحكم دخلها يدوي عشان شاشة اللاعبين تتحدث
+    // تحديث قاعدة البيانات بالمزايدات لو الحكم دخلها يدوي عشان شاشة اللاعبين تتحدث.
+    // لازم .then(): طلب Supabase ما ينرسل إلا لما ينتظر — قبل ما كان ينرسل أبداً، فتظل المزايدات فاضية بالقاعدة
+    // وأول تحديث للغرفة يمسح مزايدات الحكم (فالكمين يسترد ويخصم صفر)
     ownBidWritesRef.current++;
-    supabase.from("auction_rooms").update({
-      t1_bid: b1, t2_bid: b2 
-    }).eq("room_code", roomCode);
+    void supabase.from("auction_rooms").update({
+      t1_bid: b1, t2_bid: b2
+    }).eq("room_code", roomCode).then(() => { ownBidWritesRef.current++; });
 
     setGameState("preRisk");
   };

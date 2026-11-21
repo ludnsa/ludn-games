@@ -33,6 +33,26 @@ export type TeamSetup = { rooms: number[]; commanderRoom: number | null; trapRoo
 export type SoundType = "roll" | "hit" | "miss" | "trap" | "commander" | "win" | "tick" | "buzzer";
 export type ChallengeType = "30sec" | "5sec" | "general" | "team" | "guess" | "";
 
+/** نوافذ تستقبل الأسرى: مخفية (تقدر تنضرب)، ومو نافذة القائد ولا الفخ */
+const captureRoomsOf = (data: TeamSetup | null, revealed: boolean[]) =>
+  data ? Array.from({ length: ROOMS_COUNT }, (_, i) => i).filter((i) => !revealed[i] && i !== data.commanderRoom && i !== data.trapRoom) : [];
+
+/** أكثر شي تقدر الضربات تنقصه من الفريق: جنود نوافذه المخفية (الفخ ما ينقص صاحبه)، والقائد المخفي +30 */
+const reachableDamageOf = (data: TeamSetup, revealed: boolean[]) => {
+  let total = 0;
+  for (let i = 0; i < ROOMS_COUNT; i++) {
+    if (revealed[i] || i === data.trapRoom) continue;
+    total += (data.rooms[i] || 0) + (i === data.commanderRoom ? 30 : 0);
+  }
+  return total;
+};
+
+/** النتيجة بعدد الجنود: الأكثر يفوز، والتساوي تعادل */
+const countResult = (hp1: number, hp2: number, team1Name: string, team2Name: string) =>
+  hp1 > hp2 ? { type: "team1Win" as const, msg: `انتصر ${team1Name}!` }
+    : hp2 > hp1 ? { type: "team2Win" as const, msg: `انتصر ${team2Name}!` }
+      : { type: "draw" as const, msg: "انتهت اللعبة بالتعادل" };
+
 const createSoundSynth = () => {
   if (typeof window === "undefined") return null;
   const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -235,18 +255,30 @@ export function useCastleWar() {
     manualEndRef.current = true;
     if (code) void endBrowserGameSession(GAME_ID, code);
     setGameState("gameOver");
-    let msg = "انتهت اللعبة بالتعادل";
-    let type: "team1Win" | "team2Win" | "draw" | "" = "draw";
-    if (hp1 > hp2) {
-      msg = `انتصر ${team1Name}!`;
-      type = "team1Win";
-    } else if (hp2 > hp1) {
-      msg = `انتصر ${team2Name}!`;
-      type = "team2Win";
-    }
-    setResultMsg(msg);
-    setResultType(type);
+    // شاشة النهاية (والجمهور) تعرض الفايز من resultType: الأكثر جنود، والتساوي تعادل
+    const result = countResult(hp1, hp2, team1Name, team2Name);
+    setResultMsg(result.msg);
+    setResultType(result.type);
   };
+
+  // ضمان ما تتعلق الحرب: الفريقين باقي لهم جنود، بس واحد منهم ما بقى له ولا نافذة مخفية تنقص منه
+  // (ما يصير مع الأسر الجديد، بس ممكن ببيانات قديمة أو ناقصة). وقتها ما فيه هدف ينضغط،
+  // فتنتهي بعد ثانية بعدد الجنود مثل "إنهاء اللعبة". والنهاية الطبيعية (عداد صفّر) لها أولوية
+  const unreachable = gameState === "playing" && battleStep !== "trapChoice" && !!team1Data && !!team2Data && hp1 > 0 && hp2 > 0
+    && (reachableDamageOf(team1Data, revealed1) === 0 || reachableDamageOf(team2Data, revealed2) === 0);
+  const stuckResult = unreachable ? countResult(hp1, hp2, team1Name, team2Name) : null;
+  const stuckType = stuckResult?.type ?? null;
+  const stuckMsg = stuckResult?.msg ?? null;
+  useEffect(() => {
+    if (!stuckType || !stuckMsg) return;
+    const timer = setTimeout(() => {
+      setGameState("gameOver");
+      setResultMsg(stuckMsg);
+      setResultType(stuckType);
+      if (soundEnabled && synthRef.current) synthRef.current.playMasterSound("win");
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [stuckType, stuckMsg, soundEnabled, setGameState, setResultMsg, setResultType]);
 
   // القراءة الاحتياطية لخطط الفرق: لو التصفير صار وهي بالطريق، ردها قديم (فيه الخطط اللي انمسحت) فنتركه
   const resetSeqRef = useRef(0);
@@ -415,6 +447,10 @@ export function useCastleWar() {
              if (data.live_sync && data.live_sync.gameState) {
                 if (data.live_sync.gameState !== "lobby") {
                   setGameState(data.live_sync.gameState);
+                  // الأسرى ينضافون لنوافذ صاحب الفخ في live_sync بس (الخطة بالقاعدة ما تتغير)، فنرجّع التوزيع منه.
+                  // بدونه يرجع العداد +20 والنوافذ بدون الأسرى، فما يقدر الخصم يصفّره
+                  if (data.team1_setup && Array.isArray(data.live_sync.team1Data?.rooms)) setTeam1Data(data.live_sync.team1Data);
+                  if (data.team2_setup && Array.isArray(data.live_sync.team2Data?.rooms)) setTeam2Data(data.live_sync.team2Data);
                   if (data.live_sync.hp1 !== undefined) setHp1(data.live_sync.hp1);
                   if (data.live_sync.hp2 !== undefined) setHp2(data.live_sync.hp2);
                   if (data.live_sync.revealed1 !== undefined) setRevealed1(data.live_sync.revealed1);
@@ -760,9 +796,6 @@ export function useCastleWar() {
     const setDefenderRevealed = isTeam1Attacking ? setRevealed2 : setRevealed1;
     const defenderRevealed = isTeam1Attacking ? revealed2 : revealed1;
 
-    if (isTeam1Attacking) setSpyUsed1(true);
-    else setSpyUsed2(true);
-
     let maxSoldiers = -1;
     let targetRoom = -1;
     for (let i = 0; i < ROOMS_COUNT; i++) {
@@ -773,6 +806,9 @@ export function useCastleWar() {
     }
 
     if (targetRoom !== -1) {
+      // الجاسوس ينحسب بس لما يلقى نافذة يضربها (قبل كان ينحسب حتى لو ما فيه ولا نافذة مخفية)
+      if (isTeam1Attacking) setSpyUsed1(true);
+      else setSpyUsed2(true);
       setTargetRoomIndex(targetRoom);
       setTimeout(() => {
         setTargetRoomIndex(null);
@@ -909,48 +945,44 @@ export function useCastleWar() {
     }, 800);
   };
 
+  // زر الأسر: يشتغل بس لو عند صاحب الفخ نافذة تستقبل الأسرى (نفس شرط resolveTrap)
+  const canCapture = attackingTeam === 1 ? captureRoomsOf(team2Data, revealed2).length > 0 : captureRoomsOf(team1Data, revealed1).length > 0;
+
   const resolveTrap = (choice: "capture" | "kill") => {
     const isTeam1Attacking = attackingTeam === 1;
     const defenderData = isTeam1Attacking ? team2Data! : team1Data!;
     const setDefenderData = isTeam1Attacking ? setTeam2Data : setTeam1Data;
     let currentHp1 = hp1;
     let currentHp2 = hp2;
-    let msg = "";
+    let msg = `تم تصفية 20 جندي في الفخ!`;
 
-    if (choice === "kill") {
-      const damage = 20;
-      if (isTeam1Attacking) {
-        currentHp1 = Math.max(0, hp1 - damage);
-        setHp1(currentHp1);
-      } else {
-        currentHp2 = Math.max(0, hp2 - damage);
-        setHp2(currentHp2);
-      }
-      msg = `تم تصفية 20 جندي في الفخ!`;
+    // المهاجم يخسر 20 (أو اللي باقي عنده لو أقل)، والأسرى نفس العدد بالضبط
+    const lost = Math.min(20, isTeam1Attacking ? hp1 : hp2);
+    if (isTeam1Attacking) {
+      currentHp1 = hp1 - lost;
+      setHp1(currentHp1);
     } else {
-      const damage = 20;
+      currentHp2 = hp2 - lost;
+      setHp2(currentHp2);
+    }
+
+    // الأسرى يروحون بس لنوافذ صاحب الفخ المخفية (غير القائد والفخ): كل جندي عنده يقدر الخصم يوصله، فالحرب ما تتعلق.
+    // ولو ما فيه نافذة كذا (ما تصير وصاحب الفخ عنده جنود، إلا ببيانات قديمة) الأسر ما يمديه ويصير قتل
+    const captureRooms = captureRoomsOf(defenderData, isTeam1Attacking ? revealed2 : revealed1);
+    if (choice === "capture" && captureRooms.length > 0) {
       if (isTeam1Attacking) {
-        currentHp1 = Math.max(0, hp1 - damage);
-        setHp1(currentHp1);
-        currentHp2 = hp2 + 20;
+        currentHp2 = hp2 + lost;
         setHp2(currentHp2);
       } else {
-        currentHp2 = Math.max(0, hp2 - damage);
-        setHp2(currentHp2);
-        currentHp1 = hp1 + 20;
+        currentHp1 = hp1 + lost;
         setHp1(currentHp1);
       }
-      let newRooms = [...defenderData.rooms];
-      let soldiersToAdd = 20;
-      while (soldiersToAdd > 0) {
-        let r = Math.floor(Math.random() * ROOMS_COUNT);
-        if (r !== defenderData.trapRoom) {
-          newRooms[r]++;
-          soldiersToAdd--;
-        }
+      const newRooms = [...defenderData.rooms];
+      for (let i = 0; i < lost; i++) {
+        newRooms[captureRooms[Math.floor(Math.random() * captureRooms.length)]]++;
       }
       setDefenderData({ ...defenderData, rooms: newRooms });
-      msg = `تم أسر 20 جندي وانضموا للقلعة!`;
+      msg = `تم أسر ${lost} جندي وانضموا للقلعة!`;
     }
     setResultMsg(msg);
     setResultType("trap");
@@ -964,8 +996,11 @@ export function useCastleWar() {
   };
 
   const nextTurn = () => {
-    setTurn((prev) => (prev === 1 ? 2 : 1));
-    setAttackingTeam((prev) => (prev === 1 ? 2 : 1));
+    // الدور والهجوم للفريق الجاي نفسه. قبل كان المهاجم ينقلب من آخر مهاجم، فبعد العكسي (أو فوز الخصم في التوقع
+    // أو تصحيح الفائز) يطلع "دور الهجوم" للفريق الغلط وتحته "اختر التحدي" لصاحب الدور
+    const next: 1 | 2 = turn === 1 ? 2 : 1;
+    setTurn(next);
+    setAttackingTeam(next);
     setBattleStep("roll");
     setResultType("idle");
   };
@@ -982,6 +1017,6 @@ export function useCastleWar() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, canCapture, nextTurn, isAccessChecking, endGame, resetGame
   };
 }

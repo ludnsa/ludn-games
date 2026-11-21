@@ -40,10 +40,11 @@ export default function GameDialog({ dialog, closeDialog }: GameDialogProps) {
           )}
           <button
             onClick={() => {
-              if (dialog.type === "confirm" && dialog.onConfirm) {
-                dialog.onConfirm();
-              }
+              // نقفل أول ثم ننفذ: لو التنفيذ فتح رسالة جديدة (نجاح التجسس/النووي) تظل مفتوحة لين يقفلها الحكم.
+              // (قبل: الإقفال بعد التنفيذ كان يقفل الرسالة الجديدة بنفس الضغطة)
+              const onConfirm = dialog.type === "confirm" ? dialog.onConfirm : undefined;
               closeDialog();
+              onConfirm?.();
             }}
             className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black transition-colors shadow-md border-b-4 border-blue-800 active:border-b-0 active:translate-y-[4px]"
           >

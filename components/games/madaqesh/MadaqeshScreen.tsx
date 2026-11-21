@@ -12,7 +12,6 @@ import {
   Check,
   QrCode,
   ChevronDown,
-  BookOpen,
   Shuffle,
   Play,
   Bot,
@@ -32,12 +31,11 @@ import {
   CheckCheck,
 } from "lucide-react";
 import {
-  MADAQESH_CARD_ORDER,
   MADAQESH_CONFIG,
   MADAQESH_GAME,
-  MADAQESH_HAND_RANKS,
   MADAQESH_ORDINALS,
   formatMoney,
+  madaqeshBankruptLabel,
 } from "@/constants/madaqesh";
 import type { MadaqeshGameCtx } from "@/hooks/games/madaqesh/useMadaqeshGame";
 import { writeMadaqeshSession } from "@/lib/game/madaqesh-session";
@@ -58,6 +56,7 @@ import {
   MQ_WELL,
 } from "./madaqeshUi";
 import MadaqeshSettingsForm from "./MadaqeshSettingsForm";
+import { GuideButton } from "@/components/guides/GuideButton";
 import { MadaqeshBidding, MadaqeshDeciding, MadaqeshResponding, MadaqeshResult, MadaqeshShowdown, roundHeadline } from "./MadaqeshRound";
 
 function phaseLabel(phase: MadaqeshPhase, round: number): string {
@@ -107,7 +106,8 @@ export default function MadaqeshScreen({ ctx, onLeave }: { ctx: MadaqeshGameCtx;
           </p>
           <h1 className="text-xl font-black leading-tight break-words [text-shadow:0_2px_10px_rgba(0,0,0,0.6)]">{phaseLabel(phase, room.round_number)}</h1>
         </div>
-        {phase !== "closed" && <HandRanksButton />}
+        {/* طريقة اللعب (وفيها ترتيب القوى) — يشوفها الكل */}
+        {phase !== "closed" && <GuideButton gameId="madaqesh" dark className={`h-11 px-3 rounded-2xl text-sm text-slate-100 ${MQ_SMALL_BTN}`} />}
         {inGame && <HistoryButton ctx={ctx} />}
         {ctx.isHost && phase !== "closed" && <HostMenu ctx={ctx} />}
         {phase === "lobby" && !ctx.isHost && (
@@ -316,7 +316,7 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
             </li>
             <li className={`p-3 rounded-2xl ${MQ_TILE}`}>
               <p className={`text-xs font-bold ${MQ_MUTED}`}>الإفلاس</p>
-              <span className="font-black">{s.maxBankrupts} مرات</span>
+              <span className="font-black">{madaqeshBankruptLabel(s.maxBankrupts)}</span>
             </li>
           </ul>
         )}
@@ -403,52 +403,6 @@ function OrderMenu({
           })}
         </div>
       </div>
-    </>
-  );
-}
-
-/** تعليمات بسيطة: ترتيب القوى في المداقشة وترتيب الورق — يشوفها الكل */
-function HandRanksButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="ترتيب القوى"
-        title="ترتيب القوى"
-        className={MQ_ICON_BTN}
-      >
-        <BookOpen size={20} />
-      </button>
-      {open && (
-        <Sheet title="📖 ترتيب القوى" onClose={() => setOpen(false)}>
-          <p className={`text-sm font-bold ${MQ_MUTED} mb-3`}>من الأقوى للأضعف:</p>
-          <ol className="flex flex-col gap-2">
-            {MADAQESH_HAND_RANKS.map((r, i) => (
-              <li key={r.title} className={`flex items-center gap-3 p-3 rounded-2xl ${MQ_TILE}`}>
-                <span className={`w-9 h-9 shrink-0 rounded-xl ${MQ_SELECTED} font-black text-lg flex items-center justify-center`}>
-                  {i + 1}
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-black">{r.title}</span>
-                  <span className={`block text-sm font-bold ${MQ_MUTED}`}>{r.example}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-
-          <h3 className="font-black mt-5 mb-2">🃏 ترتيب الورق (من الأكبر للأصغر)</h3>
-          <ol className="flex flex-wrap gap-1.5">
-            {MADAQESH_CARD_ORDER.map((c, i) => (
-              <li key={c} className="flex items-center gap-1.5">
-                <span className="px-3 py-2 rounded-xl bg-[#f6f1e4] text-[#1a1204] border border-[#d6a531]/60 shadow-[0_0_12px_-4px_rgba(214,165,49,0.7)] font-black text-sm min-w-10 text-center">{c}</span>
-                {i < MADAQESH_CARD_ORDER.length - 1 && <span className="text-slate-400 font-black">‹</span>}
-              </li>
-            ))}
-          </ol>
-        </Sheet>
-      )}
     </>
   );
 }
@@ -551,7 +505,8 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
               />
             )}
 
-            {inGame && (
+            {/* التراجع متاح بعد نهاية اللعبة بعد: لو آخر جولة انسجّلت غلط، اللعبة ترجع تكمل منها */}
+            {(inGame || room.phase === "ended") && (
               <MenuItem
                 icon={<Undo2 size={20} />}
                 label={armed === "undo" ? "متأكد؟ اضغط مرة ثانية" : "تراجع عن آخر جولة"}

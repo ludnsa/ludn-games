@@ -40,7 +40,7 @@ export const QUIZ_CARDS: Record<QuizLifelineKey, QuizCardArt> = {
     icon: `${BASE}rest_icon.webp`,
     card: `${BASE}rest.webp`,
     glow: "#fbbf24",
-    short: "أثناء سؤال الخصم: تمنعون لاعباً منهم من الإجابة",
+    short: "أثناء سؤال الخصم: تختارون لاعب من الفريق اللي يجاوب، وما يجاوب على هالسؤال (المنشئ يطبّقها).",
   },
   double: {
     title: "مضاعفة!",

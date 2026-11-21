@@ -10,6 +10,7 @@ import { BAR_BTN, BTN_GOLD, CARD, ERROR, FIELD, H_PAGE, LABEL } from "@/componen
 import { CASTLE_CARDS } from "@/constants/castle-war";
 import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { createCastleRoom } from "@/hooks/useCastleWar";
+import { GuideButton } from "@/components/guides/GuideButton";
 import { getBrowserSessionUser } from "@/lib/supabase/client";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
@@ -78,10 +79,11 @@ export default function CastleWarSetup({ onCreated }: { onCreated: () => void })
   return (
     <main className={`dark min-h-[100dvh] text-ludn-fg p-4 md:p-6 flex flex-col relative z-10 ${cairo.className}`} dir="rtl">
       {/* وقت إنشاء الغرفة ما ينضغط، عشان ما تنشأ غرفة ويطلع من الصفحة */}
-      <div className="w-full max-w-md mx-auto mb-2">
+      <div className="w-full max-w-md mx-auto mb-2 flex items-center gap-2">
         <Link href="/" className={`${BAR_BTN} w-fit ${busy ? "pointer-events-none" : ""}`}>
           <Home size={18} strokeWidth={2.5} /> الرئيسية
         </Link>
+        <GuideButton gameId="castle-war" dark className={`${BAR_BTN} w-fit`} />
       </div>
       <div className="w-full max-w-md mx-auto my-auto">
         <div className="grid justify-items-center gap-1 text-center mb-4">

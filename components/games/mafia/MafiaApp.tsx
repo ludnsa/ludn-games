@@ -19,7 +19,8 @@ import MafiaSetupForm, { DEFAULT_MAFIA_SETTINGS } from "./MafiaSetupForm";
 import MafiaScreen from "./MafiaScreen";
 import MafiaFxLayer, { MafiaBackdrop, MAFIA_STAGE_ID } from "./MafiaFxLayer";
 import { Panel } from "./MafiaParts";
-import { BTN_GOLD, BTN_SOFT, ERROR, FIELD, H_CARD, H_PAGE, INFO, LABEL } from "./mafiaUi";
+import { BAR_BTN, BTN_GOLD, BTN_SOFT, ERROR, FIELD, H_CARD, H_PAGE, INFO, LABEL } from "./mafiaUi";
+import { GuideButton } from "@/components/guides/GuideButton";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -239,6 +240,8 @@ function Header({ subtitle }: { subtitle: string }) {
       <p className="text-[13px] font-bold tracking-wide text-ludn-gold-text">ليل ونهار · كل واحد على جواله</p>
       <h1 className={H_PAGE}>{MAFIA_GAME.title}</h1>
       <p className="text-sm font-semibold leading-relaxed text-ludn-muted max-w-[28ch]">{subtitle}</p>
+      {/* طريقة اللعب قبل الدخول للغرفة: كل الفئات */}
+      <GuideButton gameId="mafia" dark className={`${BAR_BTN} mt-2 px-3.5`} />
     </div>
   );
 }

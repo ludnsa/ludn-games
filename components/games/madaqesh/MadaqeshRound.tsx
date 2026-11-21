@@ -192,7 +192,7 @@ export function MadaqeshDeciding({ ctx }: { ctx: MadaqeshGameCtx }) {
       <p className={`text-4xl font-black ${MQ_GOLD_GLOW} my-2`}>
         <Money value={total} />
       </p>
-      <p className={`font-bold ${MQ_MUTED}`}>يقرر الحين: يوزع، يثبّت، فرصة انسحاب، أو الجميع ثابت…</p>
+      <p className={`font-bold ${MQ_MUTED}`}>يقرر الحين: توزيع، أو فرصة انسحاب، أو الجميع ثابت</p>
       {isHost && (
         <button type="button" onClick={() => setActForDecider(true)} className={`${btn.ghost} mt-4`}>
           قرر بداله (لو غايب)

@@ -73,6 +73,14 @@ export const MADAQESH_ORDINALS = [
 export const MADAQESH_BOT_NAMES =["بوت فهد", "بوت سعد", "بوت نورة", "بوت ريم", "بوت ماجد", "بوت هيا"] as const;
 
 /** تنسيق المبالغ: 1,250,000 */
+/** عدد مرات الإفلاس المسموحة: "ولا مرة" / "مرة وحدة" / "مرتين" / "3 مرات" */
+export function madaqeshBankruptLabel(n: number): string {
+  if (n === 0) return "ولا مرة";
+  if (n === 1) return "مرة وحدة";
+  if (n === 2) return "مرتين";
+  return `${n} مرات`;
+}
+
 export function formatMoney(n: number): string {
   return Math.round(n).toLocaleString("en-US");
 }

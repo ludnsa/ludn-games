@@ -571,7 +571,8 @@ export async function respondMadaqesh(input: {
   const ctx = await requirePlayer(input);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room, player } = ctx;
-  if (room.phase !== "responding" || !room.round) return fail("مو وقت الرد.");
+  // الرد وصل والمرحلة انتقلت (نفس رسالة الرفض من القاعدة تحت)
+  if (room.phase !== "responding" || !room.round) return fail("انتقلت المرحلة قبل ما يوصل ردك.");
 
   const mine = respondersFor(room.round).find((r) => r.id === player.id);
   if (!mine || !mine.options.includes(input.response)) return fail("ما تقدر تختار هذا.");
@@ -586,7 +587,7 @@ export async function respondMadaqesh(input: {
     console.error("respondMadaqesh error:", error);
     return fail("تعذّر حفظ ردك.");
   }
-  if (!data) return fail("انتهى وقت الرد.");
+  if (!data) return fail("انتقلت المرحلة قبل ما يوصل ردك.");
 
   await finishRespondingIfDone(admin, room.room_code);
   await runBots(admin, room.room_code);

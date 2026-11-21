@@ -20,6 +20,12 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
     fallback: playMode !== "no_options" && ctx.selectedOption != null && question ? (ctx.selectedOption === question.answer ? "correct" : "wrong") : null,
   });
 
+  // الأرقام المعروضة نفس حساب handleRewardChoice بالضبط (الدبل يضاعف النقاط واسترداد الكمين)
+  const riskMultiplier = isDoubleRisk ? 2 : 1;
+  const rewardPts = (ctx.isSuddenDeath
+    ? (playMode === "no_options" ? 30 : 20)
+    : (playMode === "no_options" ? 10 : 5)) * riskMultiplier;
+
   return (
     <>
       {/* اختيار المكافأة */}
@@ -34,13 +40,16 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
                  <Target className="w-10 h-10 md:w-14 md:h-14 text-cyan-500 group-hover:scale-110 transition-transform" />
                  <span className="font-black text-xl md:text-2xl text-cyan-700 dark:text-cyan-400">النقاط العادية</span>
                  <span className="text-xs md:text-sm font-bold bg-cyan-100 dark:bg-cyan-950 px-3 py-1 rounded-full text-cyan-800 dark:text-cyan-300">
-                   إضافة {ctx.isSuddenDeath ? (playMode === "no_options" ? 30 : 20) : playMode === "no_options" ? (isDoubleRisk ? 20 : 10) : (isDoubleRisk ? 10 : 5)} نقطة لرصيدك
+                   إضافة {rewardPts} نقطة لرصيدك
                  </span>
               </button>
               {(() => {
                 const ambushesLeft = winner === 1 ? t1Ambush : t2Ambush;
-                const loserBid = ctx.getLoserBid();
-                
+                // نفس handleRewardChoice: الاسترداد = المزايدة × 2 لو دبل، والخصم ينقص مزايدته بس رصيده ما ينزل تحت صفر
+                const ambushRefund = getWinnerBid() * riskMultiplier;
+                const loserBalance = winner === 1 ? ctx.t2Balance : ctx.t1Balance;
+                const loserBid = Math.min(ctx.getLoserBid(), Math.max(0, Number(loserBalance) || 0));
+
                 if (ambushesLeft <= 0) {
                   return (
                     <div className="p-6 md:p-8 bg-[#1f160c] border-b-4 border-[#d4af37]/25 rounded-2xl md:rounded-3xl flex flex-col items-center justify-center gap-3 shadow-md opacity-70 cursor-not-allowed">
@@ -70,7 +79,7 @@ export default function PostAnswerStates({ ctx }: { ctx: any }) {
                      <AuctionCardGlyph card="ambush" className="w-14 h-14 md:w-20 md:h-20 group-hover:scale-110 transition-transform" />
                      <span className="font-black text-xl md:text-2xl text-purple-700 dark:text-purple-400">كمين وتخريب ⚔️</span>
                      <span className="text-[10px] md:text-xs font-bold leading-relaxed bg-purple-100 dark:bg-purple-950 p-2 rounded-xl text-purple-800 dark:text-purple-300">
-                       استرد مبلغ مزايدتك ({getWinnerBid()})<br/>
+                       استرد مبلغ مزايدتك ({ambushRefund})<br/>
                        واخصم ({loserBid}) من الخصم!<br/>
                        <span className="text-purple-600 font-black">متبقي: {ambushesLeft} كمائن</span>
                      </span>

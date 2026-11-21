@@ -314,7 +314,7 @@ export function MafiaVoteResult({ ctx }: { ctx: MafiaGameCtx }) {
     text = `${ctx.nameOf(result.eliminatedId)} طلع بالتصويت!`;
   } else if (result.reason === "skip") {
     Icon = SkipForward;
-    text = "الأغلبية اختارت تخطي… محد طلع";
+    text = "تخطي أخذ أكثر أصوات، محد طلع";
   } else if (result.reason === "tie") {
     Icon = Scale;
     text = "تعادل في الأصوات… محد طلع";

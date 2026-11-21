@@ -21,7 +21,7 @@ export default function RiskAndDecisionStates({ ctx }: { ctx: any }) {
            <div className="bg-[#120c07] p-5 md:p-8 rounded-3xl border-2 border-[#d4af37]/30 mb-6 md:mb-8 shadow-inner">
              <h3 className="font-black text-lg md:text-2xl mb-4 text-[#e8c766]">تفعيل مخاطرة الدبل قبل كشف السؤال؟</h3>
              <p className="text-xs md:text-sm font-bold text-slate-500 dark:text-slate-400 leading-relaxed max-w-lg mx-auto">
-               بالتفعيل سيُخصم مبلغ إضافي (<span className="text-rose-500">{getWinnerBid()}</span>) للدخول في السؤال.<br/>وستتضاعف النقاط والمكافآت في حال الإجابة بدون خيارات.
+               بالتفعيل سيُخصم مبلغ إضافي (<span className="text-rose-500">{getWinnerBid()}</span>) للدخول في السؤال.<br/>وتتضاعف الكؤوس، مع الخيارات وبدونها.
              </p>
            </div>
            <div className="flex flex-col sm:flex-row gap-3 md:gap-4">

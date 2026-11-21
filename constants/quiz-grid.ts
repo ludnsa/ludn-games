@@ -113,7 +113,7 @@ export const QUIZ_LIFELINES: Record<QuizLifelineKey, QuizLifelineDef> = {
   rest: {
     key: "rest",
     label: "استريح",
-    hint: "أثناء عرض السؤال — يمنع لاعباً من الفريق المُجيب من الإجابة",
+    hint: "أثناء عرض السؤال — تختارون لاعب من الفريق اللي يجاوب، وما يجاوب على هالسؤال (المنشئ يطبّقها).",
     phase: "question",
     activator: "waiting",
   },
@@ -134,7 +134,7 @@ export const QUIZ_LIFELINES: Record<QuizLifelineKey, QuizLifelineDef> = {
   audience: {
     key: "audience",
     label: "استشارة الجمهور",
-    hint: "أثناء عرض السؤال — دعوة الجميع في المجلس للمشاركة بالرأي لمدة 15 ثانية",
+    hint: "أثناء عرض السؤال — دعوة الجميع في المجلس للمشاركة بالرأي",
     phase: "question",
     activator: "active",
   },

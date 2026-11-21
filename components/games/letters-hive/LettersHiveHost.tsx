@@ -29,6 +29,7 @@ import {
 import HiveBoard from "./HiveBoard";
 import HiveWinReveal, { useHiveWinReveal } from "./HiveWinReveal";
 import HiveRoomModal from "./HiveRoomModal";
+import { GuideButton } from "@/components/guides/GuideButton";
 import {
   HIVE_ICON,
   HIVE_WIN_ART,
@@ -259,6 +260,8 @@ function Setup({
         <HiveLogo className="w-24 h-24 mb-2" />
         <h1 className="font-display text-5xl leading-tight">{LETTERS_HIVE_GAME.title}</h1>
         <p className={`font-bold ${HV_MUTED} mt-2`}>أنت المقدم: تسأل من عندك، وتلوّن الخلية للفريق اللي جاوب صح</p>
+        {/* طريقة اللعب قبل بدء الجلسة */}
+        <GuideButton gameId="letters-hive" dark className={`mt-3 ${btn.bar}`} />
       </div>
 
       <section className={`${HV_PANEL} rounded-[2rem] p-5 flex flex-col gap-4`}>
@@ -385,6 +388,7 @@ function Playing({
             {link}
           </div>
         </div>
+        <GuideButton gameId="letters-hive" dark className={btn.bar} />
         <button type="button" onClick={onDisplay} className={btn.bar}>
           <Monitor size={18} /> شاشة العرض
         </button>
@@ -439,7 +443,8 @@ function Playing({
             </button>
             <NewRoundButton finished={Boolean(win)} onNext={() => update(nextHiveRound)} />
           </div>
-          <p className="text-xs font-bold text-amber-50/55 leading-relaxed">
+          {/* الاختصارات للكيبورد: تطلع على الكمبيوتر بس */}
+          <p className="hidden lg:block text-xs font-bold text-amber-50/55 leading-relaxed">
             ⌨️ اختصارات: <b>1</b> = {state.teams.green} · <b>2</b> = {state.teams.red} · <b>0</b> = مسح · <b>Esc</b> = إلغاء
             التحديد · <b>Ctrl+Z</b> = تراجع
           </p>

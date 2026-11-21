@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { ArrowRight, MonitorPlay, HelpCircle, PowerOff, Home } from "lucide-react";
+import React from "react";
+import { ArrowRight, MonitorPlay, PowerOff, Home } from "lucide-react";
 import Link from "next/link";
-import InstructionsModal from "./InstructionsModal";
+import { GuideButton } from "@/components/guides/GuideButton";
 
 interface TopBarProps {
   gameState: string;
@@ -34,14 +34,8 @@ export default function TopBar({
   showAlert,
   setShowAudienceModal,
 }: TopBarProps) {
-  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
-
   return (
     <>
-      <InstructionsModal 
-        showInstructionsModal={showInstructionsModal} 
-        setShowInstructionsModal={setShowInstructionsModal} 
-      />
       <div className="flex flex-col lg:flex-row justify-between items-center gap-4 lg:gap-6 mb-4 lg:mb-6 shrink-0 z-50">
       <div className="flex flex-wrap justify-center lg:justify-start gap-2 w-full lg:w-auto">
         <button
@@ -70,13 +64,10 @@ export default function TopBar({
           </button>
         )}
 
-        <button
-          onClick={() => setShowInstructionsModal(true)}
-          className="px-3 py-1.5 lg:px-4 lg:py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center gap-1.5 lg:gap-2 font-black text-[10px] lg:text-xs border-b-4 border-indigo-800 active:border-b-0 active:translate-y-[4px] transition-all"
-        >
-          <HelpCircle size={14} className="lg:w-4 lg:h-4" />
-          التعليمات
-        </button>
+        <GuideButton
+          gameId="world-domination"
+          className="px-3 py-1.5 lg:px-4 lg:py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl lg:gap-2 text-[10px] lg:text-xs border-b-4 border-indigo-800 active:border-b-0 active:translate-y-[4px] transition-all"
+        />
 
         <button
           onClick={() => {

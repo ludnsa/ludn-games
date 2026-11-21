@@ -7,6 +7,8 @@ import { mafiaCitizenCount, mafiaMaxMafia, validateMafiaSettings } from "@/lib/g
 import type { MafiaMode, MafiaOptionalRole, MafiaRole, MafiaSettings } from "@/types";
 import { DiscussionTimePicker, RoleIcon } from "./MafiaParts";
 import { BTN_GOLD, CARD, CHIP, CTA_BAR, INSET, LABEL, NOTE } from "./mafiaUi";
+import { GuideItemModal } from "@/components/guides/GuideModal";
+import { MAFIA_GUIDE } from "@/lib/guides/mafia";
 
 export const DEFAULT_MAFIA_SETTINGS: MafiaSettings = {
   maxPlayers: MAFIA_CONFIG.MIN_PLAYERS,
@@ -120,6 +122,9 @@ export default function MafiaSetupForm({
   children?: React.ReactNode;
 }) {
   const [settings, setSettings] = useState<MafiaSettings>(initial);
+  // الضغط على صورة أي فئة يعرض شرحها (والإضافة/الشيل للفئات الإضافية من داخل الشرح)
+  const [infoRole, setInfoRole] = useState<MafiaRole | null>(null);
+  const infoItem = infoRole ? MAFIA_GUIDE.items?.find((i) => i.id === infoRole) ?? null : null;
 
   const maxMafia = mafiaMaxMafia(settings.maxPlayers, settings.optionalRoles.length);
   const citizens = mafiaCitizenCount(settings);
@@ -213,10 +218,9 @@ export default function MafiaSetupForm({
                   key={role}
                   type="button"
                   aria-pressed={on}
-                  aria-label={def.label}
-                  disabled={full}
-                  onClick={() => toggleRole(role)}
-                  className="relative rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label={`${def.label}: الشرح`}
+                  onClick={() => setInfoRole(role)}
+                  className={`relative rounded-xl ${full ? "opacity-40" : ""}`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -258,15 +262,15 @@ export default function MafiaSetupForm({
           <p className={`${LABEL} mb-2`}>التوزيعة</p>
           <div className="flex flex-wrap gap-1.5">
             {fixedRows.map((r) => (
-              <span key={r.label} className={CHIP}>
+              <button type="button" key={r.label} onClick={() => setInfoRole(r.role)} className={CHIP} aria-label={`${r.label}: الشرح`}>
                 <RoleIcon role={r.role} className="w-[22px] h-[22px]" /> {r.label}
                 {(r.role === "mafia" || r.role === "citizen") && ` ×${r.count}`}
-              </span>
+              </button>
             ))}
             {settings.optionalRoles.map((role) => (
-              <span key={role} className={`${CHIP} border-ludn-gold/35 text-ludn-gold-text`}>
+              <button type="button" key={role} onClick={() => setInfoRole(role)} className={`${CHIP} border-ludn-gold/35 text-ludn-gold-text`} aria-label={`${MAFIA_ROLES[role].label}: الشرح`}>
                 <RoleIcon role={role} className="w-[22px] h-[22px]" /> {MAFIA_ROLES[role].label}
-              </span>
+              </button>
             ))}
           </div>
         </div>
@@ -279,6 +283,39 @@ export default function MafiaSetupForm({
       )}
 
       {sticky ? <div className={CTA_BAR}>{submit}</div> : submit}
+
+      {infoItem && infoRole && (
+        <GuideItemModal
+          dark
+          item={infoItem}
+          onClose={() => setInfoRole(null)}
+          footer={
+            (MAFIA_OPTIONAL_ROLES as readonly MafiaRole[]).includes(infoRole) ? (
+              (() => {
+                const role = infoRole as MafiaOptionalRole;
+                const on = settings.optionalRoles.includes(role);
+                const full = !on && citizens <= 0;
+                return (
+                  <div className="grid gap-2">
+                    <button
+                      type="button"
+                      disabled={full}
+                      onClick={() => {
+                        toggleRole(role);
+                        setInfoRole(null);
+                      }}
+                      className={BTN_GOLD}
+                    >
+                      {on ? "شيل الفئة من اللعبة" : "أضف الفئة للعبة"}
+                    </button>
+                    {full && <p className={`${NOTE} text-center`}>ما بقى مواطن — زد اللاعبين عشان تضيف فئة</p>}
+                  </div>
+                );
+              })()
+            ) : undefined
+          }
+        />
+      )}
     </form>
   );
 }

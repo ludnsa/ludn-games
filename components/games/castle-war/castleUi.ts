@@ -49,6 +49,17 @@ const TEAM_WIN = "flex-1 py-3 font-black text-sm rounded-[14px] border flex item
 export const TEAM1_WIN = `${TEAM_WIN} bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-400/60 text-cyan-200`;
 export const TEAM2_WIN = `${TEAM_WIN} bg-rose-500/10 hover:bg-rose-500/20 border-rose-400/60 text-rose-200`;
 
+/**
+ * الفايز في شاشة النهاية (الحكم والجمهور): الأكثر جنود يفوز، والتساوي تعادل (null).
+ * "إنهاء اللعبة" يحفظ النتيجة في resultType، والنهاية الطبيعية (عداد فريق صفّر) تنحسب من الجنود
+ */
+export const castleWinner = (resultType: string | undefined, hp1: number, hp2: number): 1 | 2 | null => {
+  if (resultType === "team1Win") return 1;
+  if (resultType === "team2Win") return 2;
+  if (resultType === "draw") return null;
+  return hp1 > hp2 ? 1 : hp2 > hp1 ? 2 : null;
+};
+
 /** عدّاد التحدي: يحمر في آخر 5 ثواني */
 export const timerTone = (seconds: number) =>
   seconds <= 5 ? "bg-rose-500/15 border-rose-500/50 text-rose-300 animate-pulse" : "bg-ludn-surface-2 border-ludn-line text-amber-300";

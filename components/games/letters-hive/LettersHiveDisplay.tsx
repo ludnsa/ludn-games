@@ -8,6 +8,7 @@ import { hiveScores, hiveWinner, type HiveState, type HiveTeam } from "@/lib/gam
 import { isHiveRoomCode, useLettersHiveDisplay } from "@/hooks/games/letters-hive/useLettersHive";
 import HiveBoard from "./HiveBoard";
 import HiveWinReveal, { useHiveWinReveal } from "./HiveWinReveal";
+import { GuideButton } from "@/components/guides/GuideButton";
 import { HIVE_ICON, HIVE_WIN_ART, HV_ACTIVE_LETTER, HV_BTN_GLASS, HV_BTN_PRIMARY, HV_INPUT, HV_MUTED, HV_PANEL, HV_TEAM } from "./hiveUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
@@ -68,6 +69,12 @@ export default function LettersHiveDisplay() {
   return (
     <main className={`fixed inset-0 z-50 text-white flex flex-col ${cairo.className}`} dir="rtl">
       {mounted && <DisplayBody />}
+      {/* زر صغير: طريقة اللعب (تحت يسار، وزر ملء الشاشة تحت يمين) */}
+      {mounted && (
+        <div className="fixed z-10 left-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <GuideButton gameId="letters-hive" variant="small" dark />
+        </div>
+      )}
     </main>
   );
 }

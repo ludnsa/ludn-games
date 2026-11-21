@@ -17,6 +17,11 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
   const sellCardsLeft = ctx.winner === 1 ? ctx.t1SellCards : ctx.t2SellCards;
   const sellLock = isDoubleRisk ? "غير متاح مع الدبل" : sellCardsLeft <= 0 ? "خلصت بطاقات البيع" : !ctx.canForceSale ? "رصيد الخصم أقل من 5000" : null;
 
+  // أرقام المكافأة نفس حساب handleRewardChoice بالضبط: الأساس (10/5، أو 30/20 بالفرصة الأخيرة) × 2 لو الدبل مفعّل
+  const riskMultiplier = isDoubleRisk ? 2 : 1;
+  const noOptionsPts = (ctx.isSuddenDeath ? 30 : 10) * riskMultiplier;
+  const withOptionsPts = (ctx.isSuddenDeath ? 20 : 5) * riskMultiplier;
+
   return (
     <>
       {/* كشف السؤال والقرار */}
@@ -57,11 +62,11 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mt-4 md:mt-6 animate-in slide-in-from-bottom-4">
                 <button onClick={() => { setPlayMode("no_options"); setGameState("options"); }} className="p-3 md:p-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-xl border-b-4 border-cyan-800 active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
                    <span className="text-sm md:text-lg">إجابة بدون خيارات</span>
-                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-cyan-800/40 px-2 py-1 rounded-lg">مكافأة: {ctx.isSuddenDeath ? 30 : 10} نقطة</span>
+                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-cyan-800/40 px-2 py-1 rounded-lg">مكافأة: {noOptionsPts} نقطة</span>
                 </button>
                 <button onClick={() => { setPlayMode("with_options"); setGameState("options"); }} className="p-3 md:p-4 bg-[#3a2916] hover:bg-[#4a351c] text-white font-black rounded-xl border-b-4 border-[#0a0704] active:border-b-0 active:translate-y-[4px] transition-all shadow-md flex flex-col items-center justify-center gap-1">
                    <span className="text-sm md:text-lg">إجابة مع الخيارات</span>
-                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-black/30 px-2 py-1 rounded-lg">مكافأة: {ctx.isSuddenDeath ? 20 : 5} نقاط</span>
+                   <span className="text-[10px] md:text-xs font-bold opacity-90 bg-black/30 px-2 py-1 rounded-lg">مكافأة: {withOptionsPts} نقاط</span>
                 </button>
                 {!ctx.isSuddenDeath && (
                   !sellLock ? (
@@ -157,7 +162,7 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
                 <button onClick={() => handleAnswer(true)} className="flex-1 py-4 md:py-5 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-base md:text-xl rounded-xl border-b-4 border-emerald-700 active:border-b-0 active:translate-y-[4px] flex items-center justify-center gap-2 md:gap-3 transition-all shadow-md">
                    <CheckCircle2 size={20} className="md:w-6 md:h-6" /> إجابة صحيحة
                 </button>
-                <button onClick={() => triggerConfirm("هل أنت متأكد من تسجيل الإجابة كخاطئة وتطبيق الخصم؟", () => handleAnswer(false))} className="flex-1 py-4 md:py-5 bg-rose-500 hover:bg-rose-400 text-white font-black text-base md:text-xl rounded-xl border-b-4 border-rose-700 active:border-b-0 active:translate-y-[4px] flex items-center justify-center gap-2 md:gap-3 transition-all shadow-md">
+                <button onClick={() => triggerConfirm("متأكد إن الإجابة خاطئة؟", () => handleAnswer(false))} className="flex-1 py-4 md:py-5 bg-rose-500 hover:bg-rose-400 text-white font-black text-base md:text-xl rounded-xl border-b-4 border-rose-700 active:border-b-0 active:translate-y-[4px] flex items-center justify-center gap-2 md:gap-3 transition-all shadow-md">
                    <XCircle size={20} className="md:w-6 md:h-6" /> إجابة خاطئة
                 </button>
              </div>

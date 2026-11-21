@@ -50,6 +50,8 @@ import RevealWaiting from "./RevealWaiting";
 import MafiaHostMenu, { MafiaHostHush, MafiaHostSkip } from "./MafiaHostMenu";
 import { cueMafia, type MafiaFxKind } from "@/lib/game/mafia-fx";
 import { BAR_BTN, BTN_GOLD, BTN_SOFT, ERROR, H_CARD, LABEL, NOTE } from "./mafiaUi";
+import { GuideButton } from "@/components/guides/GuideButton";
+import { mafiaRoomRoleIds } from "@/lib/guides/mafia";
 import { unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
 
 const NIGHT_PHASES: MafiaPhase[] = ["night_act", "night_done"];
@@ -144,6 +146,8 @@ export default function MafiaScreen({
                 teammates={me.role === "mafia" ? (view?.mafiaTeam ?? []).filter((m) => m.id !== me.id).map((m) => m.name) : []}
               />
             )}
+            {/* طريقة اللعب: تعرض فئات هاللعبة بس (من إعداد الغرفة) */}
+            <GuideButton gameId="mafia" className={BAR_BTN} dark itemIds={mafiaRoomRoleIds(room.settings)} itemsNote="الفئات اللي في هاللعبة" />
             <SoundToggle />
             {me.isHost && <MafiaHostMenu ctx={ctx} />}
             {phase === "lobby" && !me.isHost && (

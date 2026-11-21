@@ -12,7 +12,8 @@ import { startBackupRead, type BackupRead } from "@/lib/game/room-backup-read";
 import AudienceCastle from "@/components/games/castle-war/display/AudienceCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
-import { INSET, MODAL, MODAL_GOLD, PANEL, TEAM1_AUDIENCE_HP, TEAM2_AUDIENCE_HP, timerTone } from "@/components/games/castle-war/castleUi";
+import { GuideButton } from "@/components/guides/GuideButton";
+import { INSET, MODAL, MODAL_GOLD, PANEL, TEAM1_AUDIENCE_HP, TEAM2_AUDIENCE_HP, castleWinner, timerTone } from "@/components/games/castle-war/castleUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -179,6 +180,7 @@ export default function CastleWarDisplay() {
   if (!liveData) {
     return (
       <div className={`dark h-screen flex flex-col items-center justify-center px-4 text-ludn-fg ${cairo.className}`} dir="rtl">
+        <div className="fixed z-[60] left-3 bottom-3"><GuideButton gameId="castle-war" variant="small" dark /></div>
 
         <div className={`relative z-10 ${PANEL} p-10 md:p-16 flex flex-col items-center text-center animate-in zoom-in-95`}>
           <Swords className="w-32 h-32 text-ludn-muted animate-pulse mb-8" strokeWidth={2.5} />
@@ -192,6 +194,8 @@ export default function CastleWarDisplay() {
 
   return (
     <main className={`dark text-ludn-fg min-h-[100dvh] md:h-screen w-full relative ${cairo.className} overflow-y-auto md:overflow-hidden`} dir="rtl">
+      {/* زر صغير: طريقة اللعب */}
+      <div className="fixed z-[60] left-3 bottom-3"><GuideButton gameId="castle-war" variant="small" dark /></div>
 
 
       <CastleReveal reveal={reveal} />
@@ -266,7 +270,7 @@ export default function CastleWarDisplay() {
                   {liveData.activeChallengeData.q || liveData.activeChallengeData}
                 </p>
 
-                {liveData.activeChallengeData.options && (
+                {Array.isArray(liveData.activeChallengeData.options) && liveData.activeChallengeData.options.length > 0 && (
                   <div className="grid grid-cols-1 gap-2 md:gap-3 mb-4 md:mb-6">
                     {liveData.activeChallengeData.options.map((opt: string, i: number) => {
                       const isCorrect = liveData.showGenAnswer && opt === liveData.activeChallengeData.a;
@@ -286,7 +290,9 @@ export default function CastleWarDisplay() {
                   </div>
                 )}
 
-                {!liveData.activeChallengeData.options && liveData.activeChallengeType === "general" && liveData.showGenAnswer && (
+                {/* نفس شاشة الحكم: الخيارات مو 3 بالضبط (أو ما فيه خيارات) فالإجابة تطلع بصندوقها لما الحكم يكشفها */}
+                {liveData.activeChallengeType === "general" && liveData.showGenAnswer
+                  && !(Array.isArray(liveData.activeChallengeData.options) && liveData.activeChallengeData.options.length === 3) && (
                   <div className="bg-emerald-500/15 border border-emerald-400/50 text-emerald-200 font-black text-2xl md:text-3xl py-4 px-6 rounded-2xl mb-6 animate-in zoom-in">
                     {liveData.activeChallengeData.a}
                   </div>
@@ -346,18 +352,26 @@ export default function CastleWarDisplay() {
           </div>
         )}
 
-        {liveData.gameState === "gameOver" && !revealing && (
-          <div className={`${MODAL_GOLD} p-6 md:p-10 text-center animate-in zoom-in-95 pointer-events-auto w-full max-w-2xl md:max-w-4xl`}>
-            <Crown className="mx-auto text-amber-300 w-20 h-20 md:w-32 md:h-32 mb-4 animate-bounce" strokeWidth={2.5} />
-            <h2 className="font-display text-3xl md:text-4xl leading-tight text-ludn-fg mb-2 border-b border-ludn-line pb-2 inline-block">انتهت الحرب!</h2>
-            <h1 className="font-display text-4xl md:text-5xl text-ludn-muted leading-tight">
-              الفريق المنتصر<br />
-              <span className={`block mt-4 text-5xl md:text-7xl ${liveData.hp1 > 0 ? "text-cyan-300" : "text-rose-300"}`}>
-                {liveData.hp1 > 0 ? liveData.team1Name : liveData.team2Name}
-              </span>
-            </h1>
-          </div>
-        )}
+        {liveData.gameState === "gameOver" && !revealing && (() => {
+          // نفس حساب شاشة الحكم: النتيجة من resultType (إنهاء اللعبة)، أو الأكثر جنود. التساوي تعادل
+          const winner = castleWinner(liveData.resultType, liveData.hp1, liveData.hp2);
+          return (
+            <div className={`${MODAL_GOLD} p-6 md:p-10 text-center animate-in zoom-in-95 pointer-events-auto w-full max-w-2xl md:max-w-4xl`}>
+              {winner ? (
+                <Crown className="mx-auto text-amber-300 w-20 h-20 md:w-32 md:h-32 mb-4 animate-bounce" strokeWidth={2.5} />
+              ) : (
+                <Swords className="mx-auto text-amber-300 w-20 h-20 md:w-32 md:h-32 mb-4" strokeWidth={2.5} />
+              )}
+              <h2 className="font-display text-3xl md:text-4xl leading-tight text-ludn-fg mb-2 border-b border-ludn-line pb-2 inline-block">انتهت الحرب!</h2>
+              <h1 className="font-display text-4xl md:text-5xl text-ludn-muted leading-tight">
+                {winner ? "الفريق المنتصر" : "النتيجة"}<br />
+                <span className={`block mt-4 text-5xl md:text-7xl ${winner === 1 ? "text-cyan-300" : winner === 2 ? "text-rose-300" : "text-amber-300"}`}>
+                  {winner === 1 ? liveData.team1Name : winner === 2 ? liveData.team2Name : "تعادل"}
+                </span>
+              </h1>
+            </div>
+          );
+        })()}
       </div>
 
       </div>

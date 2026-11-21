@@ -252,10 +252,28 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
   const [customTimer, setCustomTimer] = React.useState(false);
   const isPreset = QUIZ_CONFIG.TIMER_PRESETS.includes(timerSeconds as (typeof QUIZ_CONFIG.TIMER_PRESETS)[number]);
 
+  // نص الحقل وقت الكتابة (null = يعرض المدة المحفوظة). الكتابة حرة (حتى المسح)، والمدة تتحدث بس لو
+  // الرقم صحيح وداخل الحدود، فالمدة المحفوظة (اللي تنرسل مع "ابدأ اللعبة") دايم صالحة
+  const [timerDraft, setTimerDraft] = React.useState<string | null>(null);
+
   const handleCustomChange = (raw: string) => {
+    setCustomTimer(true); // عشان الحقل ما يختفي لو انكتب رقم يطابق خيار جاهز
+    setTimerDraft(raw);
     const n = Number(raw);
-    if (!Number.isFinite(n)) return;
-    setTimerSeconds(Math.min(QUIZ_CONFIG.TIMER_MAX, Math.max(QUIZ_CONFIG.TIMER_MIN, Math.round(n))));
+    if (raw.trim() !== "" && Number.isInteger(n) && n >= QUIZ_CONFIG.TIMER_MIN && n <= QUIZ_CONFIG.TIMER_MAX) {
+      setTimerSeconds(n);
+    }
+  };
+
+  // التصحيح للحدود لما يطلع من الحقل (يصير قبل ضغطة "ابدأ اللعبة" نفسها). فاضي أو مو رقم: يرجع لآخر مدة صحيحة
+  const handleCustomBlur = () => {
+    if (timerDraft !== null && timerDraft.trim() !== "") {
+      const n = Number(timerDraft);
+      if (Number.isFinite(n)) {
+        setTimerSeconds(Math.min(QUIZ_CONFIG.TIMER_MAX, Math.max(QUIZ_CONFIG.TIMER_MIN, Math.round(n))));
+      }
+    }
+    setTimerDraft(null);
   };
 
   return (
@@ -350,8 +368,9 @@ function StepTwoTeamsAndTimer({ ctx }: { ctx: Ctx }) {
               type="number"
               min={QUIZ_CONFIG.TIMER_MIN}
               max={QUIZ_CONFIG.TIMER_MAX}
-              value={timerSeconds}
+              value={timerDraft ?? timerSeconds}
               onChange={(e) => handleCustomChange(e.target.value)}
+              onBlur={handleCustomBlur}
               className={`w-32 p-3 rounded-xl font-black text-lg text-center focus:border-cyan-300 ${QZ_INPUT}`}
             />
             <span className="font-bold text-sm text-slate-300">

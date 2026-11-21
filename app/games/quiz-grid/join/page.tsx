@@ -7,6 +7,8 @@ import { useQuizPlayer } from "@/hooks/games/quiz-grid/useQuizPlayer";
 import QuizJoinState from "@/components/games/quiz-grid/player/QuizJoinState";
 import QuizPlayerState from "@/components/games/quiz-grid/player/QuizPlayerState";
 import QuizReveal, { useQuizReveal } from "@/components/games/quiz-grid/shared/QuizReveal";
+import { GuideButton } from "@/components/guides/GuideButton";
+import { QZ_BTN_GLASS } from "@/components/games/quiz-grid/shared/quizUi";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -32,6 +34,10 @@ export default function QuizGridJoinScreen() {
       dir="rtl"
     >
       <QuizReveal reveal={reveal} t1Name={ctx.room?.t1_name ?? ""} t2Name={ctx.room?.t2_name ?? ""} />
+      {/* طريقة اللعب: فوق، قبل الانضمام وبعده */}
+      <div className="flex justify-center mb-4">
+        <GuideButton gameId="quiz-grid" className={`gap-2 font-bold py-2.5 px-4 rounded-xl text-sm ${QZ_BTN_GLASS}`} />
+      </div>
       {ctx.me ? <QuizPlayerState ctx={ctx} /> : <QuizJoinState ctx={ctx} />}
     </main>
   );

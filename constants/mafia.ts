@@ -186,7 +186,7 @@ export const MAFIA_BACKGROUNDS = {
 /** أنماط اللعب بشاشة الإعداد — الأول هو الافتراضي */
 export const MAFIA_MODES: readonly { key: MafiaMode; label: string; hint: string }[] = [
   { key: "hype", label: "حماسي", hint: "كل فئة تصحى بدورها" },
-  { key: "fast", label: "سريع", hint: `الكل مع بعض · ${MAFIA_CONFIG.FAST_NIGHT_SECONDS} ثانية` },
+  { key: "fast", label: "سريع", hint: `الكل يختار بنفس الوقت · ${MAFIA_CONFIG.FAST_NIGHT_SECONDS} ثانية` },
 ] as const;
 
 /** الفئات الاختيارية بالترتيب اللي تظهر فيه في شاشة الإعداد */

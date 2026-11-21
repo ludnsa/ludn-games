@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { MADAQESH_CONFIG, formatMoney } from "@/constants/madaqesh";
+import { MADAQESH_CONFIG, formatMoney, madaqeshBankruptLabel } from "@/constants/madaqesh";
 import type { MadaqeshSettings } from "@/types/madaqesh";
 import { btn, MoneyInput } from "./MadaqeshParts";
 import { MQ_MUTED, MQ_SELECTED, MQ_UNSELECTED } from "./madaqeshUi";
@@ -68,7 +68,10 @@ export default function MadaqeshSettingsForm({
   children?: React.ReactNode;
 }) {
   const [s, setS] = useState<MadaqeshSettings>(initial);
-  const invalid = s.targetAmount <= s.startBalance || s.startBalance < 1000;
+  // أقل رصيد بداية (نفس MadaqeshSettingsSchema بالسيرفر)
+  const MIN_START_BALANCE = 1000;
+  const startTooLow = s.startBalance < MIN_START_BALANCE;
+  const invalid = s.targetAmount <= s.startBalance || startTooLow;
 
   return (
     <form
@@ -106,11 +109,14 @@ export default function MadaqeshSettingsForm({
                 s.maxBankrupts === n ? MQ_SELECTED : MQ_UNSELECTED
               }`}
             >
-              {n === 0 ? "ولا مرة" : n}
+              {madaqeshBankruptLabel(n)}
             </button>
           ))}
         </div>
       </div>
+      {startTooLow && (
+        <p className="text-sm font-bold text-red-300">رصيد البداية لازم يكون {formatMoney(MIN_START_BALANCE)} أو أكثر.</p>
+      )}
       {s.targetAmount <= s.startBalance && (
         <p className="text-sm font-bold text-red-300">مبلغ الفوز لازم يكون أكبر من رصيد البداية.</p>
       )}

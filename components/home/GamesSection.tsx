@@ -114,7 +114,7 @@ function GameSheet({ game, onClose }: { game: HomeGame; onClose: () => void }) {
             <Play size={20} className="fill-current" /> ابدأ اللعبة
           </Link>
           <Link
-            href="/guides"
+            href={`/guides?game=${game.id}`}
             className="min-h-[52px] rounded-2xl bg-ludn-surface border border-ludn-line font-black text-base flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
           >
             <BookOpen size={19} /> طريقة اللعب

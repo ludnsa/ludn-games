@@ -2,6 +2,7 @@
 import React from "react";
 import { UserCheck, Lock } from "lucide-react";
 import { AuctionCardGlyph } from "../../AuctionCardIcons";
+import { GuideButton } from "@/components/guides/GuideButton";
 
 export default function TeamJoinState({ ctx }: { ctx: any }) {
   if (ctx.isJoined) return null;
@@ -13,7 +14,9 @@ export default function TeamJoinState({ ctx }: { ctx: any }) {
     <div className="bg-[#0e0a06]/85 backdrop-blur-sm p-8 md:p-12 rounded-[2.5rem] shadow-2xl border-4 border-yellow-500 text-center w-full max-w-md animate-in zoom-in-95 mx-auto mt-[10vh]">
       <AuctionCardGlyph card="double" className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 ring-2 ring-[#d4af37]/40" />
       <h1 className="text-3xl font-black mb-2 text-[#e8c766]">دخول الفرق</h1>
-      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-8">المزاد - شاشة اللاعبين</p>
+      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-4">المزاد - شاشة اللاعبين</p>
+      {/* طريقة اللعب من قبل البدء */}
+      <div className="mb-8 flex justify-center"><GuideButton gameId="auction" className="px-4 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-xl gap-2 text-xs border-b-4 border-blue-200 dark:border-blue-900 active:border-b-0 active:translate-y-[4px] transition-all" /></div>
 
       <div className="space-y-6 text-right">
         <div>

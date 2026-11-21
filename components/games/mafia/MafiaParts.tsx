@@ -6,6 +6,8 @@ import { Volume2, VolumeX, Eye, Users, VenetianMask, Moon, WifiOff } from "lucid
 import { MAFIA_CONFIG, MAFIA_ROLES, mafiaCardSrc, mafiaIconSrc } from "@/constants/mafia";
 import { isMafiaMuted, setMafiaMuted, subscribeMafiaMuted, unlockMafiaAudio } from "@/lib/game/mafia-sounds";
 import type { MafiaAnnouncementKind, MafiaRole } from "@/types";
+import { mafiaRoleCardLines } from "@/lib/guides/mafia";
+import { GuideText } from "@/components/guides/GuideContent";
 import { BAR_BTN, CARD } from "./mafiaUi";
 
 export function Panel({
@@ -248,7 +250,14 @@ export function RoleCard({
             </div>
           </div>
         )}
-        <p className={`font-bold text-ludn-muted leading-relaxed ${small ? "text-xs" : "text-[13px]"}`}>{def.description}</p>
+        {/* وصف الدور: أول سطرين من شرحه بالتعليمات (lib/guides/mafia.ts) */}
+        <div className={`grid gap-1 font-bold text-ludn-muted leading-relaxed ${small ? "text-xs" : "text-[13px]"}`}>
+          {mafiaRoleCardLines(role).map((line, i) => (
+            <p key={i}>
+              <GuideText text={line} />
+            </p>
+          ))}
+        </div>
       </div>
     </div>
   );

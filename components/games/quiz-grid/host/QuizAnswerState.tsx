@@ -19,8 +19,9 @@ function armedTeamField(kind: QuizLifelineKey): keyof QuizRoom | null {
   return null;
 }
 
-function describeArmedBet(kind: QuizLifelineKey, teamName: string, points: number): string {
-  if (kind === "pit") return `لصالح ${teamName}: إجابة صحيحة تكسبهم ${points} وتخصم ${points} من الخصم.`;
+/** doubled: نفس الفريق مفعّل المضاعفة بعد، فالحفرة تكسبهم الضعف (والخصم ينخصم منه قيمة السؤال بس) */
+function describeArmedBet(kind: QuizLifelineKey, teamName: string, points: number, doubled = false): string {
+  if (kind === "pit") return `لصالح ${teamName}: إجابة صحيحة تكسبهم ${doubled ? points * 2 : points} وتخصم ${points} من الخصم.`;
   if (kind === "double") return `لصالح ${teamName}: إجابة صحيحة تضاعف نقاطهم إلى ${points * 2}.`;
   if (kind === "extraTurn") return `لصالح ${teamName}: إجابة صحيحة تُبقي الدور لهم.`;
   return "";
@@ -89,7 +90,7 @@ export default function QuizAnswerState({ ctx }: { ctx: Ctx }) {
                 className="flex items-center justify-center gap-3 bg-orange-500/90 backdrop-blur-md border border-orange-300 text-white font-black text-base md:text-xl rounded-2xl py-2.5 px-4 md:px-6 text-center shadow-[0_0_26px_-6px_rgba(251,146,60,0.9)]"
               >
                 <QuizCardIcon kind={def.key} className="w-9 h-9 md:w-11 md:h-11 ring-2 ring-white/50" />
-                {describeArmedBet(def.key, teamName(team), activeQuestion.points)}
+                {describeArmedBet(def.key, teamName(team), activeQuestion.points, room.double_active_team === team)}
               </div>
             );
           })}

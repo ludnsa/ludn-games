@@ -11,7 +11,8 @@ import { readMadaqeshSession, writeMadaqeshSession } from "@/lib/game/madaqesh-s
 import MadaqeshSettingsForm, { DEFAULT_MADAQESH_SETTINGS } from "./MadaqeshSettingsForm";
 import MadaqeshScreen from "./MadaqeshScreen";
 import { btn, Panel } from "./MadaqeshParts";
-import { MQ_GOLD, MQ_GOLD_GLOW, MQ_ICON, MQ_INPUT, MQ_MAIN, MQ_MUTED } from "./madaqeshUi";
+import { MQ_GOLD, MQ_GOLD_GLOW, MQ_ICON, MQ_INPUT, MQ_MAIN, MQ_MUTED, MQ_SMALL_BTN } from "./madaqeshUi";
+import { GuideButton } from "@/components/guides/GuideButton";
 
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
@@ -119,6 +120,8 @@ function Header({ subtitle }: { subtitle: string }) {
       />
       <h1 className="text-5xl font-black mb-2 [text-shadow:0_0_22px_rgba(179,32,42,0.6)]">{MADAQESH_GAME.title}</h1>
       <p className={`font-bold ${MQ_MUTED} text-sm`}>{subtitle}</p>
+      {/* طريقة اللعب قبل الدخول للغرفة */}
+      <GuideButton gameId="madaqesh" dark className={`mt-3 h-10 px-3.5 rounded-2xl text-sm text-slate-100 ${MQ_SMALL_BTN}`} />
     </div>
   );
 }

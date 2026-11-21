@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { QrCode, Link2, RotateCcw, Flag } from "lucide-react";
+import { GuideButton } from "@/components/guides/GuideButton";
 import { QUIZ_GAME } from "@/constants/quiz-grid";
 import { QZ_BTN_GLASS, QZ_BTN_PRIMARY, QZ_PANEL } from "@/components/games/quiz-grid/shared/quizUi";
 
@@ -53,6 +54,7 @@ export default function QuizHostHeader({
         >
           <Link2 size={18} /> نسخ الرابط
         </button>
+        <GuideButton gameId="quiz-grid" className={`gap-2 font-bold py-2.5 px-4 rounded-xl text-sm ${QZ_BTN_GLASS}`} />
 
         {isPlaying && (
           <button

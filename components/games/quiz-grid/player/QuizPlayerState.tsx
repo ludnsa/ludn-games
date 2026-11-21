@@ -1,6 +1,6 @@
 "use client";
-import React from "react";
-import { Hourglass, Eye, Trophy, Handshake, LogOut, Monitor } from "lucide-react";
+import React, { useEffect } from "react";
+import { Hourglass, Eye, Trophy, Handshake, LogOut, Monitor, CheckCircle2 } from "lucide-react";
 import { QUIZ_CONFIG, QUIZ_LIFELINE_LABELS, QUIZ_LIFELINE_LIST } from "@/constants/quiz-grid";
 import { QuizCardIcon } from "@/components/games/quiz-grid/shared/QuizCardIcon";
 import { QZ_GLASS, QZ_PANEL, QZ_TEAM } from "@/components/games/quiz-grid/shared/quizUi";
@@ -21,7 +21,7 @@ function armedTeamField(kind: QuizLifelineKey): keyof QuizRoom | null {
 function describeArmedBet(kind: QuizLifelineKey, isMine: boolean): string {
   if (kind === "pit") return isMine ? "فعّلتم الحفرة — الإجابة الصحيحة تخصم من الخصم!" : "الخصم فعّل الحفرة";
   if (kind === "double") return isMine ? "فعّلتم مضاعفة — إجابة صحيحة تُضاعف نقاطكم!" : "الخصم فعّل مضاعفة";
-  if (kind === "extraTurn") return isMine ? "فعّلتم دور إضافي — ستحتفظون بالدور!" : "الخصم فعّل دور إضافي";
+  if (kind === "extraTurn") return isMine ? "دور إضافي — لو جاوبتوا صح يظل الدور عندكم." : "الخصم فعّل دور إضافي";
   return "";
 }
 
@@ -32,13 +32,20 @@ function describeArmedBet(kind: QuizLifelineKey, isMine: boolean): string {
  * وتنبيهات وسائل المساعدة. المحتوى مكانه الشاشة الكبيرة.
  */
 export default function QuizPlayerState({ ctx }: { ctx: Ctx }) {
-  const { me, room, myTeamName, myScore, isMyTurn, isRestedOut, restTargetName, teammates, leave } = ctx;
+  const { me, room, myTeamName, myScore, isMyTurn, isRestedOut, restTargetName, teammates, leave, notice, setNotice } = ctx;
+  const state = room?.game_state ?? "setup";
+
+  // رسالة "تم انضمامك" تظل وقت الانتظار، وأول ما تبدأ اللعبة (أو لو انضم واللعب شغّال) تختفي بعد 5 ثواني
+  useEffect(() => {
+    if (!notice || state === "setup") return;
+    const t = setTimeout(() => setNotice(""), 5000);
+    return () => clearTimeout(t);
+  }, [notice, state, setNotice]);
 
   if (!me) return null;
 
   const teamColor = me.team === 1 ? "sky" : "rose";
   const opponentScore = room ? (me.team === 1 ? room.t2_score : room.t1_score) : 0;
-  const state = room?.game_state ?? "setup";
 
   const armedBets = room
     ? BOARD_PHASE_LIFELINES.filter((def) => {
@@ -90,6 +97,14 @@ export default function QuizPlayerState({ ctx }: { ctx: Ctx }) {
         </div>
       )}
 
+      {/* تأكيد الانضمام: سطر قصير فوق الحالة، ما يغطي شي */}
+      {notice && state !== "gameOver" && (
+        <div role="status" className={`flex items-center gap-3 border border-emerald-400/50 text-emerald-200 font-black rounded-2xl p-3 ${QZ_GLASS}`}>
+          <CheckCircle2 size={22} className="shrink-0 text-emerald-300" />
+          <span>{notice}</span>
+        </div>
+      )}
+
       {/* حالة اللعب */}
       {state === "gameOver" && room ? (
         <div className={`rounded-[2rem] p-6 text-center ${QZ_PANEL}`}>
@@ -138,7 +153,7 @@ export default function QuizPlayerState({ ctx }: { ctx: Ctx }) {
                   ? "اختاروا الخلية من الشاشة الكبيرة"
                   : state === "answer"
                     ? "الحكم يكشف الإجابة الآن"
-                    : "أجيبوا قبل انتهاء الوقت"}
+                    : "جاوبوا بالكلام، والمنشئ يسجّل."}
               </p>
             </>
           ) : (

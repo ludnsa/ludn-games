@@ -148,7 +148,7 @@ export function BalanceBoard({ ctx }: { ctx: MadaqeshGameCtx }) {
         })}
       </ul>
       <p className={`text-center text-[11px] font-bold ${MQ_MUTED} mt-2`}>
-        🏆 الفوز عند <Money value={target} />
+        🏆 الفوز: أول من يوصل <Money value={target} />، أو آخر واحد باقي
       </p>
     </Panel>
   );

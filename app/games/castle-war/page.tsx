@@ -7,18 +7,19 @@ import { Cairo } from "next/font/google";
 import {
   Shield, Crown, CheckCircle2, Crosshair, Swords, Zap, Volume2,
   VolumeX, Flame, Eye, Lock, Skull, Clock, RefreshCw, Search, Ban, Copy,
-  MonitorPlay, ArrowRight, Home, Info, QrCode
+  MonitorPlay, ArrowRight, Home, QrCode
 } from "lucide-react";
 
 import InteractiveCastle from "@/components/games/castle-war/InteractiveCastle";
 import CastleReveal, { useCastleReveal } from "@/components/games/castle-war/CastleReveal";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
 import CastleWarSetup from "@/components/games/castle-war/CastleWarSetup";
+import { GuideButton } from "@/components/guides/GuideButton";
 import {
   BACKDROP, BAR, BAR_DANGER, BAR_TIGHT, BTN_DANGER_LINE, BTN_DARK, BTN_GOLD, BTN_SOFT, INSET, MODAL, PANEL,
-  TEAM1_HP, TEAM1_NAME, TEAM1_WIN, TEAM2_HP, TEAM2_NAME, TEAM2_WIN, timerTone,
+  TEAM1_HP, TEAM1_NAME, TEAM1_WIN, TEAM2_HP, TEAM2_NAME, TEAM2_WIN, castleWinner, timerTone,
 } from "@/components/games/castle-war/castleUi";
-import { useCastleWar, getSavedCastleRoom, resumeCastleRoom, TOTAL_SOLDIERS } from "@/hooks/useCastleWar";
+import { useCastleWar, getSavedCastleRoom, resumeCastleRoom, TOTAL_SOLDIERS, type TeamSetup } from "@/hooks/useCastleWar";
 import { freshLiveGame } from "@/lib/live-game";
 import { useSingleTab } from "@/hooks/shared/useSingleTab";
 import OtherTabScreen from "@/components/games/shared/OtherTabScreen";
@@ -28,6 +29,9 @@ import AccessLoadingScreen from "@/components/games/shared/AccessLoadingScreen";
 const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
 const noopSubscribe = () => () => {};
+
+/** مجموع جنود الفريق: 120 + اللي أسرهم (الأسرى ينضافون لنوافذه)، عشان العداد ما يطلع مثل 140 / 120 */
+const teamTotal = (data: TeamSetup | null) => Math.max(TOTAL_SOLDIERS, data?.rooms?.reduce((sum, n) => sum + (n || 0), 0) ?? 0);
 
 /**
  * فيه غرفة في هذا التبويب: اللعبة مباشرة (وهذا اللي يصير بعد التحديث).
@@ -72,16 +76,18 @@ function CastleBattleMainScreen() {
     screenShake, explosionRoomIndexHit, soundEnabled, setSoundEnabled, isDarkMode,
     usedChallengesT1, usedChallengesT2, targetRoomIndex, isAttacking,
     formatTime, getChallengeTitle, handleSelectChallenge, cancelChallenge, pickNewChallenge,
-    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, nextTurn, isAccessChecking, endGame, resetGame
+    challengeSuccess, challengeFail, useSpy, executeAttack, resolveTrap, canCapture, nextTurn, isAccessChecking, endGame, resetGame
   } = useCastleWar();
 
   const cardClass = PANEL;
   const [showEndGameModal, setShowEndGameModal] = React.useState(false);
   const [showResetModal, setShowResetModal] = React.useState(false);
   const [showQRModal, setShowQRModal] = React.useState(false);
-  const [showInstructionsModal, setShowInstructionsModal] = React.useState(false);
   // عرض بس: الكشف فوق اللعبة، وصناديق النتيجة ولوحة الفخ تطلع بعد ما يخلص
   const reveal = useCastleReveal({ enabled: !isLoading && !isAccessChecking, battleStep, resultType, attackingTeam, hp1, hp2 });
+  // السؤال العام: 3 خيارات بالضبط تطلع أزرار والضغط يكشف الجواب. غير كذا (بدون خيارات، أو 1 أو 2 أو 4 وفوق) زر "إظهار الإجابة"
+  const genOptions: string[] = Array.isArray(activeChallengeData?.options) ? activeChallengeData.options : [];
+  const genHasThreeOptions = genOptions.length === 3;
 
   if (isAccessChecking) {
     return <div className="dark"><AccessLoadingScreen /></div>;
@@ -135,9 +141,7 @@ function CastleBattleMainScreen() {
           <Link href="/" className={BAR}>
             <Home size={18} strokeWidth={3} /> <span className="hidden sm:inline">الرئيسية</span>
           </Link>
-          <button onClick={() => setShowInstructionsModal(true)} className={BAR}>
-            <Info size={18} strokeWidth={3} /> <span className="hidden sm:inline">التعليمات</span>
-          </button>
+          <GuideButton gameId="castle-war" className={BAR} />
           <button onClick={() => window.open(`/games/castle-war/display?code=${roomCode}`, "_blank")} className={BAR}>
             <MonitorPlay size={16} /> <span className="hidden sm:inline">شاشة الجمهور 📺</span>
           </button>
@@ -168,7 +172,7 @@ function CastleBattleMainScreen() {
                 {team1Name}
               </div>
               <div className={TEAM1_HP}>
-                {hp1} / {TOTAL_SOLDIERS} <span className="text-sm text-ludn-muted">جندي</span>
+                {hp1} / {teamTotal(team1Data)} <span className="text-sm text-ludn-muted">جندي</span>
               </div>
             </div>
             <div className="flex-1 w-full max-w-[600px] mx-auto mt-2">
@@ -326,9 +330,9 @@ function CastleBattleMainScreen() {
                                 {activeChallengeData?.q}
                               </h3>
 
-                              {activeChallengeData?.options && activeChallengeData.options.length === 3 && (
+                              {genHasThreeOptions && (
                                 <div className="grid grid-cols-1 gap-3 w-full mb-4">
-                                  {activeChallengeData.options.map((opt: string, index: number) => {
+                                  {genOptions.map((opt: string, index: number) => {
                                     const isCorrect = showGenAnswer && opt === activeChallengeData.a;
                                     const isWrongSelected = showGenAnswer && opt === selectedOption && opt !== activeChallengeData.a;
                                     const isFaded = showGenAnswer && !isCorrect && !isWrongSelected;
@@ -336,6 +340,19 @@ function CastleBattleMainScreen() {
                                       <button key={index} disabled={showGenAnswer} onClick={() => { setSelectedOption(opt); setShowGenAnswer(true); setIsGenTimerRunning(false); setTimerStarted(true); }} className={`flex items-center justify-center border rounded-2xl p-4 transition-all ${isCorrect ? "bg-emerald-500/20 border-emerald-400 text-emerald-200 scale-[1.02]" : isWrongSelected ? "bg-rose-500/20 border-rose-400 text-rose-200" : isFaded ? "bg-ludn-surface-2 border-ludn-line text-ludn-muted" :"bg-ludn-surface-2 border-ludn-line text-ludn-fg hover:border-white/20 active:scale-[0.98]"}`}>
                                         <span className="text-lg font-black">{opt}</span>
                                       </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              {/* خيارات مو 3: تنعرض للقراءة بس (الصح يتلون بعد الكشف)، والكشف من زر "إظهار الإجابة" */}
+                              {!genHasThreeOptions && genOptions.length > 0 && (
+                                <div className="grid grid-cols-1 gap-3 w-full mb-4">
+                                  {genOptions.map((opt: string, index: number) => {
+                                    const isCorrect = showGenAnswer && opt === activeChallengeData.a;
+                                    return (
+                                      <div key={index} className={`flex items-center justify-center border rounded-2xl p-4 transition-all ${isCorrect ? "bg-emerald-500/20 border-emerald-400 text-emerald-200 scale-[1.02]" : showGenAnswer ? "bg-ludn-surface-2 border-ludn-line text-ludn-muted" : "bg-ludn-surface-2 border-ludn-line text-ludn-fg"}`}>
+                                        <span className="text-lg font-black">{opt}</span>
+                                      </div>
                                     );
                                   })}
                                 </div>
@@ -353,7 +370,7 @@ function CastleBattleMainScreen() {
                                   )}
                                 </div>
                               )}
-                              {!activeChallengeData?.options && (showGenAnswer ? (
+                              {!genHasThreeOptions && (showGenAnswer ? (
                                 <div className="bg-emerald-500/15 border border-emerald-400/50 text-emerald-200 font-black text-2xl py-4 px-4 rounded-2xl mt-2 mb-4">
                                   {activeChallengeData?.a}
                                 </div>
@@ -449,7 +466,8 @@ function CastleBattleMainScreen() {
                         يا فريق ({attackingTeam === 1 ? team2Name : team1Name}) اختر مصيرهم:
                       </p>
                       <div className="flex flex-col md:flex-row gap-4 w-full">
-                        <button onClick={() => resolveTrap("capture")} className={`${BTN_DARK} flex-1`}>
+                        {/* الأسر يحتاج نافذة مخفية عند صاحب الفخ تستقبلهم، وإلا ينقفل ويبقى القتل */}
+                        <button onClick={() => resolveTrap("capture")} disabled={!canCapture} className={`${BTN_DARK} flex-1 disabled:opacity-40 disabled:cursor-not-allowed`}>
                           أسر 20 جندي
                         </button>
                         <button onClick={() => resolveTrap("kill")} className={`${BTN_DANGER_LINE} flex-1`}>
@@ -462,21 +480,29 @@ function CastleBattleMainScreen() {
               </>
             )}
 
-            {gameState === "gameOver" && !reveal && (
-              <div className={`${cardClass} w-full text-center animate-in zoom-in-95 flex flex-col justify-center items-center p-8`}>
-                <div className="w-32 h-32 bg-amber-500/10 rounded-[2rem] flex items-center justify-center border border-amber-400/40 mb-6">
-                  <Crown className="text-amber-300 w-16 h-16 animate-bounce" strokeWidth={2.5} />
+            {gameState === "gameOver" && !reveal && (() => {
+              // الفايز: الأكثر جنود، والتساوي تعادل (إنهاء اللعبة والنهاية الطبيعية نفس الحساب)
+              const winner = castleWinner(resultType, hp1, hp2);
+              return (
+                <div className={`${cardClass} w-full text-center animate-in zoom-in-95 flex flex-col justify-center items-center p-8`}>
+                  <div className="w-32 h-32 bg-amber-500/10 rounded-[2rem] flex items-center justify-center border border-amber-400/40 mb-6">
+                    {winner ? (
+                      <Crown className="text-amber-300 w-16 h-16 animate-bounce" strokeWidth={2.5} />
+                    ) : (
+                      <Swords className="text-amber-300 w-16 h-16" strokeWidth={2.5} />
+                    )}
+                  </div>
+                  <h2 className="font-display text-[40px] leading-tight text-ludn-fg mb-3">انتهت الحرب!</h2>
+                  <p className={`text-lg font-bold text-ludn-muted mb-6 ${INSET} px-6 py-2`}>{winner ? "الفريق المنتصر" : "النتيجة"}</p>
+                  <span className={`font-display text-5xl block mb-10 ${winner === 1 ? "text-cyan-300" : winner === 2 ? "text-rose-300" : "text-amber-300"}`}>
+                    {winner === 1 ? team1Name : winner === 2 ? team2Name : "تعادل"}
+                  </span>
+                  <button onClick={() => window.location.reload()} className={BTN_GOLD}>
+                    تحدي جديد 🚀
+                  </button>
                 </div>
-                <h2 className="font-display text-[40px] leading-tight text-ludn-fg mb-3">انتهت الحرب!</h2>
-                <p className={`text-lg font-bold text-ludn-muted mb-6 ${INSET} px-6 py-2`}>الفريق المنتصر</p>
-                <span className={`font-display text-5xl block mb-10 ${hp1 > 0 ? "text-cyan-300" : "text-rose-300"}`}>
-                  {hp1 > 0 ? team1Name : team2Name}
-                </span>
-                <button onClick={() => window.location.reload()} className={BTN_GOLD}>
-                  تحدي جديد 🚀
-                </button>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           <div className="lg:col-span-4 flex flex-col w-full h-full">
@@ -485,7 +511,7 @@ function CastleBattleMainScreen() {
                 {team2Name}
               </div>
               <div className={TEAM2_HP}>
-                {hp2} / {TOTAL_SOLDIERS} <span className="text-sm text-ludn-muted">جندي</span>
+                {hp2} / {teamTotal(team2Data)} <span className="text-sm text-ludn-muted">جندي</span>
               </div>
             </div>
             <div className="flex-1 w-full max-w-[600px] mx-auto mt-2">
@@ -567,54 +593,6 @@ function CastleBattleMainScreen() {
         </div>
       )}
 
-      {showInstructionsModal && (
-        <div className={`fixed inset-0 z-[2000] flex items-center justify-center p-4 ${BACKDROP} animate-in fade-in`}>
-           <div className={`${MODAL} p-6 md:p-8 max-w-2xl w-full text-right animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scroll`}>
-              <div className="flex items-center justify-center gap-3 mb-6">
-                <Info className="w-8 h-8 text-sky-300" strokeWidth={3} />
-                <h2 className="font-display text-[32px] leading-tight text-ludn-fg">كيف نلعب حرب القلاع؟ 🏰</h2>
-              </div>
-
-              <div className="space-y-4 text-slate-300 font-bold text-sm md:text-base leading-relaxed">
-                <div className={`${INSET} p-4`}>
-                  <h3 className="text-sky-300 font-black text-lg mb-2">⚔️ التجهيز:</h3>
-                  <ul className="list-disc list-inside space-y-2">
-                    <li>كل فريق يستلم قلعة فيها 15 نافذة وعنده <span className="text-rose-300 font-black">120 جندي</span>.</li>
-                    <li>يوزع الفريق جنوده على النوافذ بسرية تامة من جوالهم.</li>
-                    <li><span className="text-amber-300 font-black">الأهم:</span> لازم تختار نافذة تخبي فيها <strong>"القائد <CastleIcon kind="commander" className="inline-block align-middle w-12 h-12" />"</strong> ونافذة ثانية تحط فيها <strong>"الفخ <CastleIcon kind="trap" className="inline-block align-middle w-12 h-12" />"</strong> وغرفة القائد والفخ ما تحط فيها جنود وتقدر توزع الجنود من زر توزيع عشوائي.</li>
-                  </ul>
-                </div>
-
-                <div className={`${INSET} p-4`}>
-                  <h3 className="text-rose-300 font-black text-lg mb-2">🔥 وقت المعركة:</h3>
-                  <ul className="list-disc list-inside space-y-2">
-                    <li>تطلع لكم تحديات وأسئلة، الفريق اللي يفوز بالتحدي يصير له الدور في الهجوم! تختار نافذة من قلعة الخصم وتقصفها وإذا جاوبت خطأ الخصم بيختار غرفة من قلعتك ويقصفها 💣.</li>
-                    <li><strong>طيحة الفخ <CastleIcon kind="trap" className="inline-block align-middle w-12 h-12" />:</strong> لو ضربت الفخ.. أكلتها! الخصم بيقرر إما يصفي <span className="text-rose-300 font-black">20 جندي</span> من جيشك، أو يأسرهم ويضمهم لجيشه.</li>
-                    <li><strong>إصابة عادية:</strong> إذا ضربت نافذة فيها جنود، تخسف فيهم وينقص عدد الجنود المندسين بالغرفة.</li>
-                    <li><strong>صيدة القائد <CastleIcon kind="commander" className="inline-block align-middle w-12 h-12" />:</strong> لو طحت على القائد، هذي ضربة قاضية! الخصم يودع 30 جندي يطيرون من جيشه!</li>
-                  </ul>
-                </div>
-
-                <div className={`${INSET} p-4`}>
-                  <h3 className="text-indigo-300 font-black text-lg mb-2 flex items-center gap-2"><CastleIcon kind="spy" /> الجاسوس الذيب:</h3>
-                  <ul className="list-disc list-inside space-y-2">
-                    <li>كل فريق يقدر يستخدم الجاسوس مرة وحدة طول اللعبة.</li>
-                    <li>الجاسوس يروح يجيب لك أكثر نافذة مليانة جنود ويقصفها لك جاهزة مجهزة.</li>
-                  </ul>
-                </div>
-
-                <div className={`${INSET} p-4 text-center`}>
-                  <h3 className="text-emerald-300 font-black text-xl mb-1">🏆 الفايز:</h3>
-                  <p>اللي يطير جنود الخصم ويصفر عدادهم أول هو اللي يرفع الراية! 🏴‍☠️</p>
-                </div>
-              </div>
-
-              <button onClick={() => setShowInstructionsModal(false)} className={`${BTN_GOLD} mt-6`}>
-                 فهمت اللعبة، قدام! 🚀
-              </button>
-           </div>
-        </div>
-      )}
     </main>
   );
 }

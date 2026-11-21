@@ -24,14 +24,15 @@ export function useWDCardsActions(ctx: any) {
       return;
     }
 
+    // النووي يخصم نص نقاط الخصم (50%، مقرّب لتحت) — نفس الرقم بالتأكيد وبالخصم
+    const deduction = Math.floor(defenderScore * 0.5);
+
     ctx.showConfirm(
-      `سيتم إطلاق النووي على الخصم وخصم 25% من نقاطه العامة! هل أنت متأكد؟`,
+      `سيتم إطلاق النووي: يخصم نص نقاط الخصم (${deduction} نقطة)! هل أنت متأكد؟`,
       () => {
         if (teamId === 1) ctx.setCards1((p: any) => ({ ...p, nuke: (p.nuke ?? 1) - 1 }));
         else ctx.setCards2((p: any) => ({ ...p, nuke: (p.nuke ?? 1) - 1 }));
 
-        const deduction = Math.floor(defenderScore * 0.25);
-        
         if (teamId === 1) {
           ctx.setScore2((s: number) => Math.max(0, s - deduction));
         } else {

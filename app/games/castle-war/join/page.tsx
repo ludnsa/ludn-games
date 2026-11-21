@@ -11,6 +11,7 @@ import {
 
 import JoinInteractiveCastle from "@/components/games/castle-war/join/JoinInteractiveCastle";
 import CastleIcon from "@/components/games/castle-war/CastleIcon";
+import { GuideButton } from "@/components/guides/GuideButton";
 import {
   BAR_DANGER, BAR_TIGHT, BTN_GOLD, ERROR, ICON_BOX, INSET, LOCKED_PICK_ICON, LOCKED_TAG, PANEL,
   ROLE_COMMANDER_OFF, ROLE_COMMANDER_ON, ROLE_TRAP_OFF, ROLE_TRAP_ON, STEP_MINUS, STEP_PLUS,
@@ -46,6 +47,10 @@ export default function CastleWarJoinPage() {
     <main className={`dark text-ludn-fg min-h-[100dvh] relative flex flex-col items-center p-4 ${cairo.className} transition-colors duration-500`} dir="rtl">
 
 
+      {/* طريقة اللعب: فوق، بكل خطوات جوال الفريق */}
+      <div className="relative z-10 w-full max-w-md flex justify-end">
+        <GuideButton gameId="castle-war" dark />
+      </div>
       <div className="relative z-10 w-full max-w-md flex-1 flex flex-col h-full py-4">
 
         {step === "enterCode" && (
@@ -55,7 +60,7 @@ export default function CastleWarJoinPage() {
             </div>
             <h1 className="font-display text-[32px] leading-tight text-ludn-fg mb-2">الوصول للغرفة</h1>
             <p className="text-ludn-muted font-bold text-sm mb-8">أدخل الكود السري المكون من 5 رموز</p>
-            <input type="text" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} maxLength={5} placeholder="C-XXXX" className="w-full bg-ludn-surface-2 border border-ludn-line focus:border-ludn-gold rounded-2xl p-5 text-center text-4xl font-black tracking-[0.4em] uppercase outline-none transition-colors mb-6 text-ludn-fg placeholder:text-ludn-muted placeholder:tracking-normal placeholder:text-lg" dir="ltr" />
+            <input type="text" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} maxLength={5} placeholder="CC123" className="w-full bg-ludn-surface-2 border border-ludn-line focus:border-ludn-gold rounded-2xl p-5 text-center text-4xl font-black tracking-[0.4em] uppercase outline-none transition-colors mb-6 text-ludn-fg placeholder:text-ludn-muted placeholder:tracking-normal placeholder:text-lg" dir="ltr" />
             <button onClick={handleEnterRoom} disabled={roomCode.length !== 5 || isCheckingCode} className={BTN_GOLD}>
               {isCheckingCode ? "جاري التحقق..." : "دخول غرفة العمليات"} <ChevronRight size={24} strokeWidth={3} />
             </button>

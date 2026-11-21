@@ -691,7 +691,7 @@ export function useQuizHost() {
     });
 
   const newSession = () =>
-    triggerConfirm("بدء جلسة جديدة؟ سيتم إنشاء رمز غرفة جديد وطرد اللاعبين الحاليين.", async () => {
+    triggerConfirm("بدء جلسة جديدة؟ تبدأ غرفة جديدة برمز جديد، واللاعبين يدخلون من جديد.", async () => {
       // الجلسة الحالية شغالة: تنتهي بالسيرفر أول (نفس "إنهاء الجلسة")، عشان ما تظل محجوزة على الحساب
       if (inPlay) await endQuizSession(roomCode).catch(() => null);
       sessionStorage.removeItem(ROOM_STORAGE_KEY);

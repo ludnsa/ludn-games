@@ -1,18 +1,12 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import { Home, ArrowRight, QrCode, Copy, Gavel, PowerOff, BookOpen } from "lucide-react";
-import InstructionsModal from "./InstructionsModal";
+import { Home, ArrowRight, QrCode, Copy, Gavel, PowerOff } from "lucide-react";
+import { GuideButton } from "@/components/guides/GuideButton";
 
 export default function RefereeHeader({ roomCode, setShowQRModal, copyLink, resetGame, triggerConfirm }: any) {
-  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
-
   return (
     <>
-      <InstructionsModal 
-        showInstructionsModal={showInstructionsModal} 
-        setShowInstructionsModal={setShowInstructionsModal} 
-      />
       <div className="flex flex-col sm:flex-row justify-between items-center bg-[#0e0a06]/85 backdrop-blur-sm p-3 md:p-4 rounded-2xl border-2 border-[#d4af37]/30 shadow-sm gap-4 sm:gap-0">
       <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-center sm:justify-start">
         <Link href="/" className="px-4 py-2 bg-[#2b1e11] hover:bg-[#3a2916] text-slate-800 dark:text-white rounded-xl flex items-center justify-center gap-2 font-black text-xs border-b-4 border-[#0a0704] active:border-b-0 active:translate-y-[4px] transition-all flex-1 sm:flex-none">
@@ -21,9 +15,7 @@ export default function RefereeHeader({ roomCode, setShowQRModal, copyLink, rese
         <button onClick={() => window.history.back()} className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-xl flex items-center justify-center gap-2 font-black text-xs border-b-4 border-yellow-600 active:border-b-0 active:translate-y-[4px] transition-all flex-1 sm:flex-none">
           <ArrowRight size={16} className="text-black" /> <span className="hidden sm:inline">رجوع</span>
         </button>
-        <button onClick={() => setShowInstructionsModal(true)} className="px-4 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-xl flex items-center justify-center gap-2 font-black text-xs border-b-4 border-blue-200 dark:border-blue-900 active:border-b-0 active:translate-y-[4px] transition-all flex-1 sm:flex-none">
-          <BookOpen size={16} /> <span className="hidden sm:inline">التعليمات</span>
-        </button>
+        <GuideButton gameId="auction" className="px-4 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-xl gap-2 text-xs border-b-4 border-blue-200 dark:border-blue-900 active:border-b-0 active:translate-y-[4px] transition-all flex-1 sm:flex-none" />
         {roomCode && resetGame && triggerConfirm && (
           <button 
             onClick={() => triggerConfirm("هل أنت متأكد من رغبتك في إنهاء اللعبة وتصفيرها بالكامل؟ سيتم طرد الفرق للبداية.", resetGame)} 

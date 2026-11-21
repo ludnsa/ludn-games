@@ -618,14 +618,7 @@ export default function QuestionModal({
                       </div>
                     )}
 
-                  {isProtected &&
-                    selectedCountry.owner !== turn &&
-                    isOpponentCapital && (
-                      <div className="px-3 py-2 lg:px-4 lg:py-3 bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 rounded-xl font-bold shadow-inner w-full flex items-center justify-center gap-2 text-[10px] lg:text-sm text-center mt-2">
-                        <Shield size={18} className="shrink-0" /> العاصمة محمية بالدرع ولا
-                        يمكن غزوها حالياً
-                      </div>
-                    )}
+                  {/* العاصمة ما تنحمى أبداً (زر الحماية والحماية السريعة يستبعدونها)، فما فيه رسالة "عاصمة محمية" */}
 
                   {isChallengeOwned && selectedCountry.owner !== turn && (
                       <div className="px-3 py-2 lg:px-4 lg:py-3 bg-slate-100 dark:bg-slate-800 text-purple-600 dark:text-purple-400 rounded-xl font-bold shadow-inner w-full flex items-center justify-center gap-2 text-[10px] lg:text-sm text-center mt-2">
