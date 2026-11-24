@@ -19,11 +19,12 @@ export const MADAQESH_CONFIG = {
   /** خيارات رصيد البداية ومبلغ الفوز (والمنشئ يقدر يكتب أي رقم) */
   START_BALANCE_OPTIONS: [30_000, 50_000, 100_000] as readonly number[],
   TARGET_OPTIONS: [500_000, 1_000_000, 2_000_000] as readonly number[],
-  BANKRUPT_OPTIONS: [1, 2, 3] as readonly number[],
+  /** الإفلاس اللي يطلع فيه اللاعب: 3 = يرجع أول مرتين، وبالإفلاس الثالث يطلع */
+  BANKRUPT_OPTIONS: [1, 2, 3, 4] as readonly number[],
 
   DEFAULT_START_BALANCE: 30_000,
   DEFAULT_TARGET: 1_000_000,
-  DEFAULT_MAX_BANKRUPTS: 2,
+  DEFAULT_MAX_BANKRUPTS: 3,
 
   /** اللي يفلس يرجع رصيده لهذا المبلغ */
   REVIVE_BALANCE: 5_000,
@@ -73,10 +74,9 @@ export const MADAQESH_ORDINALS = [
 export const MADAQESH_BOT_NAMES =["بوت فهد", "بوت سعد", "بوت نورة", "بوت ريم", "بوت ماجد", "بوت هيا"] as const;
 
 /** تنسيق المبالغ: 1,250,000 */
-/** عدد مرات الإفلاس المسموحة: "ولا مرة" / "مرة وحدة" / "مرتين" / "3 مرات" */
+/** كم مرة يفلس ويطلع: "مرة وحدة" (يطلع من أول إفلاس) / "مرتين" / "3 مرات" / "4 مرات" */
 export function madaqeshBankruptLabel(n: number): string {
-  if (n === 0) return "ولا مرة";
-  if (n === 1) return "مرة وحدة";
+  if (n <= 1) return "مرة وحدة";
   if (n === 2) return "مرتين";
   return `${n} مرات`;
 }

@@ -321,7 +321,8 @@ export function settleRound(
     let is_out = p.is_out;
     if (!p.is_out && balance <= 0) {
       bankrupts += 1;
-      if (bankrupts > settings.maxBankrupts) {
+      // maxBankrupts = الإفلاس اللي يطلع فيه: 3 = يرجع أول مرتين، وبالثالث يطلع
+      if (bankrupts >= settings.maxBankrupts) {
         is_out = true;
         balance = 0;
         eliminated.push(p.id);

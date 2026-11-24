@@ -20,7 +20,7 @@ export type MadaqeshPhase =
 export interface MadaqeshSettings {
   startBalance: number;
   targetAmount: number;
-  /** كم مرة يقدر يفلس ويرجع (برصيد 5000) قبل ما يطلع */
+  /** الإفلاس اللي يطلع فيه: 3 = يرجع (برصيد 5000) أول مرتين، وبالإفلاس الثالث يطلع */
   maxBankrupts: number;
   /** الغرفة انقفلت لأن المنشئ فتح غرفة جديدة بهذا الكود */
   movedTo?: string;

@@ -29,6 +29,8 @@ import {
   DoorOpen,
   SkipForward,
   CheckCheck,
+  ListOrdered,
+  UserPlus,
 } from "lucide-react";
 import {
   MADAQESH_CONFIG,
@@ -138,6 +140,13 @@ export default function MadaqeshScreen({ ctx, onLeave }: { ctx: MadaqeshGameCtx;
         </p>
       )}
 
+      {/* دخل (أو رجع للعب) والجولة شغالة: ترتيبها ثابت، فيلعب من الجولة الجاية */}
+      {!me.is_out && inGame && phase !== "ended" && phase !== "result" && room.round && !room.round.order.includes(me.id) && (
+        <p className={`text-center p-3 rounded-2xl ${MQ_WELL} !border-2 !border-dashed !border-[#d6a531]/50 font-black`}>
+          ⏳ هالجولة بدأت بدونك — تلعب من الجولة الجاية
+        </p>
+      )}
+
       {phase === "lobby" && <MadaqeshLobby ctx={ctx} />}
       {phase === "bidding" && <MadaqeshBidding key={room.round_number} ctx={ctx} />}
       {phase === "deciding" && <MadaqeshDeciding key={room.round_number} ctx={ctx} />}
@@ -224,13 +233,13 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
               key={p.id}
               className={`relative flex items-center gap-2 py-2 px-3 rounded-2xl font-black animate-in zoom-in-95 ${
                 p.id === me?.id ? "bg-[#d6a531]/15 border-2 border-[#d6a531]/70" : MQ_TILE
-              } ${orderOpen === p.id ? "z-30" : ""}`}
+              }`}
             >
               {isHost && players.length > 1 ? (
                 <button
                   type="button"
-                  onClick={() => setOrderOpen((o) => (o === p.id ? null : p.id))}
-                  aria-haspopup="listbox"
+                  onClick={() => setOrderOpen(p.id)}
+                  aria-haspopup="dialog"
                   aria-expanded={orderOpen === p.id}
                   aria-label={`ترتيب ${p.display_name}: ${MADAQESH_ORDINALS[i] ?? i + 1}`}
                   className="flex-1 min-w-0 flex items-center gap-2 text-start -my-1 py-1 rounded-xl"
@@ -238,7 +247,7 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
                   <OrderBadge index={i} />
                   {p.id === room.host_player_id && <Crown size={16} className={`${MQ_GOLD} shrink-0`} />}
                   <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}</span>
-                  <ChevronDown size={18} className={`shrink-0 text-slate-300 transition-transform ${orderOpen === p.id ? "rotate-180" : ""}`} />
+                  <ChevronDown size={18} className="shrink-0 text-slate-300" />
                 </button>
               ) : (
                 <>
@@ -248,7 +257,7 @@ function MadaqeshLobby({ ctx }: { ctx: MadaqeshGameCtx }) {
                 </>
               )}
               {orderOpen === p.id && (
-                <OrderMenu
+                <OrderSheet
                   name={p.display_name}
                   index={i}
                   count={players.length}
@@ -358,30 +367,30 @@ function OrderBadge({ index }: { index: number }) {
   );
 }
 
-/** قائمة منسدلة تحت اسم اللاعب: يختار المنشئ ترتيبه (الأول، الثاني…) والباقين يتزحزحون */
-function OrderMenu({
+/**
+ * نافذة من تحت: يختار المنشئ ترتيب اللاعب (الأول، الثاني…) والباقين يتزحزحون.
+ * نافذة فوق كل شي (مو قائمة منسدلة داخل اللوحة): اللوحات زجاج مغبّش وكل وحدة طبقة لحالها،
+ * فالقائمة المنسدلة كانت تنزل تحت لوحة الإعدادات وما تنضغط
+ */
+function OrderSheet({
   name,
   index,
   count,
+  note,
   onPick,
   onClose,
 }: {
   name: string;
   index: number;
   count: number;
+  note?: string;
   onPick: (position: number) => void;
   onClose: () => void;
 }) {
   return (
-    <>
-      {/* ضغطة برا القائمة تسكّرها */}
-      <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
-      <div
-        role="listbox"
-        aria-label={`ترتيب ${name}`}
-        className="absolute z-50 top-full inset-x-0 mt-2 p-2 rounded-2xl bg-[#0f1526] border-2 border-[#d6a531]/70 shadow-[0_0_30px_-6px_rgba(214,165,49,0.55),0_20px_40px_rgba(0,0,0,0.6)] animate-in fade-in slide-in-from-top-2 duration-150"
-      >
-        <p className={`px-2 pt-1 pb-2 text-xs font-bold ${MQ_MUTED} break-words`}>ترتيب {name} في اللعب</p>
+    <Sheet title={`ترتيب ${name}`} onClose={onClose}>
+      {note && <p className={`pb-3 text-xs font-bold ${MQ_MUTED}`}>{note}</p>}
+      <div role="listbox" aria-label={`ترتيب ${name}`}>
         <div className="grid grid-cols-3 gap-1.5">
           {Array.from({ length: count }, (_, i) => {
             const on = i === index;
@@ -392,7 +401,7 @@ function OrderMenu({
                 role="option"
                 aria-selected={on}
                 onClick={() => onPick(i)}
-                className={`py-2.5 px-1 rounded-xl font-black text-sm flex flex-col items-center leading-tight transition-colors ${
+                className={`py-3 px-1 rounded-xl font-black text-sm flex flex-col items-center leading-tight transition-colors ${
                   on ? MQ_SELECTED : "bg-[#1b2338] hover:bg-[#25304b]"
                 }`}
               >
@@ -403,7 +412,52 @@ function OrderMenu({
           })}
         </div>
       </div>
-    </>
+    </Sheet>
+  );
+}
+
+/** دعوة لاعب بنص اللعبة: الرمز ونسخ الرابط والباركود (يدخل برصيد البداية، آخر الترتيب، ويلعب من الجولة الجاية) */
+function InviteTile({ roomCode, full }: { roomCode: string; full: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const joinUrl = typeof window !== "undefined" ? `${window.location.origin}${MADAQESH_GAME.joinPath}?room=${roomCode}` : "";
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setShowQR(true);
+    }
+  };
+  return (
+    <div className={`p-3 rounded-2xl ${MQ_TILE}`}>
+      <p className="font-black mb-1 flex items-center gap-2"><UserPlus size={18} /> دعوة لاعب</p>
+      <p className={`text-xs font-bold ${MQ_MUTED} mb-2`}>
+        {full
+          ? `الغرفة ممتلئة (${MADAQESH_CONFIG.MAX_PLAYERS} لاعب).`
+          : "يدخل برصيد البداية، ومكانه آخر الترتيب، ويلعب من الجولة الجاية."}
+      </p>
+      <p className={`text-3xl font-black tracking-[0.3em] text-center ${MQ_GOLD_GLOW} mb-2`} dir="ltr">{roomCode}</p>
+      <div className="flex gap-2">
+        <button type="button" onClick={copyLink} className={`flex-1 py-2.5 rounded-xl ${MQ_SMALL_BTN} font-black text-sm flex items-center justify-center gap-2`}>
+          {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+          {copied ? "تم النسخ" : "نسخ الرابط"}
+        </button>
+        <button type="button" onClick={() => setShowQR((v) => !v)} className={`flex-1 py-2.5 rounded-xl ${MQ_SMALL_BTN} font-black text-sm flex items-center justify-center gap-2`}>
+          <QrCode size={16} /> باركود
+        </button>
+      </div>
+      {showQR && (
+        <div className="bg-white p-3 rounded-2xl mx-auto w-fit mt-3 animate-in zoom-in-95">
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`}
+            alt={`باركود الانضمام لغرفة ${roomCode}`}
+            className="w-52 h-52"
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -458,6 +512,8 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState(0);
   const [askClose, setAskClose] = useState(false);
+  // نافذة ترتيب لاعب من قائمة المنشئ (بنص اللعبة)
+  const [orderId, setOrderId] = useState<string | null>(null);
   if (!room) return null;
   const inGame = room.phase !== "lobby" && room.phase !== "ended";
 
@@ -483,7 +539,7 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
       </button>
 
       {open && (
-        <Sheet title="👑 قائمة المنشئ" onClose={() => { setOpen(false); setArmed(null); setEditId(null); }}>
+        <Sheet title="👑 قائمة المنشئ" onClose={() => { setOpen(false); setArmed(null); setEditId(null); setOrderId(null); }}>
           <div className="flex flex-col gap-2">
             {/* تخطي: لو أحد غايب ووقف اللعب */}
             {room.phase === "bidding" && room.round && currentBidderId(room.round) && (
@@ -577,6 +633,33 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
               </div>
             )}
 
+            {/* الترتيب بنص اللعبة: ترتيب الجولة الشغالة ثابت، والجديد يمشي من الجولة الجاية */}
+            {inGame && players.length > 1 && (
+              <div className={`p-3 rounded-2xl ${MQ_TILE}`}>
+                <p className="font-black mb-1 flex items-center gap-2"><ListOrdered size={18} /> الترتيب</p>
+                <p className={`text-xs font-bold ${MQ_MUTED} mb-2`}>اضغط على الاسم عشان تغيّر مكانه. الترتيب الجديد يمشي من الجولة الجاية.</p>
+                <ol className="flex flex-col gap-1.5">
+                  {players.map((p, i) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => setOrderId(p.id)}
+                        aria-haspopup="dialog"
+                        aria-label={`ترتيب ${p.display_name}: ${MADAQESH_ORDINALS[i] ?? i + 1}`}
+                        className={`w-full flex items-center gap-2 rounded-xl ${MQ_WELL} p-2 text-start font-black`}
+                      >
+                        <OrderBadge index={i} />
+                        <span className="flex-1 min-w-0 break-words leading-tight">{p.display_name}{p.is_out ? " ☠️" : ""}</span>
+                        <ChevronDown size={18} className="shrink-0 text-slate-300" />
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {room.phase !== "lobby" && <InviteTile roomCode={room.room_code} full={players.length >= MADAQESH_CONFIG.MAX_PLAYERS} />}
+
             {inGame && (
               <MenuItem
                 icon={<Square size={20} />}
@@ -610,6 +693,23 @@ function HostMenu({ ctx }: { ctx: MadaqeshGameCtx }) {
 
             <MenuItem icon={<Home size={20} />} label="الصفحة الرئيسية" hint="تقدر تقفل الغرفة أو تخليها شغالة" onClick={() => setAskClose(true)} />
           </div>
+          {orderId && (() => {
+            const idx = players.findIndex((p) => p.id === orderId);
+            if (idx < 0) return null;
+            return (
+              <OrderSheet
+                name={players[idx].display_name}
+                index={idx}
+                count={players.length}
+                note="الترتيب الجديد يمشي من الجولة الجاية."
+                onClose={() => setOrderId(null)}
+                onPick={(pos) => {
+                  setOrderId(null);
+                  if (pos !== idx) host.setPosition(orderId, pos);
+                }}
+              />
+            );
+          })()}
         </Sheet>
       )}
 

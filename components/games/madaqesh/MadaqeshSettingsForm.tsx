@@ -67,7 +67,8 @@ export default function MadaqeshSettingsForm({
   onSubmit: (s: MadaqeshSettings) => void;
   children?: React.ReactNode;
 }) {
-  const [s, setS] = useState<MadaqeshSettings>(initial);
+  // الإفلاس أقل شي 1 (غرفة قديمة فيها "ولا مرة" = 0 تطلع من أول إفلاس، نفس 1)
+  const [s, setS] = useState<MadaqeshSettings>(() => ({ ...initial, maxBankrupts: Math.max(1, initial.maxBankrupts) }));
   // أقل رصيد بداية (نفس MadaqeshSettingsSchema بالسيرفر)
   const MIN_START_BALANCE = 1000;
   const startTooLow = s.startBalance < MIN_START_BALANCE;
@@ -96,10 +97,10 @@ export default function MadaqeshSettingsForm({
       />
       <div>
         <p className={`font-bold text-sm ${MQ_MUTED} mb-2`}>
-          💸 كم مرة يقدر يفلس؟ (يرجع رصيده {formatMoney(MADAQESH_CONFIG.REVIVE_BALANCE)})
+          💸 كم مرة يفلس ويطلع؟ (قبلها يرجع رصيده {formatMoney(MADAQESH_CONFIG.REVIVE_BALANCE)})
         </p>
         <div className="grid grid-cols-4 gap-1.5">
-          {[0, ...MADAQESH_CONFIG.BANKRUPT_OPTIONS].map((n) => (
+          {MADAQESH_CONFIG.BANKRUPT_OPTIONS.map((n) => (
             <button
               key={n}
               type="button"

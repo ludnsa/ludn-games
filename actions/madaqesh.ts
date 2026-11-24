@@ -463,6 +463,7 @@ export async function getMadaqeshRoomPublicInfo(
 /**
  * الانضمام بالكود والاسم. نفس الاسم = نفس الشخص رجع (سكّر المتصفح مثلاً):
  * ياخذ مكانه ورصيده بمفتاح جديد — حتى وسط اللعبة.
+ * اسم جديد يدخل بأي وقت (إلا الغرفة المقفولة أو الممتلئة).
  */
 export async function joinMadaqeshRoom(input: {
   roomCode: string;
@@ -490,7 +491,8 @@ export async function joinMadaqeshRoom(input: {
     return { success: true, data: { roomCode, token } };
   }
 
-  if (room.phase !== "lobby") return fail("اللعبة بدأت — إذا كنت داخل قبل، اكتب نفس اسمك بالضبط.");
+  // لاعب جديد حتى بنص اللعبة: رصيد البداية، ومكانه آخر الترتيب، ويلعب من الجولة الجاية
+  // (ترتيب الجولة الشغالة ثابت فيها، والجولة الجاية تنبني من كل اللاعبين بالمقاعد)
   const { count } = await admin
     .from("madaqesh_players")
     .select("id", { count: "exact", head: true })
@@ -655,7 +657,8 @@ export async function setMadaqeshPlayerPosition(input: {
   const ctx = await requireHost(input.roomCode);
   if (!ctx.ok) return fail(ctx.error);
   const { admin, room } = ctx;
-  if (room.phase !== "lobby") return fail("الترتيب قبل البدء بس.");
+  // قبل البدء أو بنص اللعبة: ترتيب الجولة الشغالة ثابت، والترتيب الجديد يمشي من الجولة الجاية
+  if (room.phase === "closed") return fail("هذي الغرفة انقفلت.");
   const players = await loadPlayers(admin, room.room_code);
   const from = players.findIndex((p) => p.id === input.playerId);
   if (from < 0 || !Number.isInteger(input.position)) return fail("اللاعب مو موجود.");
