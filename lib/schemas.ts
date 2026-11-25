@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { HIVE_ROOM_CODE_RE, LETTERS_HIVE_CONFIG } from "@/constants/letters-hive";
 
+// نفس حدود قيد القاعدة contact_messages_form_chk (supabase/migrations/0013_fix_contact_messages.sql)
 export const ContactMessageSchema = z.object({
-  name: z.string().min(2, "الاسم يجب أن يكون أكثر من حرفين"),
-  phone: z.string().min(9, "رقم الجوال غير صحيح"),
-  email: z.string().email("البريد الإلكتروني غير صحيح"),
+  name: z.string().min(2, "الاسم يجب أن يكون أكثر من حرفين").max(60, "الاسم طويل، الحد الأقصى 60 حرف"),
+  phone: z.string().min(9, "رقم الجوال غير صحيح").max(20, "رقم الجوال غير صحيح"),
+  email: z.string().max(254, "البريد الإلكتروني طويل جداً").email("البريد الإلكتروني غير صحيح"),
   message: z.string().min(10, "الرسالة قصيرة جداً").max(200, "الرسالة طويلة جداً الحد الأقصى 200 حرف"),
 });
 

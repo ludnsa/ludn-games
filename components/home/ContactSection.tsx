@@ -64,16 +64,16 @@ export const ContactSection = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               <div>
                 <label htmlFor="contact-name" className={LABEL}>الاسم الكامل</label>
-                <input id="contact-name" name="name" type="text" className={FIELD} placeholder="اسمك..." required />
+                <input id="contact-name" name="name" type="text" maxLength={60} className={FIELD} placeholder="اسمك..." required />
               </div>
               <div>
                 <label htmlFor="contact-phone" className={LABEL}>رقم الجوال</label>
-                <input id="contact-phone" name="phone" type="tel" className={FIELD} placeholder="05x xxx xxxx" required />
+                <input id="contact-phone" name="phone" type="tel" maxLength={20} className={FIELD} placeholder="05x xxx xxxx" required />
               </div>
             </div>
             <div>
               <label htmlFor="contact-email" className={LABEL}>البريد الإلكتروني</label>
-              <input id="contact-email" name="email" type="email" className={FIELD} placeholder="example@email.com" required />
+              <input id="contact-email" name="email" type="email" maxLength={254} className={FIELD} placeholder="example@email.com" required />
             </div>
             <div>
               <label htmlFor="contact-message" className={LABEL}>الرسالة</label>
