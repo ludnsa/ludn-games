@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { serverNow, startCountdown, useServerClock } from "@/lib/game/server-clock";
 import { startBackupRead, type BackupRead } from "@/lib/game/room-backup-read";
+import { postAuction, readAuctionTeamToken, saveAuctionTeamToken } from "@/lib/game/auction-client";
 
 /** صف الغرفة (من البث أو القراءة): الحقول اللي نقراها هنا، والباقي ينضاف لبيانات اللعبة مثل ما هو */
 type AuctionRoomRow = {
@@ -194,39 +195,21 @@ export function useAuctionTeam() {
   const handleJoin = async () => {
     if (!roomCode || roomCode.length !== 5 || !teamId || !deviceId) return;
 
-    const colName = teamId === 1 ? "t1_device_id" : "t2_device_id";
+    // السيرفر يحجز الفريق (نفس الشروط: الغرفة موجودة وما انتهت، والفريق فاضي أو هو أصلاً معي)
+    // ويعطيني token مربوط بالغرفة والفريق والجهاز، ينرسل مع كل مزايدة
+    const res = await postAuction<{ token: string }>("team-join", {
+      roomCode,
+      team: teamId,
+      deviceId,
+      token: readAuctionTeamToken(roomCode, teamId),
+    });
 
-    // 1. Check if we already own the team (e.g. refreshed the page)
-    const { data: currentRoom } = await supabase.from("auction_rooms").select(`${colName}, game_state`).eq("room_code", roomCode).neq("t1_name", Date.now().toString()).single();
-
-    if (!currentRoom) {
-      triggerAlert("رمز الغرفة غير صحيح أو اللعبة غير موجودة.");
+    if (!res.success || !res.data) {
+      triggerAlert(res.success ? "تعذّر الاتصال، حاول مرة ثانية." : res.error);
       return;
     }
 
-    if (currentRoom.game_state === "gameOver") {
-      triggerAlert("هذه الجلسة قديمة وانتهت! الرجاء مسح الباركود الجديد من شاشة الحكم.");
-      return;
-    }
-
-    if ((currentRoom as any)[colName] === deviceId) {
-      setIsJoined(true);
-      return;
-    }
-
-    // 2. Try to claim the team ATOMICALLY (Compare-and-Swap). Only works if it is currently NULL!
-    const { data: updateData } = await supabase
-      .from("auction_rooms")
-      .update({ [colName]: deviceId })
-      .eq("room_code", roomCode)
-      .is(colName, null)
-      .select();
-
-    if (!updateData || updateData.length === 0) {
-      triggerAlert("عذراً، هذا الفريق ممتلئ! لقد دخل قائد آخر مسبقاً.");
-      return;
-    }
-
+    saveAuctionTeamToken(roomCode, teamId, res.data.token);
     setIsJoined(true);
   };
 
@@ -257,20 +240,20 @@ export function useAuctionTeam() {
 
     if (Number(myBid) > myBalance) { triggerAlert("لا يمكنك المزايدة بأكثر من رصيدك الحالي."); return; }
 
-    const colName = teamId === 1 ? "t1_bid" : "t2_bid";
-    const deviceIdCol = teamId === 1 ? "t1_device_id" : "t2_device_id";
+    if (!teamId) return;
 
-    // ATOMIC BID: Only allow update if the database still registers THIS device as the leader!
-    const { data: updateData } = await supabase
-      .from("auction_rooms")
-      .update({ [colName]: Number(myBid) })
-      .eq("room_code", roomCode)
-      .eq(deviceIdCol, deviceId) // Critical Security Check
-      .select();
+    // السيرفر يكتب عمود مزايدة فريقي بس، وبشرط إني للحين ماسك الفريق (الـ token) ووقت المزايدة
+    const res = await postAuction("team-bid", {
+      roomCode,
+      team: teamId,
+      deviceId,
+      token: readAuctionTeamToken(roomCode, teamId),
+      bid: Number(myBid),
+    });
 
-    if (!updateData || updateData.length === 0) {
-      triggerAlert("عذراً! لقد تم تسجيل دخول قائد آخر لهذا الفريق وتم سحب الصلاحية منك.");
-      handleLeave();
+    if (!res.success) {
+      triggerAlert(res.error);
+      if (res.code === "lost") handleLeave();
       return;
     }
 

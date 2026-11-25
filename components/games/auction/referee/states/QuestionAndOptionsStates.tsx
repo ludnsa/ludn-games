@@ -1,10 +1,8 @@
 "use client";
 import React from "react";
 import { ShieldAlert, Timer as TimerIcon, Eye, Play, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
-import { getSupabaseBrowser } from "@/lib/supabase/client";
+import { auctionRefereeWrite } from "@/lib/game/auction-client";
 import { AuctionCardGlyph } from "../../AuctionCardIcons";
-
-const supabase = getSupabaseBrowser();
 
 export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
   const {
@@ -135,7 +133,7 @@ export default function QuestionAndOptionsStates({ ctx }: { ctx: any }) {
                        onClick={async () => {
                          setSelectedOption(opt);
                          setIsTimerRunning(false); 
-                         await supabase.from("auction_rooms").update({ selected_option: opt }).eq("room_code", roomCode);
+                         await auctionRefereeWrite(roomCode, { selected_option: opt });
                        }}
                        className={`p-4 md:p-5 border-2 rounded-xl md:rounded-2xl font-black text-sm md:text-lg text-center shadow-sm transition-all ${!showResult && 'active:scale-95'} ${optClass}`}
                      >

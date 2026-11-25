@@ -11,6 +11,7 @@ import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { useLiveGamePing } from "@/hooks/shared/useLiveGamePing";
 import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
 import { clearLiveGame, markLiveGame, resumeLiveGame } from "@/lib/live-game";
+import { auctionRefereeWrite, postAuction } from "@/lib/game/auction-client";
 import { useRouter } from "next/navigation";
 
 // سعر بيع السؤال ثابت: الخصم يدفعه كامل والبائع ياخذه كامل
@@ -151,17 +152,15 @@ export function useAuctionReferee() {
         }
       }
       
-      const newCode = "A" + Math.random().toString(36).substring(2, 6).toUpperCase();
+      // الغرفة ينشئها السيرفر (برمز جديد ما يكتب فوق غرفة موجودة)، والمتصفح ما يكتب بالجدول
+      const created = await postAuction<{ roomCode: string }>("ref-create", { t1Name, t2Name, startBalance });
+      if (!created.success || !created.data) {
+        console.error("auction ref-create error:", created.success ? "no code" : created.error);
+        return;
+      }
+      const newCode = created.data.roomCode;
       sessionStorage.setItem("auction_referee_room_code", newCode);
       setRoomCode(newCode);
-      await supabase.from("auction_rooms").upsert([{
-        room_code: newCode,
-        game_state: "setup",
-        t1_name: t1Name,
-        t2_name: t2Name,
-        t1_balance: startBalance,
-        t2_balance: startBalance
-      }]);
     };
 
     // سكّر التبويب ورجع خلال 10 دقايق (حتى من تبويب جديد): نفس المزاد يرجع لهالتبويب، قبل الفحص وتجهيز الغرفة
@@ -182,13 +181,13 @@ export function useAuctionReferee() {
   useEffect(() => {
     if (roomCode && gameState === "setup") {
       const delay = setTimeout(async () => {
-        await supabase.from("auction_rooms").update({
+        await auctionRefereeWrite(roomCode, {
           t1_name: t1Name,
           t2_name: t2Name,
           t1_balance: startBalance,
           t2_balance: startBalance
-        }).eq("room_code", roomCode);
-      }, 500); 
+        });
+      }, 500);
       return () => clearTimeout(delay);
     }
   }, [t1Name, t2Name, startBalance, roomCode, gameState]);
@@ -242,7 +241,7 @@ export function useAuctionReferee() {
   useEffect(() => {
     if (!roomCode || gameState === "setup") return;
     const syncCoreData = async () => {
-      const { error } = await supabase.from("auction_rooms").update({
+      const res = await auctionRefereeWrite(roomCode, {
         game_state: gameState,
         t1_balance: t1Balance, t2_balance: t2Balance,
         t1_points: t1Points, t2_points: t2Points,
@@ -253,10 +252,10 @@ export function useAuctionReferee() {
         turn: turn, winner: winner, buyer: buyer,
         is_double_risk: isDoubleRisk, play_mode: playMode,
         is_question_visible: isQuestionVisible
-      }).eq("room_code", roomCode);
-      
-      if (error) {
-        console.error("syncCoreData DB Error:", error);
+      });
+
+      if (!res.success) {
+        console.error("syncCoreData DB Error:", res.error);
       }
     };
     syncCoreData();
@@ -271,16 +270,10 @@ export function useAuctionReferee() {
     const secondsLeft = timerEndsAt === null ? timerWhenStopped ?? 0 : Math.max(0, Math.ceil((timerEndsAt - serverNow()) / 1000));
     const syncTimer = async () => {
       const patch = { timer: secondsLeft, is_timer_running: timerEndsAt !== null, timer_ends_at: endsAtIso };
-      const { error } = await supabase.from("auction_rooms").update(patch).eq("room_code", roomCode);
-      // ملف القاعدة 0017 ما انشغّل (العمود مو موجود): نكتب بدونه عشان المؤقت والحالة ما يتعطلون
-      if (error && error.message.includes("timer_ends_at")) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { timer_ends_at, ...withoutEnd } = patch;
-        await supabase.from("auction_rooms").update(withoutEnd).eq("room_code", roomCode);
-      }
+      // لو ملف القاعدة 0017 ما انشغّل (العمود مو موجود)، السيرفر يكتب بدونه (lib/game/auction-server.ts)
+      await auctionRefereeWrite(roomCode, patch);
     };
     syncTimer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerWhenStopped, timerEndsAt, roomCode, gameState]);
 
   // القراءة الاحتياطية تحتاج آخر مرحلة، وتعرف لو الحكم كتب المزايدات بنفسه وهي بالطريق
@@ -343,11 +336,8 @@ export function useAuctionReferee() {
   const resetTeamDevice = async (teamNum: 1 | 2) => {
     if (!roomCode) return;
     const colName = teamNum === 1 ? "t1_device_id" : "t2_device_id";
-    const { error } = await supabase
-      .from("auction_rooms")
-      .update({ [colName]: null })
-      .eq("room_code", roomCode);
-    if (!error) {
+    const res = await auctionRefereeWrite(roomCode, { [colName]: null });
+    if (res.success) {
       triggerAlert(`تم تصفير جهاز الفريق ${teamNum}. يمكن للقائد الدخول الآن.`);
     } else {
       triggerAlert("حدث خطأ أثناء التصفير.");
@@ -363,13 +353,13 @@ export function useAuctionReferee() {
     clearLiveGame(GAME_ID);
 
     // تحديث الغرفة لطرد الفرق وإشعارهم بأن الجلسة القديمة انتهت
-    await supabase.from("auction_rooms").update({
+    await auctionRefereeWrite(roomCode, {
       game_state: "gameOver",
       t1_name: resetStr,
       t2_name: resetStr,
       t1_device_id: null,
       t2_device_id: null
-    }).eq("room_code", roomCode);
+    });
     
     // إزالة بيانات الجلسة الحالية
     sessionStorage.removeItem("auction_active_session");
@@ -455,7 +445,7 @@ export function useAuctionReferee() {
     setT1Ambush(3);
     setT2Ambush(3);
     
-    const { error: updateError } = await supabase.from("auction_rooms").update({
+    const started = await auctionRefereeWrite(roomCode, {
       game_state: "bidding",
       t1_balance: startBalance, t2_balance: startBalance,
       t1_points: 0, t2_points: 0,
@@ -465,12 +455,12 @@ export function useAuctionReferee() {
       questions: selectedQs, current_index: 0, turn: 1,
       timer: 25, is_timer_running: false, is_question_visible: false,
       selected_option: null
-    }).eq("room_code", roomCode);
+    });
 
-    if (updateError) {
+    if (!started.success) {
       // اللعبة ما بدأت: الحجز يرجع
       await endBrowserGameSession(GAME_ID, roomCode).catch(() => null);
-      triggerAlert("خطأ في تحديث قاعدة البيانات: " + updateError.message);
+      triggerAlert("خطأ في تحديث قاعدة البيانات: " + started.error);
       return;
     }
 
@@ -529,12 +519,12 @@ export function useAuctionReferee() {
     else setT2Balance(p => Math.max(0, p - winningBid));
 
     // تحديث قاعدة البيانات بالمزايدات لو الحكم دخلها يدوي عشان شاشة اللاعبين تتحدث.
-    // لازم .then(): طلب Supabase ما ينرسل إلا لما ينتظر — قبل ما كان ينرسل أبداً، فتظل المزايدات فاضية بالقاعدة
-    // وأول تحديث للغرفة يمسح مزايدات الحكم (فالكمين يسترد ويخصم صفر)
+    // لازم ينرسل فعلاً (قبل كان طلب Supabase بدون .then() ما ينرسل أبداً، فتظل المزايدات فاضية بالقاعدة
+    // وأول تحديث للغرفة يمسح مزايدات الحكم، فالكمين يسترد ويخصم صفر). الطلب للسيرفر ينرسل على طول
     ownBidWritesRef.current++;
-    void supabase.from("auction_rooms").update({
+    void auctionRefereeWrite(roomCode, {
       t1_bid: b1, t2_bid: b2
-    }).eq("room_code", roomCode).then(() => { ownBidWritesRef.current++; });
+    }).then(() => { ownBidWritesRef.current++; });
 
     setGameState("preRisk");
   };
@@ -700,9 +690,9 @@ export function useAuctionReferee() {
 
         // نحفظ الأسئلة في الغرفة أول: جوالات القادة تستقبلها مباشرة (نفس قناة التحديث المباشر)،
         // واللي يحدّث الصفحة يقراها من القاعدة. ولو الحفظ فشل ما نغيّر عند الحكم بعد، عشان ما يختلف عن الجوالات
-        const { error } = await supabase.from("auction_rooms").update({ questions: newQs }).eq("room_code", roomCode);
-        if (error) {
-          console.error("handleChangeQuestion DB Error:", error);
+        const saved = await auctionRefereeWrite(roomCode, { questions: newQs });
+        if (!saved.success) {
+          console.error("handleChangeQuestion DB Error:", saved.error);
           triggerAlert("تعذر تغيير السؤال، حاول مرة ثانية.");
           return;
         }
@@ -737,14 +727,14 @@ export function useAuctionReferee() {
       }
       
       ownBidWritesRef.current++;
-      await supabase.from("auction_rooms").update({
+      await auctionRefereeWrite(roomCode, {
         t1_bid: winId === 1 ? balanceToBid : 0,
         t2_bid: winId === 2 ? balanceToBid : 0,
         selected_option: null,
         t1_balance: winId === 1 ? 0 : t1Balance,
         t2_balance: winId === 2 ? 0 : t2Balance,
         is_sudden_death: true
-      }).eq("room_code", roomCode);
+      });
       ownBidWritesRef.current++;
 
       setCurrentIndex(p => p + 1);
@@ -759,7 +749,7 @@ export function useAuctionReferee() {
     } else {
       // قراءة احتياطية بالطريق ممكن ترجع مزايدات السؤال اللي فات: نتركها
       ownBidWritesRef.current++;
-      await supabase.from("auction_rooms").update({ t1_bid: null, t2_bid: null, selected_option: null }).eq("room_code", roomCode);
+      await auctionRefereeWrite(roomCode, { t1_bid: null, t2_bid: null, selected_option: null });
       ownBidWritesRef.current++;
 
       setCurrentIndex(p => p + 1);
