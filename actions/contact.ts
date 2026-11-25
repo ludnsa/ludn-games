@@ -24,19 +24,8 @@ export async function submitContactMessage(formData: FormData) {
   const supabase = await getSupabaseServer();
 
   try {
-    // فحص التكرار قبل الإرسال (يوفّر طلب إدخال). لو ما قدر يشتغل نكمل: القاعدة نفسها ترفض المكرر
-    // (trigger contact_messages_guard من 0013) وترجّع الخطأ تحت
-    const { data: isSpam, error: checkError } = await supabase.rpc('check_recent_message', {
-      user_email: parsed.data.email,
-      user_phone: parsed.data.phone
-    });
-
-    if (checkError) console.error("check_recent_message error:", checkError.message);
-
-    if (isSpam === true) {
-      return { success: false, error: DUPLICATE_MESSAGE };
-    }
-
+    // فحص التكرار والإغراق بالقاعدة نفسها (trigger contact_messages_guard من 0013) وقت الإدخال،
+    // وخطأه يرجع تحت. دالة check_recent_message ما يناديها المتصفح ولا النموذج (0013 سحب صلاحيتها)
     const { error } = await supabase
       .from("contact_messages")
       .insert([{
