@@ -200,12 +200,17 @@ export type MafiaTeam = "mafia" | "town";
 /** نمط اللعب: حماسي = كل فئة تصحى بدورها، سريع = الكل يختار بنفس الوقت */
 export type MafiaMode = "hype" | "fast";
 
+/** التصويت: مكشوف = أسماء المصوّتين تطلع للكل، سري = العدد بس */
+export type MafiaVoteMode = "open" | "secret";
+
 export interface MafiaSettings {
   maxPlayers: number;
   mafiaCount: number;
   optionalRoles: MafiaOptionalRole[];
   /** نمط اللعب — الغرف القديمة بدونه = حماسي */
   mode?: MafiaMode;
+  /** التصويت — الغرف القديمة بدونه = مكشوف */
+  voteMode?: MafiaVoteMode;
   /** وقت النقاش بالثواني (120 / 180 / 300) — الغرف القديمة بدونه = 120 */
   discussionSeconds?: number;
   /** الغرفة انقفلت والمنشئ فتح غرفة جديدة بهذا الكود */
@@ -274,7 +279,7 @@ export interface MafiaRoom {
   settings: MafiaSettings;
   announcements: MafiaAnnouncement[];
   vote_counts: Record<string, number>;
-  /** التصويت مكشوف: لكل هدف (أو "skip") قائمة معرّفات اللي صوّتوا عليه */
+  /** التصويت المكشوف: لكل هدف (أو "skip") قائمة معرّفات اللي صوّتوا عليه. السري: تظل فاضية */
   vote_voters?: Record<string, string[]>;
   /**
    * مين باقي ما اختار في دور الليل الحالي (waiting = معرّفاتهم).

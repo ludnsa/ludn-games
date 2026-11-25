@@ -234,6 +234,11 @@ export function isFastMafia(s: MafiaSettings): boolean {
   return s.mode === "fast";
 }
 
+/** التصويت السري: العدد بس، وأسماء المصوّتين ما تطلع لأحد — الغرف القديمة بدونه = مكشوف */
+export function isSecretVote(s: MafiaSettings | null | undefined): boolean {
+  return s?.voteMode === "secret";
+}
+
 /**
  * النمط السريع: مهمة اللاعب الليلة حسب فئته — بنفس شروط النمط الحماسي (canActOnStep).
  * null = ما عنده مهمة (مواطن، مافيا مو قائد، صحفي استخدم قدرته…): يجاوب سؤال التمويه.
@@ -491,7 +496,7 @@ export function countVotes(votes: { targetId: string | null }[]): Record<string,
   return counts;
 }
 
-/** مين صوّت على مين — التصويت مكشوف للكل */
+/** مين صوّت على مين — بالتصويت المكشوف تطلع للكل */
 export function groupVoters(votes: { voterId: string; targetId: string | null }[]): Record<string, string[]> {
   const voters: Record<string, string[]> = {};
   votes.forEach((v) => {

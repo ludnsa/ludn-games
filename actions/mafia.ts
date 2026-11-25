@@ -23,6 +23,7 @@ import {
   fastNightStep,
   groupVoters,
   isFastMafia,
+  isSecretVote,
   mafiaDeadline,
   mafiaLeaderId,
   mafiaNightShortcut,
@@ -1506,6 +1507,9 @@ const votesKey = (votes: VoteRow[]) =>
 
 /** مين صوّت على مين — في تحديث مستقل، عشان لو عمود vote_voters مو موجود (ملف 0005 ما انشغّل) يظل العداد والتصويت شغّالين عادي */
 async function writeVoteVoters(admin: Admin, room: MafiaRoom, votes: VoteRow[]): Promise<void> {
+  // التصويت السري: الأسماء ما تنكتب بالغرفة أصلاً (الغرفة توصل لكل الجوالات)، وتظل فاضية من بداية
+  // التصويت. العداد والنتيجة ينحسبون من الأصوات نفسها مثل المكشوف
+  if (isSecretVote(room.settings)) return;
   const { error } = await admin
     .from("mafia_rooms")
     .update({ vote_voters: groupVoters(votes) })

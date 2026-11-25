@@ -15,7 +15,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { MAFIA_CONFIG, MAFIA_NIGHT_ORDER } from "@/constants/mafia";
-import { buildRoleDeck, checkWinner, countVotes, isFastMafia, mafiaLeaderId, mafiaNightSteps, type EnginePlayer } from "@/lib/game/mafia-engine";
+import { buildRoleDeck, checkWinner, countVotes, groupVoters, isFastMafia, isSecretVote, mafiaLeaderId, mafiaNightSteps, type EnginePlayer } from "@/lib/game/mafia-engine";
 import type { MafiaNightStep, MafiaRole, MafiaRoom, MafiaSettings } from "@/types";
 import * as mafia from "@/actions/mafia";
 import { FakeSupabase } from "./fakes/fake-supabase";
@@ -436,6 +436,22 @@ export class MafiaSim {
       const alive = this.aliveIds(code);
       return players.filter((p) => alive.has(p.id));
     };
+    /**
+     * أسماء المصوّتين بالغرفة (توصل لكل الجوالات): التصويت السري = ولا اسم أبداً،
+     * والمكشوف = نفس الأصوات بالضبط
+     */
+    const checkVoterNames = (voteRows: Record<string, unknown>[]) => {
+      const r = this.room(code);
+      const names = r.vote_voters ?? {};
+      if (isSecretVote(r.settings)) {
+        if (Object.values(names).some((ids) => ids.length > 0)) v("التصويت السري: أسماء المصوّتين انكتبت بالغرفة");
+        return;
+      }
+      const want = groupVoters(voteRows.map((x) => ({ voterId: x.voter_id as string, targetId: (x.target_id as string | null) ?? null })));
+      const norm = (o: Record<string, string[]>) =>
+        JSON.stringify(Object.entries(o).filter(([, ids]) => ids.length).map(([k, ids]) => [k, [...ids].sort()]).sort());
+      if (norm(names) !== norm(want)) v(`التصويت المكشوف: أسماء المصوّتين ${norm(names)} ما تطابق الأصوات ${norm(want)}`);
+    };
 
     while (true) {
       const room = this.room(code);
@@ -629,6 +645,7 @@ export class MafiaSim {
           if (sum(tally) !== voters.length || JSON.stringify(Object.entries(tally).sort()) !== JSON.stringify(Object.entries(truth).sort())) {
             v(`عداد الأصوات ${JSON.stringify(tally)} ما يطابق الأصوات ${JSON.stringify(truth)}`);
           }
+          checkVoterNames(voteRows);
           clock.to(Date.parse(room.phase_ends_at!) + 500);
           await advanceBy(this.pickOne(alive));
           // إعادات الأصوات اللي وصلت بعد ما خلص التصويت: نفس الرد (نجاح)، وما تغيّر النتيجة
@@ -646,6 +663,8 @@ export class MafiaSim {
         }
 
         case "vote_result": {
+          // بعد العد النهائي بنهاية التصويت
+          checkVoterNames(this.db.rows("mafia_votes").filter((x) => x.room_code === code && x.round === room.night_number));
           clock.to(Date.parse(room.phase_ends_at!) + 500);
           await advanceBy(this.pickOne(alivePlayers()));
           break;

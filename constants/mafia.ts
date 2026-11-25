@@ -1,4 +1,4 @@
-import type { MafiaMode, MafiaNightStep, MafiaOptionalRole, MafiaRole, MafiaTeam } from "@/types";
+import type { MafiaMode, MafiaNightStep, MafiaOptionalRole, MafiaRole, MafiaTeam, MafiaVoteMode } from "@/types";
 
 /**
  * المصدر الوحيد لهوية لعبة "المافيا".
@@ -187,6 +187,12 @@ export const MAFIA_BACKGROUNDS = {
 export const MAFIA_MODES: readonly { key: MafiaMode; label: string; hint: string }[] = [
   { key: "hype", label: "حماسي", hint: "كل فئة تصحى بدورها" },
   { key: "fast", label: "سريع", hint: `الكل يختار بنفس الوقت · ${MAFIA_CONFIG.FAST_NIGHT_SECONDS} ثانية` },
+] as const;
+
+/** التصويت: مكشوف (الافتراضي) أو سري — المنشئ يختار */
+export const MAFIA_VOTE_MODES: readonly { key: MafiaVoteMode; label: string; hint: string }[] = [
+  { key: "open", label: "مكشوف", hint: "الكل يشوف مين صوّت على مين" },
+  { key: "secret", label: "سري", hint: "يطلع العدد بس، بدون أسماء" },
 ] as const;
 
 /** الفئات الاختيارية بالترتيب اللي تظهر فيه في شاشة الإعداد */

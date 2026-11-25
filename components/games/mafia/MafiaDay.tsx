@@ -21,7 +21,7 @@ import {
   Check,
   type LucideIcon,
 } from "lucide-react";
-import { MAFIA_SKIP_KEY, blastText } from "@/lib/game/mafia-engine";
+import { MAFIA_SKIP_KEY, blastText, isSecretVote } from "@/lib/game/mafia-engine";
 import { mafiaMorningSchedule, type MafiaGameCtx } from "@/hooks/games/mafia/useMafiaGame";
 import {
   AnnouncementIcon,
@@ -36,8 +36,9 @@ import { MAFIA_CONFIG, mafiaCardSrc } from "@/constants/mafia";
 import type { MafiaAnnouncement, MafiaRoom } from "@/types";
 import { BTN_GOLD, H_CARD, H_PROMPT, INFO, INSET, LABEL, NOTE } from "./mafiaUi";
 
-/** أسماء اللي صوّتوا على هدف معيّن (لاعب أو "skip") */
+/** أسماء اللي صوّتوا على هدف معيّن (لاعب أو "skip"). التصويت السري: ولا اسم */
 function votersOf(room: MafiaRoom, key: string, nameOf: (id: string) => string): string[] {
+  if (isSecretVote(room.settings)) return [];
   return (room.vote_voters?.[key] ?? []).map(nameOf).filter(Boolean);
 }
 
@@ -267,7 +268,11 @@ export function MafiaVoting({ ctx }: { ctx: MafiaGameCtx }) {
         <Vote size={24} className="text-ludn-gold" /> التصويت
       </h2>
       <p className={`${NOTE} text-[13px] mb-3`}>
-        {canVote ? "مين تطلّعون؟ التصويت مكشوف، وتقدر تغيّر صوتك لين ينتهي الوقت" : "الموتى يتفرجون بس"}
+        {canVote
+          ? isSecretVote(room.settings)
+            ? "مين تطلّعون؟ التصويت سري (العدد بس بدون أسماء)، وتقدر تغيّر صوتك لين ينتهي الوقت"
+            : "مين تطلّعون؟ التصويت مكشوف، وتقدر تغيّر صوتك لين ينتهي الوقت"
+          : "الموتى يتفرجون بس"}
       </p>
 
       <PlayerPicker
@@ -346,8 +351,12 @@ export function MafiaVoteResult({ ctx }: { ctx: MafiaGameCtx }) {
   );
 }
 
-/** ملخص التصويت: مين صوّت على مين — عشان المواطنين يحللون قبل الليلة الجاية */
+/**
+ * ملخص التصويت: مين صوّت على مين — عشان المواطنين يحللون قبل الليلة الجاية.
+ * التصويت السري: عدد الأصوات على كل واحد بس، بدون أسماء
+ */
 function VoteBreakdown({ ctx, room }: { ctx: MafiaGameCtx; room: MafiaRoom }) {
+  const secret = isSecretVote(room.settings);
   const rows = Object.entries(room.vote_counts ?? {})
     .filter(([, n]) => n > 0)
     .sort((a, b) => b[1] - a[1]);
@@ -356,12 +365,12 @@ function VoteBreakdown({ ctx, room }: { ctx: MafiaGameCtx; room: MafiaRoom }) {
   return (
     <Panel className="mt-4 text-right animate-in fade-in slide-in-from-bottom-4 duration-700">
       <h3 className="text-[15px] font-black mb-2 flex items-center gap-2">
-        <ListChecks size={18} className="text-ludn-gold-text" /> مين صوّت على مين؟
+        <ListChecks size={18} className="text-ludn-gold-text" /> {secret ? "كم صوت أخذ كل واحد؟" : "مين صوّت على مين؟"}
       </h3>
       <ul className="flex flex-col gap-1.5">
         {rows.map(([key, n]) => (
           <li key={key} className={`${INSET} p-2.5`}>
-            <span className="flex items-center gap-2 mb-1.5">
+            <span className={`flex items-center gap-2 ${secret ? "" : "mb-1.5"}`}>
               <span className="flex-1 text-[15px] font-black">
                 {key === MAFIA_SKIP_KEY ? (
                   <span className="flex items-center gap-1.5">
@@ -373,7 +382,7 @@ function VoteBreakdown({ ctx, room }: { ctx: MafiaGameCtx; room: MafiaRoom }) {
               </span>
               <VoteCount count={n} />
             </span>
-            <VoterNames names={votersOf(room, key, ctx.nameOf)} />
+            {!secret && <VoterNames names={votersOf(room, key, ctx.nameOf)} />}
           </li>
         ))}
       </ul>

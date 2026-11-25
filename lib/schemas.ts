@@ -108,6 +108,7 @@ export const MafiaSettingsSchema = z.object({
   optionalRoles: z.array(z.enum(["magician", "journalist", "soldier", "suicide", "silencer", "sheikh"])).max(6),
   discussionSeconds: z.union([z.literal(120), z.literal(180), z.literal(300), z.literal(0)]).optional(),
   mode: z.enum(["hype", "fast"]).optional(),
+  voteMode: z.enum(["open", "secret"]).optional(),
 });
 
 export const MafiaCreateSchema = z.object({

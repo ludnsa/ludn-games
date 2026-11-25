@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { addMafiaBots, devGetMafiaRoles, type MafiaMyView, type MafiaTask } from "@/actions/mafia";
-import { MAFIA_SKIP_KEY, isFastMafia, mafiaNightSteps, silencedPlayerId } from "@/lib/game/mafia-engine";
+import { MAFIA_SKIP_KEY, isFastMafia, isSecretVote, mafiaNightSteps, silencedPlayerId } from "@/lib/game/mafia-engine";
 import { MAFIA_CONFIG } from "@/constants/mafia";
 import { serverNow, startCountdown, useServerClock, whenServerClockReady } from "@/lib/game/server-clock";
 import { getMafiaSoundTiming, playMafiaSound, unlockMafiaAudio, type MafiaSound } from "@/lib/game/mafia-sounds";
@@ -1086,6 +1086,47 @@ export function useMafiaGame(
    */
   const voteBusy = useRef(false);
   const voteFixes = useRef(0);
+
+  /**
+   * التصويت السري: ما فيه قائمة "مين صوّت على مين" عامة نشيّك منها على صوتي (شوف publicVote تحت)،
+   * فبعد كل صوت يتأكد نجيب صوتي مثل ما سجّله السيرفر من حالتي الخاصة، ونفس الفحص يكمل.
+   * مرتين: بعد ثانية ونص، وبعدها بثلاث ثواني (الطلب القديم ممكن يوصل بعد ما تأكد الجديد بشوي)
+   */
+  const [secretSeen, setSecretSeen] = useState<{ seq: number; vote: string | null } | null>(null);
+  const secretVoteRef = useRef(false);
+  useEffect(() => {
+    secretVoteRef.current = isSecretVote(room?.settings);
+  }, [room?.settings]);
+  const secretCheck = useRef<{ gen: number; timer: ReturnType<typeof setTimeout> | null }>({ gen: 0, timer: null });
+  useEffect(() => {
+    const check = secretCheck.current;
+    return () => {
+      check.gen++;
+      if (check.timer) clearTimeout(check.timer);
+    };
+  }, []);
+  const checkSecretVote = useCallback(
+    (want: VoteWant) => {
+      const check = secretCheck.current;
+      const gen = ++check.gen;
+      if (check.timer) clearTimeout(check.timer);
+      setSecretSeen(null);
+      const still = () => check.gen === gen && voteConfirmed.current === want && liveSeq.current === want.seq;
+      const run = (delays: number[]) => {
+        check.timer = setTimeout(async () => {
+          check.timer = null;
+          if (!still()) return;
+          const res = await postMafia<MafiaMyView>("view", { roomCode, token });
+          if (!still() || !res.success || !res.data || res.data.phaseSeq !== want.seq) return;
+          setSecretSeen({ seq: want.seq, vote: res.data.myVote });
+          if (delays.length > 1) run(delays.slice(1));
+        }, delays[0]);
+      };
+      run([1500, 3000]);
+    },
+    [roomCode, token]
+  );
+
   const flushVote = useCallback(async () => {
     if (voteBusy.current) return;
     voteBusy.current = true;
@@ -1101,6 +1142,7 @@ export function useMafiaGame(
         if (res === null) return;
         if (res.success) {
           voteConfirmed.current = want;
+          if (secretVoteRef.current) checkSecretVote(want);
           return;
         }
         voteWant.current = null;
@@ -1112,7 +1154,7 @@ export function useMafiaGame(
     } finally {
       voteBusy.current = false;
     }
-  }, [roomCode, token, sendRetry, fetchView, fetchPublic]);
+  }, [roomCode, token, sendRetry, fetchView, fetchPublic, checkSecretVote]);
 
   const vote = useCallback(
     async (targetId: string | null) => {
@@ -1135,10 +1177,13 @@ export function useMafiaGame(
   // طلب قديم من نفس الجوال (انقطع بالمهلة بس السيرفر كمّله) وصل متأخر بعد صوت أحدث وغيّر صوتي: يبان
   // بقائمة "مين صوّت على مين" العامة اللي توصل مع كل تحديث للغرفة. لو ظل صوتي فيها غير آخر اختيار لي
   // ثانية ونص، نرسل الأحدث من جديد (بحد 3 مرات بالجولة). لو اللي صوّتت عليه مات وسط التصويت، صوته
-  // انشال بالسيرفر: ما نرجّعه
+  // انشال بالسيرفر: ما نرجّعه. التصويت السري: صوتي من حالتي الخاصة (checkSecretVote) بدل القائمة العامة
   const myVoterId = view?.me.id;
-  const publicVote =
-    room?.phase === "voting" && room.vote_voters && myVoterId
+  const publicVote = isSecretVote(room?.settings)
+    ? room?.phase === "voting" && secretSeen && secretSeen.seq === room.phase_seq
+      ? secretSeen.vote
+      : undefined
+    : room?.phase === "voting" && room.vote_voters && myVoterId
       ? (Object.entries(room.vote_voters).find(([, ids]) => ids.includes(myVoterId))?.[0] ?? null)
       : undefined;
   const publicVoteRef = useRef(publicVote);

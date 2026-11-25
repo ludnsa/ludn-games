@@ -97,7 +97,7 @@ function add(agg: Agg, r: GameResult) {
   }
 }
 
-const label = (s: MafiaSettings) => `${s.mode ?? "hype"} ${s.maxPlayers}p ${s.mafiaCount}m [${s.optionalRoles.join(",") || "-"}]`;
+const label = (s: MafiaSettings) => `${s.mode ?? "hype"}${s.voteMode === "secret" ? " سري" : ""} ${s.maxPlayers}p ${s.mafiaCount}m [${s.optionalRoles.join(",") || "-"}]`;
 
 /** جولة واحدة بغرفة جديدة */
 async function oneGame(sim: MafiaSim, settings: MafiaSettings, scenario?: Scenario): Promise<GameResult> {
@@ -185,7 +185,8 @@ async function main() {
           const maxM = mafiaMaxMafia(players, optionalRoles.length);
           const mafiaList = QUICK ? [1, maxM] : ALL ? Array.from({ length: maxM }, (_, i) => i + 1) : [1, 2, 3, maxM].filter((m) => m <= maxM);
           for (const mafiaCount of new Set(mafiaList)) {
-            const settings: MafiaSettings = { maxPlayers: players, mafiaCount, optionalRoles, mode };
+            // نص التركيبات بالتصويت السري (الأعداد الفردية)، ونصها مكشوف
+            const settings: MafiaSettings = { maxPlayers: players, mafiaCount, optionalRoles, mode, ...(players % 2 ? { voteMode: "secret" as const } : {}) };
             if (validateMafiaSettings(settings)) continue;
             configs++;
             const sim = new MafiaSim(CALM, rnd);
@@ -211,9 +212,9 @@ async function main() {
     console.log(`\n# 2) جولات عشوائية بسلوك مشاغب (${GAMES} لكل إعداد)`);
     const messyConfigs: MafiaSettings[] = [
       { maxPlayers: 11, mafiaCount: 3, optionalRoles: ["magician", "journalist", "soldier", "suicide", "silencer", "sheikh"], mode: "fast" },
-      { maxPlayers: 11, mafiaCount: 3, optionalRoles: ["magician", "journalist", "soldier", "suicide", "silencer", "sheikh"], mode: "hype" },
+      { maxPlayers: 11, mafiaCount: 3, optionalRoles: ["magician", "journalist", "soldier", "suicide", "silencer", "sheikh"], mode: "hype", voteMode: "secret" },
       { maxPlayers: 7, mafiaCount: 2, optionalRoles: ["magician", "soldier"], mode: "hype" },
-      { maxPlayers: 20, mafiaCount: 4, optionalRoles: ["magician", "journalist", "soldier", "suicide", "silencer", "sheikh"], mode: "fast" },
+      { maxPlayers: 20, mafiaCount: 4, optionalRoles: ["magician", "journalist", "soldier", "suicide", "silencer", "sheikh"], mode: "fast", voteMode: "secret" },
     ];
     for (const settings of messyConfigs) {
       const agg = newAgg();
