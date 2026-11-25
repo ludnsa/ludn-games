@@ -30,8 +30,9 @@ const cairo = Cairo({ subsets: ["arabic"], weight: ["400", "700", "900"] });
 
 const noopSubscribe = () => () => {};
 
-/** مجموع جنود الفريق: 120 + اللي أسرهم (الأسرى ينضافون لنوافذه)، عشان العداد ما يطلع مثل 140 / 120 */
-const teamTotal = (data: TeamSetup | null) => Math.max(TOTAL_SOLDIERS, data?.rooms?.reduce((sum, n) => sum + (n || 0), 0) ?? 0);
+/** مجموع جنود الفريق: 120 + اللي أسرهم (الأسرى ينضافون لنوافذه)، عشان العداد ما يطلع مثل 140 / 120.
+ *  الخطة عند السيرفر، والمجموع يجي منه (total) */
+const teamTotal = (data: TeamSetup | null) => Math.max(TOTAL_SOLDIERS, data?.total ?? data?.rooms?.reduce((sum, n) => sum + (n || 0), 0) ?? 0);
 
 /**
  * فيه غرفة في هذا التبويب: اللعبة مباشرة (وهذا اللي يصير بعد التحديث).

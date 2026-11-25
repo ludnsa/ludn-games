@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { startBackupRead, type BackupReadCtx } from "@/lib/game/room-backup-read";
+import { castleDeviceId, postCastle, readCastleTeamToken, saveCastleTeamToken, type CastleApiResult } from "@/lib/game/castle-client";
 
 export const TOTAL_SOLDIERS = 120;
 export const ROOMS_COUNT = 15;
@@ -12,21 +13,21 @@ const RESET_NOTICE = "الحكم صفّر اللعبة، وزّع جيشك من 
 /** جوالين يرجعون مع بعض بعد التصفير: الثاني يتأخر شوي عشان كتابته ما تمسح علامة الأول */
 const REJOIN_STAGGER_MS = 400;
 
-type CwSupabase = ReturnType<typeof getSupabaseBrowser>;
-
-/** يسجل في live_sync إن الفريق مأخوذ، فيتقفل عند باقي الجوالات */
-async function markTeamJoined(supabase: CwSupabase, code: string, team: 1 | 2, onlyIfSynced = false) {
-  const { data } = await supabase.from("cw_rooms").select("live_sync").eq("room_code", code).single();
-  if (!data || (onlyIfSynced && !data.live_sync)) return;
-  const updatedLiveSync = { ...data.live_sync };
-  if (team === 1) updatedLiveSync.team1Joined = true;
-  if (team === 2) updatedLiveSync.team2Joined = true;
-  await supabase.from("cw_rooms").update({ live_sync: updatedLiveSync }).eq("room_code", code);
+/**
+ * الجوال ياخذ الفريق من السيرفر (app/api/castle): لو فاضي ينحجز لهالجهاز وياخذ token، والسيرفر يحط علامة
+ * "الفريق دخل" بـ live_sync فيتقفل عند باقي الجوالات. ولو الجهاز ماسكه أصلاً (رجع بعد تحديث أو تصفير) يرسل الـ token.
+ */
+async function markTeamJoined(code: string, team: 1 | 2): Promise<CastleApiResult<{ token: string }>> {
+  const res = await postCastle<{ token: string }>("team-join", {
+    roomCode: code, team, deviceId: castleDeviceId(), token: readCastleTeamToken(code, team),
+  });
+  if (res.success && res.data?.token) saveCastleTeamToken(code, team, res.data.token);
+  return res;
 }
 
-/** الحكم يكتب live_sync كامل بعد التصفير فتنمسح العلامة، والجوال الراجع يعيد قفل فريقه */
-function rejoinAfterReset(supabase: CwSupabase, code: string, team: 1 | 2) {
-  setTimeout(() => { void markTeamJoined(supabase, code, team, true); }, team === 2 ? REJOIN_STAGGER_MS : 0);
+/** التصفير يفك الفرق، والجوال الراجع يعيد حجز فريقه */
+function rejoinAfterReset(code: string, team: 1 | 2) {
+  setTimeout(() => { void markTeamJoined(code, team); }, team === 2 ? REJOIN_STAGGER_MS : 0);
 }
 
 export function useCastleWarJoin() {
@@ -116,7 +117,7 @@ export function useCastleWarJoin() {
           if (initialStep === "done" && restoredTeam && !(restoredTeam === 1 ? data.team1_setup : data.team2_setup)) {
             initialStep = "setup";
             toast.info(RESET_NOTICE, { id: RESET_NOTICE });
-            if (data.live_sync) rejoinAfterReset(supabase, codeFromUrl, restoredTeam);
+            if (data.live_sync) rejoinAfterReset(codeFromUrl, restoredTeam);
             else rejoinPendingRef.current = true;
           }
           setStep(initialStep);
@@ -171,7 +172,7 @@ export function useCastleWarJoin() {
         applyHostReset();
         if (data.live_sync) {
           rejoinPendingRef.current = false;
-          rejoinAfterReset(supabase, roomCode, team);
+          rejoinAfterReset(roomCode, team);
         }
         return;
       }
@@ -203,7 +204,7 @@ export function useCastleWarJoin() {
             // لو فتح الصفحة قبل مزامنة الحكم الأسماء ما وصلته، والخطة ترسل اسم الفريق للحكم
             if (newRecord.live_sync.team1Name) setTeam1Name(newRecord.live_sync.team1Name);
             if (newRecord.live_sync.team2Name) setTeam2Name(newRecord.live_sync.team2Name);
-            if (!newRecord.live_sync[team === 1 ? "team1Joined" : "team2Joined"]) rejoinAfterReset(supabase, roomCode, team);
+            if (!newRecord.live_sync[team === 1 ? "team1Joined" : "team2Joined"]) rejoinAfterReset(roomCode, team);
           }
           if (newRecord.live_sync?.team1Joined) setTeam1Joined(true);
           if (newRecord.live_sync?.team2Joined) setTeam2Joined(true);
@@ -270,7 +271,16 @@ export function useCastleWarJoin() {
     setSelectedTeam(team);
     setStep("setup");
 
-    await markTeamJoined(supabase, roomCode, team);
+    const res = await markTeamJoined(roomCode, team);
+    // جوال ثاني سبقه للفريق نفسه (بنفس اللحظة): يرجع لاختيار الفريق، والفريق يتقفل عنده
+    if (!res.success && res.code === "full") {
+      if (team === 1) setTeam1Joined(true);
+      else setTeam2Joined(true);
+      setSelectedTeam(null);
+      sessionStorage.removeItem("cw_player_team");
+      setStep("selectTeam");
+      toast.error(res.error);
+    }
   };
 
   const remainingSoldiers = TOTAL_SOLDIERS - rooms.reduce((a, b) => a + b, 0);
@@ -363,20 +373,21 @@ export function useCastleWarJoin() {
     if (!isSetupValid || !selectedTeam) return;
     setIsSubmitting(true);
 
-    const teamData = {
+    // الخطة للسيرفر بس (ما تنحفظ بالغرفة اللي يقراها الكل)، بالـ token اللي أخذه الجوال لما اختار فريقه.
+    // لو ما عنده token (طلب الاختيار ما وصل) يحجز الفريق أول
+    if (!readCastleTeamToken(roomCode, selectedTeam)) await markTeamJoined(roomCode, selectedTeam);
+    const res = await postCastle("team-plan", {
+      roomCode,
+      team: selectedTeam,
+      deviceId: castleDeviceId(),
+      token: readCastleTeamToken(roomCode, selectedTeam),
+      plan: { rooms, commanderRoom, trapRoom },
       name: selectedTeam === 1 ? team1Name : team2Name,
-      rooms: rooms,
-      commanderRoom: commanderRoom,
-      trapRoom: trapRoom,
-      roomCode: roomCode,
-    };
-
-    const updateField = selectedTeam === 1 ? { team1_setup: teamData } : { team2_setup: teamData };
-    const { error } = await supabase.from("cw_rooms").update(updateField).eq("room_code", roomCode);
+    });
 
     setIsSubmitting(false);
-    if (!error) setStep("done");
-    else toast.error("حدث خطأ أثناء إرسال الخطة للسيرفر، حاول مرة أخرى.");
+    if (res.success) setStep("done");
+    else toast.error(res.code === "lost" || res.code === "closed" ? res.error : "حدث خطأ أثناء إرسال الخطة للسيرفر، حاول مرة أخرى.");
   };
 
   return {

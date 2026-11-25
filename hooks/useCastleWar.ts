@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getBrowserSessionUser, getSupabaseBrowser } from "@/lib/supabase/client";
+import { getBrowserSessionUser } from "@/lib/supabase/client";
 import { useCWGameFlow } from "./games/castle-war/useCWGameFlow";
 import { useCWRoom } from "./games/castle-war/useCWRoom";
 import { useCWCombat } from "./games/castle-war/useCWCombat";
@@ -13,6 +13,8 @@ import { useGameAccess } from "@/hooks/shared/useGameAccess";
 import { useLiveGamePing } from "@/hooks/shared/useLiveGamePing";
 import { beginBrowserGameSession, countBrowserGameSession, endBrowserGameSession } from "@/app/actions/browserGameSessions";
 import { clearLiveGame, markLiveGame, resumeLiveGame } from "@/lib/live-game";
+import { castleHostWrite, postCastle } from "@/lib/game/castle-client";
+import type { AttackReply, CastleStatus } from "@/lib/game/castle-server";
 import { useRouter } from "next/navigation";
 
 const GAME_ID = "castle-war";
@@ -29,22 +31,35 @@ export const SVG_ROOMS = [
   { id: 10, cx: 950, cy: 300 }, { id: 11, cx: 950, cy: 420 }, { id: 12, cx: 950, cy: 540 }, { id: 13, cx: 870, cy: 660 }, { id: 14, cx: 1030, cy: 660 },
 ];
 
-export type TeamSetup = { rooms: number[]; commanderRoom: number | null; trapRoom: number | null; roomCode?: string; name?: string; };
+/**
+ * بيانات الفريق عند المضيف (والشاشة): الخطة نفسها عند السيرفر بس (cw_room_secrets)، وهنا النوافذ اللي انكشفت بس
+ * (تنعبى من رد السيرفر لما تنضرب)، والباقي صفر. total = مجموع جنوده (120 + الأسرى).
+ */
+export type TeamSetup = { rooms: number[]; commanderRoom: number | null; trapRoom: number | null; roomCode?: string; name?: string; total?: number; };
 export type SoundType = "roll" | "hit" | "miss" | "trap" | "commander" | "win" | "tick" | "buzzer";
 export type ChallengeType = "30sec" | "5sec" | "general" | "team" | "guess" | "";
 
-/** نوافذ تستقبل الأسرى: مخفية (تقدر تنضرب)، ومو نافذة القائد ولا الفخ */
-const captureRoomsOf = (data: TeamSetup | null, revealed: boolean[]) =>
-  data ? Array.from({ length: ROOMS_COUNT }, (_, i) => i).filter((i) => !revealed[i] && i !== data.commanderRoom && i !== data.trapRoom) : [];
+/** فريق جاهز (علامته بالغرفة: جاهز + الاسم): ولا نافذة مكشوفة للحين */
+const hiddenTeam = (marker: { name?: unknown } | null | undefined): TeamSetup => ({
+  rooms: Array(ROOMS_COUNT).fill(0),
+  commanderRoom: null,
+  trapRoom: null,
+  name: typeof marker?.name === "string" ? marker.name : undefined,
+});
 
-/** أكثر شي تقدر الضربات تنقصه من الفريق: جنود نوافذه المخفية (الفخ ما ينقص صاحبه)، والقائد المخفي +30 */
-const reachableDamageOf = (data: TeamSetup, revealed: boolean[]) => {
-  let total = 0;
-  for (let i = 0; i < ROOMS_COUNT; i++) {
-    if (revealed[i] || i === data.trapRoom) continue;
-    total += (data.rooms[i] || 0) + (i === data.commanderRoom ? 30 : 0);
-  }
-  return total;
+/** النافذة اللي انضربت (رد السيرفر) تنضاف لبيانات الفريق المدافع */
+const withRevealedRoom = (data: TeamSetup | null, r: AttackReply): TeamSetup => {
+  const base = data ?? hiddenTeam(null);
+  const rooms = [...(Array.isArray(base.rooms) ? base.rooms : Array(ROOMS_COUNT).fill(0))];
+  const room = r.room as number;
+  rooms[room] = r.soldiers;
+  return { ...base, rooms, commanderRoom: r.commander ? room : base.commanderRoom, trapRoom: r.trap ? room : base.trapRoom };
+};
+
+/** قبل أي هجوم: الفريقين باقي فيهم شي ينضرب، والأسر يتحدد من رد السيرفر لما ينكشف الفخ */
+const DEFAULT_STATUS: CastleStatus = {
+  1: { reachable: true, capture: false, total: TOTAL_SOLDIERS },
+  2: { reachable: true, capture: false, total: TOTAL_SOLDIERS },
 };
 
 /** النتيجة بعدد الجنود: الأكثر يفوز، والتساوي تعادل */
@@ -138,15 +153,6 @@ const createSoundSynth = () => {
   return { playMasterSound };
 };
 
-const generateAlphanumericCode = (length: number) => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = "C";
-  for (let i = 0; i < length - 1; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-};
-
 /** غرفة الحكم المحفوظة في هذا التبويب: تبقى بعد تحديث الصفحة، وتنمسح لما تنتهي اللعبة */
 export const getSavedCastleRoom = () =>
   typeof window === "undefined" ? null : sessionStorage.getItem("cw_referee_room");
@@ -165,20 +171,13 @@ export async function resumeCastleRoom(): Promise<boolean> {
 
 /**
  * إنشاء الغرفة، من زر "إنشاء الغرفة" بس. ما يحجز ولا يحسب: الحجز عند "بدء الحرب" والاحتساب بعد ثلاث هجمات.
- * insert مو upsert: لو الكود طلع مكرر نجرب غيره، بدل ما نركب على غرفة قديمة وتطلع فرقها جاهزة.
+ * من السيرفر (app/api/castle): الكود منه (ما يركب على غرفة موجودة)، والغرفة باسم حساب المضيف.
  */
 export async function createCastleRoom(team1Name: string, team2Name: string): Promise<boolean> {
-  const supabase = getSupabaseBrowser();
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const code = "C" + generateAlphanumericCode(4);
-    const { error } = await supabase.from("cw_rooms").insert({ room_code: code, live_sync: { team1Name, team2Name } });
-    if (!error) {
-      sessionStorage.setItem("cw_referee_room", code);
-      return true;
-    }
-    if (error.code !== "23505") return false; // 23505: الكود مستخدم
-  }
-  return false;
+  const res = await postCastle<{ roomCode: string }>("ref-create", { team1Name, team2Name });
+  if (!res.success || !res.data?.roomCode) return false;
+  sessionStorage.setItem("cw_referee_room", res.data.roomCode);
+  return true;
 }
 
 export function useCastleWar() {
@@ -224,6 +223,14 @@ export function useCastleWar() {
     timerStarted, setTimerStarted, targetEndTime, setTargetEndTime
   } = challenges;
 
+  // من رد السيرفر (المضيف ما عنده الخطط): هل بقى بكل فريق شي ينضرب، وهل عنده نافذة تستقبل أسرى، ومجموع جنوده
+  const [teamStatus, setTeamStatus] = useState<CastleStatus>(DEFAULT_STATUS);
+  const applyStatus = (st: CastleStatus) => {
+    setTeamStatus(st);
+    setTeam1Data((d) => (d ? { ...d, total: st[1].total } : d));
+    setTeam2Data((d) => (d ? { ...d, total: st[2].total } : d));
+  };
+
   const [soundEnabled, setSoundEnabled] = useState(true);
   const synthRef = useRef<{ playMasterSound: (type: SoundType) => void; } | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -265,7 +272,7 @@ export function useCastleWar() {
   // (ما يصير مع الأسر الجديد، بس ممكن ببيانات قديمة أو ناقصة). وقتها ما فيه هدف ينضغط،
   // فتنتهي بعد ثانية بعدد الجنود مثل "إنهاء اللعبة". والنهاية الطبيعية (عداد صفّر) لها أولوية
   const unreachable = gameState === "playing" && battleStep !== "trapChoice" && !!team1Data && !!team2Data && hp1 > 0 && hp2 > 0
-    && (reachableDamageOf(team1Data, revealed1) === 0 || reachableDamageOf(team2Data, revealed2) === 0);
+    && (!teamStatus[1].reachable || !teamStatus[2].reachable);
   const stuckResult = unreachable ? countResult(hp1, hp2, team1Name, team2Name) : null;
   const stuckType = stuckResult?.type ?? null;
   const stuckMsg = stuckResult?.msg ?? null;
@@ -291,9 +298,11 @@ export function useCastleWar() {
       await endBrowserGameSession(GAME_ID, code).catch(() => null);
       clearLiveGame(GAME_ID);
       resetSeqRef.current++;
-      await supabase.from("cw_rooms").update({ team1_setup: null, team2_setup: null, live_sync: null }).eq("room_code", code);
+      // السيرفر يمسح الخطط ومين ماسك الفرق، وبعدها الغرفة (الثلاثة فاضية بجملة وحدة مثل قبل)
+      await castleHostWrite("ref-reset", { roomCode: code });
       resetSeqRef.current++;
     }
+    setTeamStatus(DEFAULT_STATUS);
 
     setGameState("lobby");
     setTeam1Ready(false);
@@ -368,13 +377,10 @@ export function useCastleWar() {
     return () => observer.disconnect();
   }, []);
 
-  const debouncedSyncToSupabase = useDebounceCallback(async (liveData: any) => {
+  // الحالة تنكتب من السيرفر: ينظّفها (الخطط المكشوفة بس، والتوقعات لين تنكشف) ويحط علامات "الفريق دخل"
+  const debouncedSyncToSupabase = useDebounceCallback((liveData: any) => {
     if (!roomCodeRef.current) return;
-    try {
-      await supabase.from("cw_rooms").update({ live_sync: liveData }).eq("room_code", roomCodeRef.current);
-    } catch (e) {
-      console.error("Sync error:", e);
-    }
+    void castleHostWrite("ref-sync", { roomCode: roomCodeRef.current, live: liveData });
   }, 50);
 
   // pending: لسا ما قرأنا الغرفة، فالحالة افتراضية وما نكتبها فوق اللي في القاعدة
@@ -428,6 +434,12 @@ export function useCastleWar() {
           roomCodeRef.current = savedRoom;
           setJoinUrl(`${window.location.origin}/games/castle-war/join?code=${savedRoom}`);
           const { data } = await supabase.from("cw_rooms").select("team1_setup, team2_setup, live_sync").eq("room_code", savedRoom).single();
+          // وسط الحرب: التوقعات اللي كتبها المضيف (قبل كشفها) وحالة الفريقين من السيرفر. قبل ما تبدأ الكتابة:
+          // لو سبقتها أول كتابة بعد الرجوع، تكتب توقعات فاضية فوق المحفوظة
+          const inGame = !!data?.live_sync?.gameState && data.live_sync.gameState !== "lobby";
+          const loaded = inGame
+            ? await postCastle<{ guesses: { guessT1: string; guessT2: string }; status: CastleStatus }>("ref-load", { roomCode: savedRoom })
+            : null;
 
           // غرفة الانتظار: أسماء صفحة الإعداد (أو تعديل الحكم) ترجع بعد التحديث.
           // ما نكتبها مرة ثانية: الحكم يكتب live_sync كامل، وهذا يمسح علامة "الفريق دخل" اللي يكتبها جوال الفريق
@@ -441,14 +453,17 @@ export function useCastleWar() {
           }
 
           if (data) {
-             if (data.team1_setup) { setTeam1Data(data.team1_setup); setTeam1Ready(true); }
-             if (data.team2_setup) { setTeam2Data(data.team2_setup); setTeam2Ready(true); }
+             if (data.team1_setup) { setTeam1Data(hiddenTeam(data.team1_setup)); setTeam1Ready(true); }
+             if (data.team2_setup) { setTeam2Data(hiddenTeam(data.team2_setup)); setTeam2Ready(true); }
 
              if (data.live_sync && data.live_sync.gameState) {
                 if (data.live_sync.gameState !== "lobby") {
                   setGameState(data.live_sync.gameState);
-                  // الأسرى ينضافون لنوافذ صاحب الفخ في live_sync بس (الخطة بالقاعدة ما تتغير)، فنرجّع التوزيع منه.
-                  // بدونه يرجع العداد +20 والنوافذ بدون الأسرى، فما يقدر الخصم يصفّره
+                  // أسماء الفرق وسط الحرب من الغرفة نفسها. قبل كانت ترجع بس من قراءة الفرق الثانية، ولو سبقتها هالقراءة
+                  // تنطفي قبل ما ترد، فترجع الأسماء الافتراضية وتنكتب للشاشة ("الفريق الأول" بدل اسم الفريق)
+                  if (data.live_sync.team1Name) setTeam1Name(data.live_sync.team1Name);
+                  if (data.live_sync.team2Name) setTeam2Name(data.live_sync.team2Name);
+                  // النوافذ المكشوفة ومجموع الجنود (مع الأسرى) من live_sync (السيرفر يكتبها منظّفة)
                   if (data.team1_setup && Array.isArray(data.live_sync.team1Data?.rooms)) setTeam1Data(data.live_sync.team1Data);
                   if (data.team2_setup && Array.isArray(data.live_sync.team2Data?.rooms)) setTeam2Data(data.live_sync.team2Data);
                   if (data.live_sync.hp1 !== undefined) setHp1(data.live_sync.hp1);
@@ -476,6 +491,13 @@ export function useCastleWar() {
                   if (data.live_sync.guessT2 !== undefined) setGuessT2(data.live_sync.guessT2);
                   if (data.live_sync.targetEndTime !== undefined) setTargetEndTime(data.live_sync.targetEndTime);
                   if (data.live_sync.selectedOption !== undefined) setSelectedOption(data.live_sync.selectedOption);
+                  if (loaded?.success && loaded.data) {
+                    applyStatus(loaded.data.status);
+                    if (!data.live_sync.guessesRevealed) {
+                      setGuessT1(loaded.data.guesses.guessT1);
+                      setGuessT2(loaded.data.guesses.guessT2);
+                    }
+                  }
                   // حدّث الصفحة والمؤقت شغال: دقاته ما تنكتب، فنحسب الباقي من وقت الانتهاء ونكمّل العد منه
                   const endsAt = data.live_sync.targetEndTime;
                   if (typeof endsAt === "number") {
@@ -528,12 +550,12 @@ export function useCastleWar() {
     // خطة فريق وصلت (من البث أو من القراءة): تنحفظ مرة وحدة، أول ما تجي
     const applyTeams = (row: { team1_setup?: TeamSetup | null; team2_setup?: TeamSetup | null }) => {
       if (row.team1_setup && !team1Ready) {
-        setTeam1Data(row.team1_setup);
+        setTeam1Data(hiddenTeam(row.team1_setup));
         if (row.team1_setup.name) setTeam1Name(row.team1_setup.name);
         setTeam1Ready(true);
       }
       if (row.team2_setup && !team2Ready) {
-        setTeam2Data(row.team2_setup);
+        setTeam2Data(hiddenTeam(row.team2_setup));
         if (row.team2_setup.name) setTeam2Name(row.team2_setup.name);
         setTeam2Ready(true);
       }
@@ -593,16 +615,14 @@ export function useCastleWar() {
     if (team === 1) {
       setTeam1Name(newName);
       if (team1Data) {
-        const updated = { ...team1Data, name: newName };
-        setTeam1Data(updated);
-        await supabase.from("cw_rooms").update({ team1_setup: updated }).eq("room_code", roomCodeRef.current);
+        setTeam1Data({ ...team1Data, name: newName });
+        await castleHostWrite("ref-name", { roomCode: roomCodeRef.current, team: 1, name: newName });
       }
     } else {
       setTeam2Name(newName);
       if (team2Data) {
-        const updated = { ...team2Data, name: newName };
-        setTeam2Data(updated);
-        await supabase.from("cw_rooms").update({ team2_setup: updated }).eq("room_code", roomCodeRef.current);
+        setTeam2Data({ ...team2Data, name: newName });
+        await castleHostWrite("ref-name", { roomCode: roomCodeRef.current, team: 2, name: newName });
       }
     }
   };
@@ -792,26 +812,33 @@ export function useCastleWar() {
     setIsAttacking(true);
 
     const isTeam1Attacking = attackingTeam === 1;
-    const defenderData = isTeam1Attacking ? team2Data! : team1Data!;
     const setDefenderRevealed = isTeam1Attacking ? setRevealed2 : setRevealed1;
-    const defenderRevealed = isTeam1Attacking ? revealed2 : revealed1;
+    const setDefenderData = isTeam1Attacking ? setTeam2Data : setTeam1Data;
+    const startedAt = Date.now();
 
-    let maxSoldiers = -1;
-    let targetRoom = -1;
-    for (let i = 0; i < ROOMS_COUNT; i++) {
-      if (!defenderRevealed[i] && defenderData.rooms[i] > maxSoldiers) {
-        maxSoldiers = defenderData.rooms[i];
-        targetRoom = i;
+    // الجاسوس يختار نافذته السيرفر (أكثر جنود من المخفية، نفس القاعدة) ويرد بمحتواها بس — الخطة ما توصل للمضيف
+    void postCastle<AttackReply>("ref-attack", { roomCode: roomCodeRef.current, defender: isTeam1Attacking ? 2 : 1, spy: true }).then((res) => {
+      if (!res.success || !res.data) {
+        setIsAttacking(false);
+        window.alert(res.success ? "تعذّر الاتصال، حاول مرة ثانية." : res.error);
+        return;
       }
-    }
-
-    if (targetRoom !== -1) {
+      const reply = res.data;
+      if (reply.room === null) {
+        setIsAttacking(false);
+        return;
+      }
+      const targetRoom = reply.room;
+      const defenderData = withRevealedRoom(isTeam1Attacking ? team2Data : team1Data, reply);
       // الجاسوس ينحسب بس لما يلقى نافذة يضربها (قبل كان ينحسب حتى لو ما فيه ولا نافذة مخفية)
       if (isTeam1Attacking) setSpyUsed1(true);
       else setSpyUsed2(true);
       setTargetRoomIndex(targetRoom);
+      // نفس الحركة: النتيجة بعد 800ms من الضغط (والتصويب يبان أقل شي 300ms)
       setTimeout(() => {
         setTargetRoomIndex(null);
+        setDefenderData(defenderData);
+        applyStatus(reply.status);
         let currentHp1 = hp1;
         let currentHp2 = hp2;
         setDefenderRevealed((prev) => {
@@ -866,21 +893,30 @@ export function useCastleWar() {
           setBattleStep("result");
           setIsAttacking(false);
         }
-      }, 800);
-    } else {
-      setIsAttacking(false);
-    }
+      }, Math.max(300, 800 - (Date.now() - startedAt)));
+    });
   };
 
   const executeAttack = (roomIndex: number, event: React.MouseEvent) => {
     if (isAttacking) return;
     setIsAttacking(true);
     setTargetRoomIndex(roomIndex);
+    // السيرفر يكشف النافذة (المضيف ما عنده الخطة): الطلب يمشي مع حركة التصويب، والنتيجة تطلع بعدها مثل قبل
+    const isTeam1Attacker = attackingTeam === 1;
+    const reply = postCastle<AttackReply>("ref-attack", { roomCode: roomCodeRef.current, defender: isTeam1Attacker ? 2 : 1, room: roomIndex });
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      const res = await reply;
       setTargetRoomIndex(null);
-      const isTeam1Attacking = attackingTeam === 1;
-      const defenderData = isTeam1Attacking ? team2Data! : team1Data!;
+      if (!res.success || !res.data || res.data.room === null) {
+        setIsAttacking(false);
+        window.alert(res.success ? "تعذّر الاتصال، حاول مرة ثانية." : res.error);
+        return;
+      }
+      const isTeam1Attacking = isTeam1Attacker;
+      const defenderData = withRevealedRoom(isTeam1Attacking ? team2Data : team1Data, res.data);
+      (isTeam1Attacking ? setTeam2Data : setTeam1Data)(defenderData);
+      applyStatus(res.data.status);
       const setDefenderRevealed = isTeam1Attacking ? setRevealed2 : setRevealed1;
       let currentHp1 = hp1;
       let currentHp2 = hp2;
@@ -945,12 +981,11 @@ export function useCastleWar() {
     }, 800);
   };
 
-  // زر الأسر: يشتغل بس لو عند صاحب الفخ نافذة تستقبل الأسرى (نفس شرط resolveTrap)
-  const canCapture = attackingTeam === 1 ? captureRoomsOf(team2Data, revealed2).length > 0 : captureRoomsOf(team1Data, revealed1).length > 0;
+  // زر الأسر: يشتغل بس لو عند صاحب الفخ نافذة تستقبل الأسرى (السيرفر يحسبها من الخطة ويرجعها مع رد الهجوم)
+  const canCapture = attackingTeam === 1 ? teamStatus[2].capture : teamStatus[1].capture;
 
   const resolveTrap = (choice: "capture" | "kill") => {
     const isTeam1Attacking = attackingTeam === 1;
-    const defenderData = isTeam1Attacking ? team2Data! : team1Data!;
     const setDefenderData = isTeam1Attacking ? setTeam2Data : setTeam1Data;
     let currentHp1 = hp1;
     let currentHp2 = hp2;
@@ -967,9 +1002,9 @@ export function useCastleWar() {
     }
 
     // الأسرى يروحون بس لنوافذ صاحب الفخ المخفية (غير القائد والفخ): كل جندي عنده يقدر الخصم يوصله، فالحرب ما تتعلق.
-    // ولو ما فيه نافذة كذا (ما تصير وصاحب الفخ عنده جنود، إلا ببيانات قديمة) الأسر ما يمديه ويصير قتل
-    const captureRooms = captureRoomsOf(defenderData, isTeam1Attacking ? revealed2 : revealed1);
-    if (choice === "capture" && captureRooms.length > 0) {
+    // ولو ما فيه نافذة كذا (ما تصير وصاحب الفخ عنده جنود، إلا ببيانات قديمة) الأسر ما يمديه ويصير قتل.
+    // التوزيع على النوافذ بالسيرفر (الخطة عنده)، والعداد والمجموع هنا على طول مثل قبل
+    if (choice === "capture" && canCapture) {
       if (isTeam1Attacking) {
         currentHp2 = hp2 + lost;
         setHp2(currentHp2);
@@ -977,11 +1012,13 @@ export function useCastleWar() {
         currentHp1 = hp1 + lost;
         setHp1(currentHp1);
       }
-      const newRooms = [...defenderData.rooms];
-      for (let i = 0; i < lost; i++) {
-        newRooms[captureRooms[Math.floor(Math.random() * captureRooms.length)]]++;
-      }
-      setDefenderData({ ...defenderData, rooms: newRooms });
+      setDefenderData((d) => (d ? { ...d, total: (d.total ?? TOTAL_SOLDIERS) + lost } : d));
+      void postCastle<{ captured: boolean; status: CastleStatus }>("ref-trap", {
+        roomCode: roomCodeRef.current, defender: isTeam1Attacking ? 2 : 1, lost,
+      }).then((res) => {
+        if (res.success && res.data) applyStatus(res.data.status);
+        else console.error("castle trap:", res.success ? "no data" : res.error);
+      });
       msg = `تم أسر ${lost} جندي وانضموا للقلعة!`;
     }
     setResultMsg(msg);
